@@ -5,6 +5,7 @@
 #include "SimpleGameplayAbilitySystem/SimpleGASTypes/SimpleGasTypes.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
 
+class USimpleGameplayEffect;
 class USimpleGameplayAttributes;
 class UAbilitySet;
 struct FSimpleGameplayAbilityConfig;
@@ -58,13 +59,13 @@ public:
 	/**
 	 * @return The avatar actor of this component. Usually the current player pawn.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable)
 	AActor* GetAvatarActor() const;
 	
 	/**
 	 * @param NewAvatarActor The new avatar actor of this component.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void SetAvatarActor(AActor* NewAvatarActor);
 	
 	/**
@@ -73,7 +74,7 @@ public:
 	 * @param AutoActivateGrantedAbility Whether the ability should be immediately activated when granted.
 	 * @param AutoActivatedAbilityContext The context to pass to the auto activating ability.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SimpleGAS|GASComponent", meta=(AdvancedDisplay=1))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, meta=(AdvancedDisplay=1))
 	void GrantAbility(TSubclassOf<USimpleGameplayAbility> Ability, bool AutoActivateGrantedAbility, FInstancedStruct AutoActivatedAbilityContext);
 
 	/** 
@@ -81,10 +82,10 @@ public:
 	 * @param Ability The ability to revoke from this component.
 	 * @param CancelRunningInstances If true, all running instances of this ability will be canceled immediately, otherwise they will be allowed to finish.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> Ability, bool CancelRunningInstances);
 
-	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable)
 	bool ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, bool OnlyActivateIfGranted = true);
 
 	/**
@@ -99,18 +100,24 @@ public:
 	   If called from the client using this policy it will not send the event.
 	 * @param ActivationPolicy How to replicate the event.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable)
 	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy);
 
+	UFUNCTION(BlueprintCallable)
+	bool ApplyGameplayEffect(const USimpleGameplayAbilityComponent* Instigator, const TSubclassOf<USimpleGameplayEffect> GameplayEffect, FInstancedStruct EffectContext);
+
+	UFUNCTION(BlueprintCallable)
+	bool ApplyPendingGameplayEffect(const FPendingGameplayEffect PendingEffect);
+	
 	/* Utility Functions */
 
 	UFUNCTION(BlueprintCallable)
 	bool HasAuthority() const { return GetOwner()->HasAuthority(); }
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure,Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	TSubclassOf<USimpleGameplayAbility> FindGrantedAbilityByTag(FGameplayTag AbilityTag);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure,Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FSimpleGameplayAbilityConfig GetAbilityConfig(TSubclassOf<USimpleGameplayAbility> Ability);
 
 	/**
@@ -118,7 +125,7 @@ public:
 	 * @param AbilityInstanceID The ability instance ID to search for.
 	 * @return A reference to the ability with the specified ID, or nullptr if no ability was found.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure,Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	USimpleGameplayAbility* FindAnyAbilityInstanceByID(FGuid AbilityInstanceID);
 
 	/**
@@ -126,7 +133,7 @@ public:
 	 * @param AbilityInstanceID The ability instance ID to search for.
 	 * @return A reference to the ability with the specified ID, or nullptr if no ability was found.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure,Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	USimpleGameplayAbility* FindAuthorityAbilityInstanceByID(FGuid AbilityInstanceID);
 
 	/**
@@ -134,7 +141,7 @@ public:
 	 * @param AbilityInstanceID The ability instance ID to search for.
 	 * @return A reference to the ability with the specified ID, or nullptr if no ability was found.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure,Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	USimpleGameplayAbility* FindPredictedAbilityInstanceByID(FGuid AbilityInstanceID);
 	
 	/* Override these functions to add your own functionality */
@@ -143,7 +150,7 @@ public:
 	 * Called on both the server and client after an ability's OnActivate function is called.
 	 * @param Ability The ability that was started.
 	 */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OnAbilityStarted(USimpleGameplayAbility* Ability); 
 
 	/**
@@ -151,7 +158,7 @@ public:
 	 * This is called before the ability is removed from the running abilities list, don't modify the running abilities list in this function!
 	 * @param Ability The ability that was ended.
 	 */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OnAbilityEnded(USimpleGameplayAbility* Ability); 
 	
 	/**
@@ -161,7 +168,7 @@ public:
 	 * If you have your own method of synchronizing time between the server and client, override this function.
 	 * @return The current time on the server.
 	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "SimpleGAS|GASComponent")
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure)
 	double GetServerTime() const;
 	
 protected:

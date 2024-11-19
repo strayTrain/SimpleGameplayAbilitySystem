@@ -7,6 +7,8 @@
 
 /* Delegates */
 
+class USimpleGameplayAbilityComponent;
+class USimpleGameplayEffect;
 class UGameplayAbilityStateResolver;
 DECLARE_DYNAMIC_DELEGATE_FourParams(
 	FResolveStateMispredictionDelegate,
@@ -517,4 +519,19 @@ struct FGameplayEffectConfig
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (TitleProperty = "ModifierName"))
 	TArray<FGameplayEffectModifier> Modifiers;
+};
+
+USTRUCT(BlueprintType)
+struct FPendingGameplayEffect
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USimpleGameplayAbilityComponent* Instigator;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<USimpleGameplayEffect> EffectClass;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct EffectContext;
 };

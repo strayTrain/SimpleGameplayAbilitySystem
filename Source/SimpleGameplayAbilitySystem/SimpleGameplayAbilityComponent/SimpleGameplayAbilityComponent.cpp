@@ -357,6 +357,17 @@ void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplay
 	}
 }
 
+bool USimpleGameplayAbilityComponent::ApplyGameplayEffect(const USimpleGameplayAbilityComponent* Instigator,
+	const TSubclassOf<USimpleGameplayEffect> GameplayEffect, FInstancedStruct EffectContext)
+{
+	return false;	
+}
+
+bool USimpleGameplayAbilityComponent::ApplyPendingGameplayEffect(const FPendingGameplayEffect PendingEffect)
+{
+	return ApplyGameplayEffect(PendingEffect.Instigator, PendingEffect.EffectClass, PendingEffect.EffectContext);
+}
+
 void USimpleGameplayAbilityComponent::SendEventInternal(FGameplayTag EventTag, FGameplayTag DomainTag, const FInstancedStruct& Payload) const
 {
 	USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>();
