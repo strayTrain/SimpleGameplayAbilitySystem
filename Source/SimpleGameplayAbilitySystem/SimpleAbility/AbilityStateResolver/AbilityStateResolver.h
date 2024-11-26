@@ -2,14 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
-#include "GameplayAbilityStateResolver.generated.h"
+#include "AbilityStateResolver.generated.h"
 
 struct FAbilityState;
-class USimpleGameplayAbilityComponent;
-class USimpleGameplayAbility;
+class USimpleAbilityComponent;
+class USimpleAbility;
 
 UCLASS(Blueprintable, ClassGroup = (SimpleGAS))
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UGameplayAbilityStateResolver : public UObject
+class SIMPLEGAMEPLAYABILITYSYSTEM_API UAbilityStateResolver : public UObject
 {
 	GENERATED_BODY()
 
@@ -20,12 +20,12 @@ public:
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "SimpleGAS|Ability")
-	USimpleGameplayAbility* OwningAbility;
+	USimpleAbility* OwningAbility;
 
 	/* Utility Functions */
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "SimpleGAS|Ability")
-	USimpleGameplayAbilityComponent* GetOwningAbilityComponent() const;
+	USimpleAbilityComponent* GetOwningAbilityComponent() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "SimpleGAS|Ability")
 	AActor* GetAvatarActor() const;

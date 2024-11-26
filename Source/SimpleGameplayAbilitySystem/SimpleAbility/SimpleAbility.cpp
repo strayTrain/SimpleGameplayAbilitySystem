@@ -1,13 +1,12 @@
-#include "SimpleGameplayAbility.h"
+#include "SimpleAbility.h"
 
-#include "GameplayAbilityStateResolver/GameplayAbilityStateResolver.h"
+#include "AbilityStateResolver/AbilityStateResolver.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAttributes/SimpleGameplayAttributes.h"
-#include "SimpleGameplayAbilitySystem/SimpleGASTypes/DefaultTags/DefaultTags.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbilityComponent/SimpleAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 
-void USimpleGameplayAbility::InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, double InActivationTime)
+void USimpleAbility::InitializeAbility(USimpleAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, double InActivationTime)
 {
 	if (!AbilityConfig.AbilityName.IsValid())
 	{
@@ -39,13 +38,13 @@ void USimpleGameplayAbility::InitializeAbility(USimpleGameplayAbilityComponent* 
 			DomainTags.AddTag(FDefaultTags::AuthorityDomain);
 			
 			FSimpleEventDelegate StateSnapshotTakenDelegate;
-			StateSnapshotTakenDelegate.BindDynamic(this, &USimpleGameplayAbility::OnAuthorityStateSnapshotEventReceived);
+			StateSnapshotTakenDelegate.BindDynamic(this, &USimpleAbility::OnAuthorityStateSnapshotEventReceived);
 			EventSubsystem->ListenForEvent(this, false, EventTags, DomainTags, StateSnapshotTakenDelegate, TArray<UScriptStruct*>(), TArray<AActor*>());
 		}
 	}
 }
 
-bool USimpleGameplayAbility::CanActivate_Implementation(FInstancedStruct AbilityContext)
+bool USimpleAbility::CanActivate_Implementation(FInstancedStruct AbilityContext)
 {
 	if (AbilityConfig.TagConfig.ActivationRequiredTags.Num() > 0)
 	{
@@ -66,7 +65,7 @@ bool USimpleGameplayAbility::CanActivate_Implementation(FInstancedStruct Ability
 	return true;
 }
 
-bool USimpleGameplayAbility::Activate(FInstancedStruct AbilityContext)
+bool USimpleAbility::Activate(FInstancedStruct AbilityContext)
 {
 	if (!bIsInitialized)
 	{
@@ -90,7 +89,7 @@ bool USimpleGameplayAbility::Activate(FInstancedStruct AbilityContext)
 	return true;
 }
 
-void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus = FDefaultTags::AbilityEndedSuccessfully)
+void USimpleAbility::EndAbility(FGameplayTag EndStatus = FDefaultTags::AbilityEndedSuccessfully)
 {
 	if (!bIsAbilityActive)
 	{
@@ -109,9 +108,9 @@ void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus = FDefaultTags::A
 
 /* State snapshotting */
 
-void USimpleGameplayAbility::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData,
+void USimpleAbility::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData,
 	FResolveStateMispredictionDelegate OnResolveState, bool UseCustomStateResolver,
-	TSubclassOf<UGameplayAbilityStateResolver> CustomStateResolverClass)
+	TSubclassOf<UAbilityStateResolver> CustomStateResolverClass)
 {
 	if (AbilityConfig.ActivationPolicy != EAbilityActivationPolicy::LocalPredicted)
 	{
@@ -153,7 +152,7 @@ void USimpleGameplayAbility::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstan
 	PredictedStateHistory.Add(NewSnapshot);
 }
 
-void USimpleGameplayAbility::OnAuthorityStateSnapshotEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload)
+void USimpleAbility::OnAuthorityStateSnapshotEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload)
 {
 	if (const FAbilityState* AuthorityStateData = Payload.GetPtr<FAbilityState>())
 	{
@@ -172,7 +171,7 @@ void USimpleGameplayAbility::OnAuthorityStateSnapshotEventReceived(FGameplayTag 
 
 		if (PredictedStateData.CustomStateResolverClass)
 		{
-			UGameplayAbilityStateResolver* CustomStateResolver = NewObject<UGameplayAbilityStateResolver>(this, PredictedStateData.CustomStateResolverClass);
+			UAbilityStateResolver* CustomStateResolver = NewObject<UAbilityStateResolver>(this, PredictedStateData.CustomStateResolverClass);
 			CustomStateResolver->ResolveState(*AuthorityStateData, PredictedStateData);
 			PredictedStateData.IsStateResolved = true;
 		}
@@ -191,7 +190,7 @@ void USimpleGameplayAbility::OnAuthorityStateSnapshotEventReceived(FGameplayTag 
 
 /* Utility functions */
 
-FString USimpleGameplayAbility::GetAbilityName() const
+FString USimpleAbility::GetAbilityName() const
 {
 	if (AbilityConfig.AbilityName.IsValid())
 	{
@@ -201,33 +200,23 @@ FString USimpleGameplayAbility::GetAbilityName() const
 	return GetName();
 }
 
-void USimpleGameplayAbility::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy) const
+void USimpleAbility::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy) const
 {
 	OwningAbilityComponent->SendEvent(EventTag, DomainTag, Payload, ReplicationPolicy);
 }
 
-AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const
+AActor* USimpleAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const
 {
 	if (AActor* AvatarActor = OwningAbilityComponent->GetAvatarActor())
 	{
 		return AvatarActor;
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("Ability %s owning component has no avatar actor set. Did you remember to call SetAvatarActor?"), *GetAbilityName());
 	return nullptr;
 }
 
-USimpleGameplayAttributes* USimpleGameplayAbility::GetOwningAbilityComponentAttributes() const
-{
-	if (!OwningAbilityComponent)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Ability %s has no owning ability component"), *GetAbilityName());
-		return nullptr;
-	}
-	
-	return OwningAbilityComponent->Attributes;
-}
-
-bool USimpleGameplayAbility::HasAuthority()
+bool USimpleAbility::HasAuthority()
 {
 	if (!OwningAbilityComponent)
 	{
@@ -238,7 +227,7 @@ bool USimpleGameplayAbility::HasAuthority()
 	return OwningAbilityComponent->GetOwner()->HasAuthority();
 }
 
-UWorld* USimpleGameplayAbility::GetWorld() const
+UWorld* USimpleAbility::GetWorld() const
 {
 	if (OwningAbilityComponent)
 	{
@@ -248,7 +237,7 @@ UWorld* USimpleGameplayAbility::GetWorld() const
 	return nullptr;
 }
 
-void USimpleGameplayAbility::SendActivationStateChangeEvent(FGameplayTag EventTag, FGameplayTag DomainTag) const
+void USimpleAbility::SendActivationStateChangeEvent(FGameplayTag EventTag, FGameplayTag DomainTag) const
 {
 	if (USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
 	{
@@ -267,7 +256,7 @@ void USimpleGameplayAbility::SendActivationStateChangeEvent(FGameplayTag EventTa
 	}
 }
 
-int32 USimpleGameplayAbility::FindStateIndexByTag(FGameplayTag StateTag) const
+int32 USimpleAbility::FindStateIndexByTag(FGameplayTag StateTag) const
 {
 	for (int32 i = 0; i < AuthorityStateHistory.Num(); i++)
 	{
@@ -280,7 +269,7 @@ int32 USimpleGameplayAbility::FindStateIndexByTag(FGameplayTag StateTag) const
 	return -1;
 }
 
-int32 USimpleGameplayAbility::FindPredictedStateIndexByTag(FGameplayTag StateTag) const
+int32 USimpleAbility::FindPredictedStateIndexByTag(FGameplayTag StateTag) const
 {
 	for (int32 i = 0; i < PredictedStateHistory.Num(); i++)
 	{
@@ -295,7 +284,7 @@ int32 USimpleGameplayAbility::FindPredictedStateIndexByTag(FGameplayTag StateTag
 
 /* Tick support */
 
-void USimpleGameplayAbility::Tick(float DeltaTime)
+void USimpleAbility::Tick(float DeltaTime)
 {
 	if (LastTickFrame == GFrameCounter)
 	{
@@ -310,7 +299,7 @@ void USimpleGameplayAbility::Tick(float DeltaTime)
 	}
 }
 
-ETickableTickType USimpleGameplayAbility::GetTickableTickType() const
+ETickableTickType USimpleAbility::GetTickableTickType() const
 {
 	if (AbilityConfig.CanAbilityTick)
 	{
@@ -322,10 +311,10 @@ ETickableTickType USimpleGameplayAbility::GetTickableTickType() const
 
 /* Replication */
 
-void USimpleGameplayAbility::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void USimpleAbility::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	UObject::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(USimpleGameplayAbility, AbilityInstanceID);
-	DOREPLIFETIME(USimpleGameplayAbility, AuthorityStateHistory);
+	DOREPLIFETIME(USimpleAbility, AbilityInstanceID);
+	DOREPLIFETIME(USimpleAbility, AuthorityStateHistory);
 }

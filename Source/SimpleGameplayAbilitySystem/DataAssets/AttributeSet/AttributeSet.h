@@ -13,9 +13,9 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UAttributeSet : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (TitleProperty = "AttributeName"))
 	TArray<FFloatAttribute> FloatAttributes;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (TitleProperty = "AttributeName"))
 	TArray<FStructAttribute> StructAttributes;
 };

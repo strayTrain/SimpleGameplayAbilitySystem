@@ -3,18 +3,19 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "InstancedStruct.h"
-#include "SimpleGameplayAbilitySystem/SimpleGASTypes/SimpleGasTypes.h"
-#include "SimpleGameplayAbilitySystem/SimpleGASTypes/DefaultTags/DefaultTags.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
+#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "UObject/Object.h"
-#include "SimpleGameplayAbility.generated.h"
+#include "SimpleAbility.generated.h"
 
 class USimpleGameplayAttributes;
-class UGameplayAbilityStateResolver;
+class UAbilityStateResolver;
 class USimpleGameplayAbilityState;
-class USimpleGameplayAbilityComponent;
+class USimpleAbilityComponent;
 
 UCLASS(Blueprintable, ClassGroup = (SimpleGAS))
-class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public UObject, public FTickableGameObject
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAbility : public UObject, public FTickableGameObject
 {
 	GENERATED_BODY()
 	
@@ -26,10 +27,10 @@ public:
 	FGuid AbilityInstanceID;
 	
 	UPROPERTY(BlueprintReadOnly)
-	USimpleGameplayAbilityComponent* OwningAbilityComponent;
+	USimpleAbilityComponent* OwningAbilityComponent;
 	
 	UFUNCTION(BlueprintCallable)
-	void InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, double InActivationTime);
+	void InitializeAbility(USimpleAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, double InActivationTime);
 
 	UFUNCTION(BlueprintNativeEvent)
 	bool CanActivate(FInstancedStruct AbilityContext);
@@ -67,7 +68,7 @@ public:
 	void TakeStateSnapshot(
 		FGameplayTag SnapshotTag, FInstancedStruct SnapshotData,
 		FResolveStateMispredictionDelegate OnResolveState,
-		bool UseCustomStateResolver, TSubclassOf<UGameplayAbilityStateResolver> CustomStateResolverClass);
+		bool UseCustomStateResolver, TSubclassOf<UAbilityStateResolver> CustomStateResolverClass);
 
 	UFUNCTION(BlueprintInternalUseOnly)
 	void OnAuthorityStateSnapshotEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload);
@@ -85,9 +86,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Ability", meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
 	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const;
-
-	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Ability")
-	USimpleGameplayAttributes* GetOwningAbilityComponentAttributes() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Ability")
 	bool IsAbilityActive() const { return bIsAbilityActive; }

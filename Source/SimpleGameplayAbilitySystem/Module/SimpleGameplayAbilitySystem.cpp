@@ -2,7 +2,7 @@
 
 #include "SimpleGameplayAbilitySystem.h"
 #include "GameplayTagsManager.h"
-#include "SimpleGameplayAbilitySystem/SimpleGASTypes/DefaultTags/DefaultTags.h"
+#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 
 #define LOCTEXT_NAMESPACE "FSimpleGameplayAbilitySystemModule"
 
