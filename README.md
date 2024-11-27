@@ -1,7 +1,19 @@
 # Simple Gameplay Ability System Plugin
 
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Key Concepts Overview](#key-concepts-overview)
+   - [USimpleAbility](#1-usimpleability)
+   - [USimpleAbilityComponent](#2-usimpleabilitycomponent)
+   - [Attributes](#3-attributes)
+   - [Attribute Modifiers](#4-attribute-modifiers)
+3. [Key concepts by example](#key-concepts-by-example)
+   - [Installing the plugin](#1-installing-the-plugin)
+4. [Use Case Examples](#use-case-examples)
+5. [API Reference](#api-reference)
+
 ## Introduction
-The Simple Gameplay Ability System plugin provides a streamlined alternative to Unreal Engine's Gameplay Ability System.  
+The Simple Gameplay Ability System plugin provides a streamlined alternative to Unreal Engine's [Gameplay Ability System](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-ability-system-for-unreal-engine).  
 
 It tries to solve less problems out the box so that you can extend it in ways that suit your game. What problems it does solve are (I hope) your biggest headaches.  
 
@@ -78,8 +90,8 @@ Abilities also support multiplayer prediction i.e. when a player activates an ab
 `USimpleAbilityComponent` serves as the central component for managing abilities. It provides functions to:
 - Grant and revoke abilities to control who can do what.
 - Activate abilities.
-- Keep track of time between abilities in a multiplayer scenario e.g. When a predicted ability gets activated on the the client and then later on the server, the server version of the ability gets an estimate of how much time passed since the ability was activated on the client.  You can use this to "fast forward" the server version a bit to reduce overall perceived lag in the game.
-- Manage attributes such as health, stamina, or custom-defined stats (more on this later)
+- Keep track of time between abilities in a multiplayer scenario e.g. When a predicted ability gets activated on the the client and then later on the server, the server version of the ability gets an estimate of how much time passed since the ability was activated on the client.
+- Manage attributes such as health, stamina, or compound attributes like a Vector representing movement direction (more on this in the next section)
 - Manage gameplay tags, which can be used by abilities to decide on how to activate/behave (e.g. a melee kick ability can't be activated you have the tag "PlayerState.Falling")
 - Enable communication between client and server through replicated simple events
 
@@ -99,11 +111,11 @@ You get the benefits of replication and automatically sent events for values tha
 
 ![image](https://github.com/user-attachments/assets/3724a265-eddb-49de-8414-81584a67268a)
 
-Under the hood, struct attributes are really [FInstancedStruct's](https://forums.unrealengine.com/t/can-someone-show-my-how-to-use-finstancedstruct-please/1898788?utm_source=chatgpt.com). The reason the struct attribute has an `AttributeType` is to make sure when we give it an instanced struct, it matches the type we expect.
+Under the hood, struct attributes are really [FInstancedStruct's](https://forums.unrealengine.com/t/can-someone-show-my-how-to-use-finstancedstruct-please/1898788?utm_source=chatgpt.com). The reason the struct attribute has an `AttributeType` is to make sure when we give it an instanced struct, the underlying struct it holds matches the type we expect.
 
-### 3. Attribute Modifiers
+### 4. Attribute Modifiers
 Attribute modifiers behave similarly to gameplay effects from the Gameplay Ability System.
-They are a bundle of multiple attribute changes that can be applied to an Ability component. Additionally they can modify tags on the Ability component, cancel running abilities and cancel other attribute modifiers.
+They are a bundle of multiple attribute changes that can be applied to an Ability component. Additionally they can modify tags on the ability component, cancel running abilities and cancel other attribute modifiers.
 Attribute modifiers can be applied over time e.g. when the player gets set on fire we apply a Burning attribute modifier which lasts 3 seconds and deals 1 damage to health per second
 
 There are 2 types of attribute modifiers:
@@ -112,14 +124,18 @@ There are 2 types of attribute modifiers:
 
    `Duration` modifiers can also have an infinite duration and no tick interval (i.e this modifier sticks around until we manually remove it or it gets removed by another modifier. With no tick interval, only a single attribute stack change gets applied)
 
-## Installing the plugin
-TODO
+## Key concepts by example:
 
-## Example Setup for Single Player Games
-TODO
+Let's make some abilities to illustrate how eveything ties together.  
+We'll start with the minimum single player setup and work our way up to a more complicated client predicted multiplayer ability 
 
-## Example Setup for Multiplayer Games
-TODO
+### 1. Installing the plugin
+This plugin requires Unreal Engine 5.2 and later to work **(Note from the dev: I still need to test this with 5.5, where `FInstancedStruct` moved from a plugin to being a part of the engine)**
+
+1. Download or clone this repository into your Unreal Engine project under your project's Plugins folder, create the Plugins folder if it doesn't exist. (e.g. If your project folder is `C:\Projects\SimpleGASTest` then place SimpleGameplayAvilitySystem in `C:\Projects\SimpleGASTest\Plugins`)
+2. Rebuild your project.
+3. Enable the plugin in your Unreal Engine project by navigating to Edit > Plugins and searching for "SimpleGameplayAbilitySystem". (it should be enabled by default)
+
 
 ## Use Case Examples
 TODO
