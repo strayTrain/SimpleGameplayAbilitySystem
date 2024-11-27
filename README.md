@@ -1,17 +1,5 @@
 # Simple Gameplay Ability System Plugin
 
-## Table of Contents
-1. [Introduction](#introduction)
-2. [Key Concepts Overview](#key-concepts-overview)
-   - [USimpleAbility](#1-usimpleability)
-   - [USimpleAbilityComponent](#2-usimpleabilitycomponent)
-   - [Attributes](#3-attributes)
-   - [Attribute Modifiers](#4-attribute-modifiers)
-3. [Key concepts by example](#key-concepts-by-example)
-   - [Installing the plugin](#1-installing-the-plugin)
-4. [Use Case Examples](#use-case-examples)
-5. [API Reference](#api-reference)
-
 ## Introduction
 The Simple Gameplay Ability System plugin provides a streamlined alternative to Unreal Engine's [Gameplay Ability System](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-ability-system-for-unreal-engine).  
 
@@ -73,6 +61,19 @@ structs that keep track of the ability state and when the server and client mism
  
 ![image](https://github.com/user-attachments/assets/baba4c58-c3cb-4be4-b8a9-0e4d8c660ecc)
 </details>
+
+
+## Table of Contents
+1. [Key Concepts Overview](#key-concepts-overview)
+   - [USimpleAbility](#1-usimpleability)
+   - [USimpleAbilityComponent](#2-usimpleabilitycomponent)
+   - [Attributes](#3-attributes)
+   - [Attribute Modifiers](#4-attribute-modifiers)
+2. [Key concepts by example](#key-concepts-by-example)
+   - [Installing the plugin](#1-installing-the-plugin)
+3. [Use Case Examples](#use-case-examples)
+4. [API Reference](#api-reference)
+
 
 ## Key Concepts Overview
 
