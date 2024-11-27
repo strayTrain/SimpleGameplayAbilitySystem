@@ -8,7 +8,7 @@ It tries to solve less problems out the box so that you can extend it in ways th
 Some highlight features:
 
 <details>
-	<summary>Can be configured and used with only Blueprints, keeps the config to a minimum. </summary>
+	<summary>Can be configured and used purely in Blueprints, keeps the config to a minimum. </summary>
 </br>
 	
 | Ability component setup  | Ability setup | Gameplay effect|
