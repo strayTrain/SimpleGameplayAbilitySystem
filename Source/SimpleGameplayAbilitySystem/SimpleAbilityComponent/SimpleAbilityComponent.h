@@ -96,7 +96,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void RevokeAbility(TSubclassOf<USimpleAbility> Ability, bool CancelRunningInstances);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2))
 	bool ActivateAbility(TSubclassOf<USimpleAbility> AbilityClass, FInstancedStruct AbilityContext, bool OnlyActivateIfGranted = true);
 
 	/* Attribute Functions */
