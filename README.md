@@ -34,7 +34,8 @@ Some highlight features:
 	<summary> A simpler attribute system that supports numerical values or structs for compound data </summary>
 	
 ![image](https://github.com/user-attachments/assets/8ad445d5-c456-4f06-86c7-f331d729b587)
-![image](https://github.com/user-attachments/assets/5bdcea57-39dd-4606-aa34-b32e4aab594a)
+![image](https://github.com/user-attachments/assets/c61c105d-5ed4-43d4-b378-d5b7e9af4db4)
+
 
 </details>
 
@@ -62,19 +63,6 @@ structs that keep track of the ability state and when the server and client mism
 ![image](https://github.com/user-attachments/assets/baba4c58-c3cb-4be4-b8a9-0e4d8c660ecc)
 </details>
 
-
-## Table of Contents
-1. [Key Concepts Overview](#key-concepts-overview)
-   - [USimpleAbility](#1-usimpleability)
-   - [USimpleAbilityComponent](#2-usimpleabilitycomponent)
-   - [Attributes](#3-attributes)
-   - [Attribute Modifiers](#4-attribute-modifiers)
-2. [Key concepts by example](#key-concepts-by-example)
-   - [Installing the plugin](#1-installing-the-plugin)
-3. [Use Case Examples](#use-case-examples)
-4. [API Reference](#api-reference)
-
-
 ## Key Concepts Overview
 
 ### 1. `USimpleAbility`
@@ -85,7 +73,7 @@ structs that keep track of the ability state and when the server and client mism
 
 Abilities can activate other abilities and additionally support a parent child relationship where: if the parent ability gets cancelled then any child abilities it activated while it was running also get cancelled.  
 
-Abilities also support multiplayer prediction i.e. when a player activates an ability, they don't have to wait for a response from the server before they see feedback on their screen.
+Abilities also support multiplayer prediction i.e. when a player activates an ability, they don't have to wait for permission from the server before they see feedback on their screen.
 
 ### 2. `USimpleAbilityComponent`
 `USimpleAbilityComponent` serves as the central component for managing abilities. It provides functions to:
@@ -100,17 +88,15 @@ This component can be attached to any actor that you want to be able to use abil
 
 ### 3. Attributes
 Attributes are similar in concept to player stats from RPG games. Think health, strength, stamina etc.  
-Every ability component has their own attributes and the attributes are replicated. When attributes get changed/added/removed, events are automatically sent so that you can react to those changes in your widgets, abilities, etc
+Every ability component has their own attributes and the attributes are replicated. When attributes get changed/added/removed, events are automatically sent so that you can react to those changes in your widgets, abilities, etc.  
 Attributes are identified with a gameplay tag (e.g. "Attributes.Health") and have values associated with them. They also have an `AttributeName` string which is used to make them more readable in the inspector.
 Attributes come in 2 variants:
-1. Float attributes: these attributes have a base value, current value and optional limits on those values. Use these to represent simple stats like health. e.g.
-
-![image](https://github.com/user-attachments/assets/b8b536bd-d611-4f48-8b2c-91f5610763a1)
+1. Float attributes: these attributes have a base value, current value and optional limits on those values. Use these to represent simple stats like health. e.g.  
+  ![image](https://github.com/user-attachments/assets/b8b536bd-d611-4f48-8b2c-91f5610763a1)
 
 2. Struct attributes: these have an `AttributeTag`, an `AttributeType` and an `AttributeValue`. They can only be set/read in blueprint code.
-You get the benefits of replication and automatically sent events for values that aren't strictly single numbers. e.g.  
-
-![image](https://github.com/user-attachments/assets/3724a265-eddb-49de-8414-81584a67268a)
+   You get the benefits of replication and automatically sent events for values that aren't strictly single numbers. e.g.  
+  ![image](https://github.com/user-attachments/assets/3724a265-eddb-49de-8414-81584a67268a)
 
 Under the hood, struct attributes are really [FInstancedStruct's](https://forums.unrealengine.com/t/can-someone-show-my-how-to-use-finstancedstruct-please/1898788?utm_source=chatgpt.com). The reason the struct attribute has an `AttributeType` is to make sure when we give it an instanced struct, the underlying struct it holds matches the type we expect.
 
@@ -136,18 +122,55 @@ There are 2 types of attribute modifiers:
 ## Key concepts by example:
 
 Let's make some abilities to illustrate how eveything ties together.  
-We'll start with the minimum single player setup and work our way up to a more complicated client predicted multiplayer ability 
+We'll start with the minimum single player setup and work our way up to a more complicated client predicted multiplayer ability.  
+For these examples I'll be using the third person template project.
 
-### 1. Installing the plugin
+<details>
+	<summary>Installing the plugin</summary>
 This plugin requires Unreal Engine 5.2 and later to work **(Note from the dev: I still need to test this with 5.5, where `FInstancedStruct` moved from a plugin to being a part of the engine)**
 
-1.1 Download or clone this repository into your Unreal Engine project under your project's Plugins folder, create the Plugins folder if it doesn't exist. (e.g. If your project folder is `C:\Projects\SimpleGASTest` then place SimpleGameplayAvilitySystem in `C:\Projects\SimpleGASTest\Plugins`)  
-1.2. Rebuild your project.  
-1.3. Enable the plugin in your Unreal Engine project by navigating to Edit > Plugins and searching for "SimpleGameplayAbilitySystem". (it should be enabled by default)  
+* Download or clone this repository into your Unreal Engine project under your project's Plugins folder, create the Plugins folder if it doesn't exist. (e.g. If your project folder is `C:\Projects\SimpleGASTest` then place SimpleGameplayAvilitySystem in `C:\Projects\SimpleGASTest\Plugins`)  
+* Rebuild your project.  
+* Enable the plugin in your Unreal Engine project by navigating to Edit > Plugins and searching for "SimpleGameplayAbilitySystem". (it should be enabled by default)
+</details>
 
-## Use Case Examples
-TODO
+
+<details>
+<summary>A minimal jump ability</summary>
+	
+1. Add a SimpleAbilityComponent to the third person pawn  
+  ![image](https://github.com/user-attachments/assets/d61498dc-e09b-43e0-a134-5a7e12d73ae4)
+2. Create a new SimpleAbility blueprint class and call it GA_Jump. Once you create it take a look at the default variables.  
+  For now we only need to give the ability a name tag. I used `Abilities.Jump`  
+  ![image](https://github.com/user-attachments/assets/da63f9f8-4ea2-44e3-b842-8a80c001d5ac)
+3. Next we add this newly created ability to the list of abilities that our `AbilityComponent` can activate. Select the `AbilityComponent` we added to the player and add an entry under Gameplay Abilities > Granted Abilities
+   ![image](https://github.com/user-attachments/assets/6f3fa22e-6aec-4e09-b996-34228109ebb7)
+4. In order to use the ability we need to set an `AvatarActor` for the `AbilityComponent`. An `AvatarActor` is the actor who will "execute" the ability. In our case the avatar is the player pawn.
+   ![image](https://github.com/user-attachments/assets/6e6f9158-97b8-49ff-a5f8-4f3f2a30cf5d)
+5. To activate the ability we simply call:  
+  ![image](https://github.com/user-attachments/assets/d66667ad-f963-433b-82cf-40e8d4ee7720)
+6. If you try and activate the ability, you'll notice nothing happens. This is because we still need to add logic to GA_Jump. In your GA_Jump ability override the `OnActivate` event like so:
+   ![image](https://github.com/user-attachments/assets/b9e6c278-8358-4d25-a90d-013cf8ea5db7)  
+  There are 2 nodes of interest here.  
+  * `GetAvatarActorAs` is a utility node that casts the avatar actor (which is an `AActor`) to your subclass (in my case a blueprint child called `BP_Player`
+  * `EndAbilitySuccess` tells the ability that it has finished running.
+
+If you run the game and press G you'll see that your player will jump.
+</details>
+
+TODO: Add examples for: 
+* Launch in a direction passed through the context, show how we can use gameplay tags to control when abilities get activated
+* A self damaging ability to explain attribute modification
+* Getting a widget to listen to health changes and show them on screen
+* A kick ability which plays a montage i.e. Is not over instantly like the jump example. Use to explain `InstancingPolicy`
+* Kick + waiting for events + directly changing the health attribute of a hit player
+* Previous example but using an AttributeModifier instead
+* Build on the kick example introducing multiplayer concepts like `ActivationPolicy`
+* Build on the kick example introducing `StateSnapshot` and `StateResolver`
+* An example of extending the SimpleAbilityComponent class. Also explain `ServerTime`, how it is synced and how to add your own implementation 
+
+
 
 ## API Reference
-TODO
+TODO: Collect screenshots and add code samples
 
