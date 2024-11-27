@@ -116,13 +116,21 @@ Under the hood, struct attributes are really [FInstancedStruct's](https://forums
 ### 4. Attribute Modifiers
 Attribute modifiers behave similarly to gameplay effects from the Gameplay Ability System.
 They are a bundle of multiple attribute changes that can be applied to an Ability component. Additionally they can modify tags on the ability component, cancel running abilities and cancel other attribute modifiers.
-Attribute modifiers can be applied over time e.g. when the player gets set on fire we apply a Burning attribute modifier which lasts 3 seconds and deals 1 damage to health per second
+Attribute modifiers can be applied over time e.g. when the player gets set on fire we apply a Burning attribute modifier which lasts 3 seconds and deals 1 damage to health per second.  
+
+
+Here's an example of a modifier that reduces the player `Armour` attribute's current value by 15. Let's say the armour attribute was defined with a minimum current value of 0:  
+If the armour reduction goes below the minimum current value the remainder is called the `overflow` and is passed on to the next modifier in the stack to use.
+In this example, we reduce armour and then subtract any overflow from health.  
+
+![image](https://github.com/user-attachments/assets/449f5c55-70c1-4a2b-995d-03cbeb64e94a)
 
 There are 2 types of attribute modifiers:
 1. `Instant`: These modifiers apply their changes and are then over. Examples of instant modifiers are: dealing damage, restoring health
 2. `Duration`: These modifiers stick around for a certain amount of time and apply a bundle of attribute modifications at regular intervals e.g. burn damage every second for 3 seconds.
 
-   `Duration` modifiers can also have an infinite duration and no tick interval (i.e this modifier sticks around until we manually remove it or it gets removed by another modifier. With no tick interval, only a single attribute stack change gets applied)
+   `Duration` modifiers can also have an infinite duration and no tick interval (i.e this modifier sticks around until we manually remove it or it gets removed by another modifier. With no tick interval, only a single attribute stack change gets applied).
+   This is useful for buff/debuff type effects e.g. A movement slowing modifier which adds a tag "PlayerState.Slowed" and decreases the players MovementSpeed attribute by 10. Later, when the modifier is removed the players MovementSpeed attribute is increased by 10)
 
 ## Key concepts by example:
 
@@ -132,10 +140,9 @@ We'll start with the minimum single player setup and work our way up to a more c
 ### 1. Installing the plugin
 This plugin requires Unreal Engine 5.2 and later to work **(Note from the dev: I still need to test this with 5.5, where `FInstancedStruct` moved from a plugin to being a part of the engine)**
 
-1. Download or clone this repository into your Unreal Engine project under your project's Plugins folder, create the Plugins folder if it doesn't exist. (e.g. If your project folder is `C:\Projects\SimpleGASTest` then place SimpleGameplayAvilitySystem in `C:\Projects\SimpleGASTest\Plugins`)
-2. Rebuild your project.
-3. Enable the plugin in your Unreal Engine project by navigating to Edit > Plugins and searching for "SimpleGameplayAbilitySystem". (it should be enabled by default)
-
+1.1 Download or clone this repository into your Unreal Engine project under your project's Plugins folder, create the Plugins folder if it doesn't exist. (e.g. If your project folder is `C:\Projects\SimpleGASTest` then place SimpleGameplayAvilitySystem in `C:\Projects\SimpleGASTest\Plugins`)  
+1.2. Rebuild your project.  
+1.3. Enable the plugin in your Unreal Engine project by navigating to Edit > Plugins and searching for "SimpleGameplayAbilitySystem". (it should be enabled by default)  
 
 ## Use Case Examples
 TODO
