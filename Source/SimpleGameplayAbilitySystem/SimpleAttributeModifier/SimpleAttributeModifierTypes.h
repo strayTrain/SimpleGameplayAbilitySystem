@@ -12,8 +12,8 @@
 class USimpleAttributeModifier;
 class USimpleAbilityComponent;
 
-UENUM()
-enum EAttributeModifierType
+UENUM(BlueprintType)
+enum class EAttributeModifierType : uint8
 {
 	/**
 	 * Instant modifiers are applied immediately and then removed.
@@ -25,8 +25,8 @@ enum EAttributeModifierType
 	Duration,
 };
 
-UENUM()
-enum EAttributeModifierApplicationPolicy
+UENUM(BlueprintType)
+enum class EAttributeModifierApplicationPolicy : uint8
 {
 	/**
 	 * This modifier will be applied immediately on the client and then on the server. When the server applies
@@ -40,8 +40,8 @@ enum EAttributeModifierApplicationPolicy
 	ApplyServerOnly,
 };
 
-UENUM()
-enum EDurationTickTagRequirementBehaviour
+UENUM(BlueprintType)
+enum class EDurationTickTagRequirementBehaviour : uint8
 {
 	/**
 	 * The timer will continue to tick but the modifier won't be applied.
@@ -166,7 +166,7 @@ struct FAttributeModifierDurationSettings
 	bool UndoFloatAttributeModificationsOnRemoval = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TEnumAsByte<EDurationTickTagRequirementBehaviour> TickTagRequirementBehaviour;
+	EDurationTickTagRequirementBehaviour TickTagRequirementBehaviour;
 };
 
 USTRUCT(BlueprintType)
@@ -182,22 +182,22 @@ struct FAttributeModifier
 	FString ModifierName = "Modifier";
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TEnumAsByte<EAttributeType> AttributeType;
+	EAttributeType AttributeType;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag ModifiedAttribute;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	TEnumAsByte<EAttributeValueType> ModifiedAttributeValueType;
+	EAttributeValueType ModifiedAttributeValueType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool CancelIfAttributeNotFound = true;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	TEnumAsByte<EFloatAttributeModificationOperation> ModificationOperation;
+	EFloatAttributeModificationOperation ModificationOperation;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	TEnumAsByte<EAttributeModificationValueSource> ModificationInputValueSource;
+	EAttributeModificationValueSource ModificationInputValueSource;
 
 	/**
 	 * If true, the modifier set the overflow to 0 after using it even if there is overflow left. Use this when you want to reset the overflow between modifiers.
@@ -212,7 +212,7 @@ struct FAttributeModifier
 	FGameplayTag SourceAttribute;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute && (ModificationInputValueSource == EAttributeModificationValueSource::FromInstigatorAttribute || ModificationInputValueSource == EAttributeModificationValueSource::FromTargetAttribute)", EditConditionHides))
-	TEnumAsByte<EAttributeValueType> SourceAttributeValueType;
+	EAttributeValueType SourceAttributeValueType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::StructAttribute", EditConditionHides))
 	FGameplayTag StructModifierTag;
@@ -227,10 +227,10 @@ struct FAttributeModifierConfig
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TEnumAsByte<EAttributeModifierType> ModifierType = EAttributeModifierType::Instant;
+	EAttributeModifierType ModifierType = EAttributeModifierType::Instant;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TEnumAsByte<EAttributeModifierApplicationPolicy> ModifierApplicationPolicy;
+	EAttributeModifierApplicationPolicy ModifierApplicationPolicy;
 
 	/**
 	 * If the ModifierType is Duration, these settings control how long the modifier lasts and how often it ticks.

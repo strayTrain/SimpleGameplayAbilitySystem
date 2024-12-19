@@ -93,14 +93,14 @@ bool USimpleAttributeModifier::ApplyModifier(FInstancedStruct ModifierContext)
 		
 		switch (Modifier.AttributeType)
 		{
-			case FloatAttribute:
+			case EAttributeType::FloatAttribute:
 				WasModifierApplied = ApplyFloatAttributeModifier(Modifier, TempFloatAttributes, CurrentFloatModifierOverflow);
 				if (WasModifierApplied)
 				{
 					ModifiedFloatAttributes.Add(Modifier.ModifiedAttribute);
 				}
 				break;
-			case StructAttribute:
+			case EAttributeType::StructAttribute:
 				WasModifierApplied = ApplyStructAttributeModifier(Modifier, TempStructAttributes);
 				if (WasModifierApplied)
 				{
@@ -167,10 +167,10 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 	bool WasMetaAttributeHandled = false;
 	switch (Modifier.ModificationInputValueSource)
 	{
-		case Manual:
+		case EAttributeModificationValueSource::Manual:
 			ModificationInputValue = Modifier.ManualInputValue;
 			break;
-		case FromOverflow:
+		case EAttributeModificationValueSource::FromOverflow:
 			ModificationInputValue = CurrentOverflow;
 
 			if (Modifier.ConsumeOverflow)
@@ -179,7 +179,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			}
 		
 			break;
-		case FromInstigatorAttribute:
+		case EAttributeModificationValueSource::FromInstigatorAttribute:
 			if (!InstigatorAbilityComponent)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Instigator ability component is nullptr."));
@@ -196,7 +196,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			}
 
 			break;
-		case FromTargetAttribute:
+		case EAttributeModificationValueSource::FromTargetAttribute:
 			if (!TargetAbilityComponent)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Target ability component is nullptr."));
@@ -213,7 +213,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			}
 			
 			break;
-		case FromMetaAttribute:
+		case EAttributeModificationValueSource::FromMetaAttribute:
 			GetFloatMetaAttributeValue(Modifier.MetaAttributeTag, ModificationInputValue, WasMetaAttributeHandled);
 
 			if (!WasMetaAttributeHandled)
@@ -230,53 +230,53 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 	// Finally, modify AttributeToModify based on the input value and the modifier's operation
 	switch (Modifier.ModifiedAttributeValueType)
 	{
-		case BaseValue:
+		case EAttributeValueType::BaseValue:
 			switch (Modifier.ModificationOperation)
 			{
-				case Add:
-					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, BaseValue, AttributeToModify->BaseValue + ModificationInputValue, CurrentOverflow);
+				case EFloatAttributeModificationOperation::Add:
+					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue + ModificationInputValue, CurrentOverflow);
 					break;
-				case Multiply:
-					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, BaseValue, AttributeToModify->BaseValue * ModificationInputValue, CurrentOverflow);
+				case EFloatAttributeModificationOperation::Multiply:
+					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue * ModificationInputValue, CurrentOverflow);
 					break;
-				case Override:
-					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, BaseValue, ModificationInputValue, CurrentOverflow);
+				case EFloatAttributeModificationOperation::Override:
+					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, ModificationInputValue, CurrentOverflow);
 					break;
 				default:
 					break;
 			}
 			break;
 		
-		case CurrentValue:
+		case EAttributeValueType::CurrentValue:
 			switch (Modifier.ModificationOperation)
 			{
-				case Add:
-					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, CurrentValue, AttributeToModify->CurrentValue + ModificationInputValue, CurrentOverflow);
+				case EFloatAttributeModificationOperation::Add:
+					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue + ModificationInputValue, CurrentOverflow);
 						break;
-				case Multiply:
-					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, CurrentValue, AttributeToModify->CurrentValue * ModificationInputValue, CurrentOverflow);
+				case EFloatAttributeModificationOperation::Multiply:
+					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue * ModificationInputValue, CurrentOverflow);
 						break;
-				case Override:
-					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, CurrentValue, ModificationInputValue, CurrentOverflow);
+				case EFloatAttributeModificationOperation::Override:
+					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, ModificationInputValue, CurrentOverflow);
 						break;
 				default:
 					break;
 			}
 			break;
 		
-		case MaxBaseValue:
+		case EAttributeValueType::MaxBaseValue:
 			AttributeToModify->ValueLimits.MaxBaseValue = ModificationInputValue;
 			break;
 		
-		case MinBaseValue:
+		case EAttributeValueType::MinBaseValue:
 			AttributeToModify->ValueLimits.MinBaseValue = ModificationInputValue;
 			break;
 		
-		case MaxCurrentValue:
+		case EAttributeValueType::MaxCurrentValue:
 			AttributeToModify->ValueLimits.MaxCurrentValue = ModificationInputValue;
 			break;
 		
-		case MinCurrentValue:
+		case EAttributeValueType::MinCurrentValue:
 			AttributeToModify->ValueLimits.MinCurrentValue = ModificationInputValue;
 			break;
 		

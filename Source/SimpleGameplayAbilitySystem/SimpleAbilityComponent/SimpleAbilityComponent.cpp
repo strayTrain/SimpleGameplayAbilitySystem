@@ -367,17 +367,17 @@ float USimpleAbilityComponent::GetFloatAttributeValue(EAttributeValueType ValueT
 
 	switch (ValueType)
 	{
-		case BaseValue:
+		case EAttributeValueType::BaseValue:
 			return Attribute.BaseValue;
-		case CurrentValue:
+		case EAttributeValueType::CurrentValue:
 			return Attribute.CurrentValue;
-		case MaxCurrentValue:
+		case EAttributeValueType::MaxCurrentValue:
 			return Attribute.ValueLimits.MaxCurrentValue;
-		case MinCurrentValue:
+		case EAttributeValueType::MinCurrentValue:
 			return Attribute.ValueLimits.MinCurrentValue;
-		case MaxBaseValue:
+		case EAttributeValueType::MaxBaseValue:
 			return Attribute.ValueLimits.MaxBaseValue;
-		case MinBaseValue:
+		case EAttributeValueType::MinBaseValue:
 			return Attribute.ValueLimits.MinBaseValue;
 		
 		default:
@@ -398,29 +398,29 @@ bool USimpleAbilityComponent::SetFloatAttributeValue(EAttributeValueType ValueTy
 	
 	switch (ValueType)
 	{
-		case BaseValue:
-			FloatAttributes[AttributeIndex].BaseValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], BaseValue, NewValue, Overflow);
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, AttributeTag, BaseValue, FloatAttributes[AttributeIndex].BaseValue);
+		case EAttributeValueType::BaseValue:
+			FloatAttributes[AttributeIndex].BaseValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], EAttributeValueType::BaseValue, NewValue, Overflow);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[AttributeIndex].BaseValue);
 			return true;
-		case CurrentValue:
-			FloatAttributes[AttributeIndex].CurrentValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], CurrentValue, NewValue, Overflow);
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, AttributeTag, CurrentValue, FloatAttributes[AttributeIndex].CurrentValue);
+		case EAttributeValueType::CurrentValue:
+			FloatAttributes[AttributeIndex].CurrentValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], EAttributeValueType::CurrentValue, NewValue, Overflow);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, AttributeTag, EAttributeValueType::CurrentValue, FloatAttributes[AttributeIndex].CurrentValue);
 			return true;
-		case MaxBaseValue:
+		case EAttributeValueType::MaxBaseValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MaxBaseValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, AttributeTag, MaxBaseValue, NewValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, AttributeTag, EAttributeValueType::MaxBaseValue, NewValue);
 			return true;
-		case MinBaseValue:
+		case EAttributeValueType::MinBaseValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MinBaseValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, AttributeTag, MinBaseValue, NewValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, AttributeTag, EAttributeValueType::MinBaseValue, NewValue);
 			return true;
-		case MaxCurrentValue:
+		case EAttributeValueType::MaxCurrentValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MaxCurrentValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, AttributeTag, MaxCurrentValue, NewValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, AttributeTag, EAttributeValueType::MaxCurrentValue, NewValue);
 			return true;
-		case MinCurrentValue:
+		case EAttributeValueType::MinCurrentValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MinCurrentValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, AttributeTag, MinCurrentValue, NewValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, AttributeTag, EAttributeValueType::MinCurrentValue, NewValue);
 			return true;
 		
 		default:
@@ -1018,32 +1018,32 @@ void USimpleAbilityComponent::CompareFloatAttributesAndSendEvents(const FFloatAt
 {
 	if (OldAttribute.BaseValue != NewAttribute.BaseValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, NewAttribute.AttributeTag, BaseValue, NewAttribute.BaseValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::BaseValue, NewAttribute.BaseValue);
 	}
 
 	if (NewAttribute.ValueLimits.UseMaxBaseValue && OldAttribute.ValueLimits.MaxBaseValue != NewAttribute.ValueLimits.MaxBaseValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, NewAttribute.AttributeTag, MaxBaseValue, NewAttribute.ValueLimits.MaxBaseValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MaxBaseValue, NewAttribute.ValueLimits.MaxBaseValue);
 	}
 
 	if (NewAttribute.ValueLimits.UseMinBaseValue && OldAttribute.ValueLimits.MinBaseValue != NewAttribute.ValueLimits.MinBaseValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, NewAttribute.AttributeTag, MinBaseValue, NewAttribute.ValueLimits.MinBaseValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MinBaseValue, NewAttribute.ValueLimits.MinBaseValue);
 	}
 	
 	if (OldAttribute.CurrentValue != NewAttribute.CurrentValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, NewAttribute.AttributeTag, CurrentValue, NewAttribute.CurrentValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::CurrentValue, NewAttribute.CurrentValue);
 	}
 	
 	if (NewAttribute.ValueLimits.UseMaxCurrentValue && OldAttribute.ValueLimits.MaxCurrentValue != NewAttribute.ValueLimits.MaxCurrentValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, NewAttribute.AttributeTag, MaxCurrentValue, NewAttribute.ValueLimits.MaxCurrentValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MaxCurrentValue, NewAttribute.ValueLimits.MaxCurrentValue);
 	}
 
 	if (NewAttribute.ValueLimits.UseMinCurrentValue && OldAttribute.ValueLimits.MinCurrentValue != NewAttribute.ValueLimits.MinCurrentValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, NewAttribute.AttributeTag, MinCurrentValue, NewAttribute.ValueLimits.MinCurrentValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MinCurrentValue, NewAttribute.ValueLimits.MinCurrentValue);
 	}	
 }
 

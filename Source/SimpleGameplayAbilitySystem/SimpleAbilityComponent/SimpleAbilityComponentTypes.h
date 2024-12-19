@@ -7,8 +7,8 @@
 
 /* Enums */
 
-UENUM()
-enum ESimpleEventReplicationPolicy
+UENUM(BlueprintType)
+enum class ESimpleEventReplicationPolicy : uint8
 {
 	// The same as using the SimpleEventSubsystem directly. i.e. no replication
 	NoReplication,
@@ -25,8 +25,8 @@ enum ESimpleEventReplicationPolicy
 	ServerToAllPredicted,
 };
 
-UENUM()
-enum EAttributeValueType
+UENUM(BlueprintType)
+enum class EAttributeValueType : uint8
 {
 	CurrentValue,
 	BaseValue,
@@ -36,23 +36,23 @@ enum EAttributeValueType
 	MinBaseValue
 };
 
-UENUM()
-enum EFloatAttributeModificationOperation
+UENUM(BlueprintType)
+enum class EFloatAttributeModificationOperation : uint8
 {
 	Add,
 	Multiply,
 	Override
 };
 
-UENUM()
-enum EAttributeType
+UENUM(BlueprintType)
+enum class EAttributeType : uint8
 {
 	FloatAttribute,
 	StructAttribute,
 };
 
-UENUM()
-enum EAttributeModificationValueSource
+UENUM(BlueprintType)
+enum class EAttributeModificationValueSource : uint8
 {
 	Manual,
 	FromOverflow,
@@ -141,7 +141,7 @@ struct FFloatAttributeModification
 	FGameplayTag AttributeTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleGAS|Ability")
-	TEnumAsByte<EAttributeValueType> ValueType;
+	EAttributeValueType ValueType;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleGAS|Ability")
 	float NewValue;
