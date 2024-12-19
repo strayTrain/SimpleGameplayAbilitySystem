@@ -90,6 +90,7 @@ bool USimpleAttributeModifier::ApplyModifier(FInstancedStruct ModifierContext)
 	for (const FAttributeModifier& Modifier : ModifierConfig.ApplicationModifications)
 	{
 		bool WasModifierApplied = false;
+		
 		switch (Modifier.AttributeType)
 		{
 			case FloatAttribute:
@@ -122,7 +123,7 @@ bool USimpleAttributeModifier::ApplyModifier(FInstancedStruct ModifierContext)
 	{
 		if (ModifiedFloatAttributes.Contains(Attribute.AttributeTag))
 		{
-			TargetAbilityComponent->AddFloatAttribute(Attribute);
+			TargetAbilityComponent->OverrideFloatAttribute(Attribute.AttributeTag, Attribute);
 		}
 	}
 

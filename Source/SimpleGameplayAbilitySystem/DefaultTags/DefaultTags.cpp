@@ -11,12 +11,19 @@ FGameplayTag FDefaultTags::AbilityCancelled;
 FGameplayTag FDefaultTags::AbilityStateSnapshotTaken;
 
 FGameplayTag FDefaultTags::AttributeAdded;
-FGameplayTag FDefaultTags::AttributeChanged;
 FGameplayTag FDefaultTags::AttributeRemoved;
+
+FGameplayTag FDefaultTags::FloatAttributeBaseValueChanged;
+FGameplayTag FDefaultTags::FloatAttributeMinBaseValueChanged;
+FGameplayTag FDefaultTags::FloatAttributeMaxBaseValueChanged;
+FGameplayTag FDefaultTags::FloatAttributeCurrentValueChanged;
+FGameplayTag FDefaultTags::FloatAttributeMinCurrentValueChanged;
+FGameplayTag FDefaultTags::FloatAttributeMaxCurrentValueChanged;
 
 FGameplayTag FDefaultTags::LocalDomain;
 FGameplayTag FDefaultTags::AuthorityDomain;
 FGameplayTag FDefaultTags::AbilityDomain;
+FGameplayTag FDefaultTags::AttributeDomain;
 
 void FDefaultTags::InitializeDefaultTags()
 {
@@ -29,22 +36,32 @@ void FDefaultTags::InitializeDefaultTags()
 	AbilityCancelled = FindTag("SimpleGAS.Events.Ability.AbilityCancelled");
 	AbilityStateSnapshotTaken = FindTag("SimpleGAS.Events.Ability.AbilityStateSnapshotTaken");
 
+	// Attributes
 	AttributeAdded = FindTag("SimpleGAS.Events.Attributes.AttributeAdded");
-	AttributeChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged");
 	AttributeRemoved = FindTag("SimpleGAS.Events.Attributes.AttributeRemoved");
+
+	FloatAttributeBaseValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.BaseValue");
+	FloatAttributeMinBaseValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MinBaseValue");
+	FloatAttributeMaxBaseValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MaxBaseValue");
+	FloatAttributeCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.CurrentValue");
+	FloatAttributeMinCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MinCurrentValue");
+	FloatAttributeMaxCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MaxCurrentValue");
 
 	// Domains
 	LocalDomain = FindTag("SimpleGAS.Domains.Ability.Local");
 	AuthorityDomain = FindTag("SimpleGAS.Domains.Ability.Authority");
 	AbilityDomain = FindTag("SimpleGAS.Domains.Ability");
+	AttributeDomain = FindTag("SimpleGAS.Domains.Attribute");
 }
 
 FGameplayTag FDefaultTags::FindTag(FName TagName)
 {
-	FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(TagName, false);
+	const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(TagName, false);
+
 	if (!Tag.IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Gameplay Tag %s was not found!"), *TagName.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Gameplay Tag %s was not found when looking for default tags."), *TagName.ToString());
 	}
+	
 	return Tag;
 }

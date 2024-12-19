@@ -5,27 +5,34 @@
 
 class FDefaultTags
 {
-public:
-	static void InitializeDefaultTags();
+	public:
+		static void InitializeDefaultTags();
 
-	// Events
-	static FGameplayTag AbilityAdded;
-	static FGameplayTag AbilityRemoved;
-	static FGameplayTag AbilityActivated;
-	static FGameplayTag AbilityEnded;
-	static FGameplayTag AbilityEndedSuccessfully;
-	static FGameplayTag AbilityCancelled;
+		// Events
+		static FGameplayTag AbilityAdded;
+		static FGameplayTag AbilityRemoved;
+		static FGameplayTag AbilityActivated;
+		static FGameplayTag AbilityEnded;
+		static FGameplayTag AbilityEndedSuccessfully;
+		static FGameplayTag AbilityCancelled;
 
-	static FGameplayTag AbilityStateSnapshotTaken;
+		static FGameplayTag AbilityStateSnapshotTaken;
 
-	static FGameplayTag AttributeAdded;
-	static FGameplayTag AttributeChanged;
-	static FGameplayTag AttributeRemoved;
+		static FGameplayTag AttributeAdded;
+		static FGameplayTag AttributeRemoved;
 
-	// Domains
-	static FGameplayTag LocalDomain;
-	static FGameplayTag AuthorityDomain;
-	static FGameplayTag AbilityDomain;
-private:
-	static FGameplayTag FindTag(FName TagName);
+		static FGameplayTag FloatAttributeBaseValueChanged;
+		static FGameplayTag FloatAttributeMinBaseValueChanged;
+		static FGameplayTag FloatAttributeMaxBaseValueChanged;
+		static FGameplayTag FloatAttributeCurrentValueChanged;
+		static FGameplayTag FloatAttributeMinCurrentValueChanged;
+		static FGameplayTag FloatAttributeMaxCurrentValueChanged;
+		
+		// Domains
+		static FGameplayTag LocalDomain;
+		static FGameplayTag AuthorityDomain;
+		static FGameplayTag AbilityDomain;
+		static FGameplayTag AttributeDomain;
+	private:
+		static FGameplayTag FindTag(FName TagName);
 };

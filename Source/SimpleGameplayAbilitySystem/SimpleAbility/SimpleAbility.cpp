@@ -117,6 +117,12 @@ void USimpleAbility::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruc
 		UE_LOG(LogTemp, Warning, TEXT("Ability %s is not set to LocalPredicted, can't take state snapshot"), *GetAbilityName());
 		return;
 	}
+
+	if (!SnapshotData.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s called TakeStateSnapshot with invalid snapshot data"), *GetAbilityName());
+		return;
+	}
 	
 	FAbilityState NewSnapshot;
 	NewSnapshot.StateTag = SnapshotTag;

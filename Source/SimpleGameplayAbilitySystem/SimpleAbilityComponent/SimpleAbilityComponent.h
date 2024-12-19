@@ -102,10 +102,10 @@ public:
 	/* Attribute Functions */
 	
 	UFUNCTION(BlueprintCallable)
-	bool ApplyAttributeModifier(USimpleAbilityComponent* Instigator, const TSubclassOf<USimpleAttributeModifier> GameplayEffect, FInstancedStruct EffectContext);
+	bool ApplyAttributeModifier(USimpleAbilityComponent* Instigator, const TSubclassOf<USimpleAttributeModifier> AttributeModifier, FInstancedStruct EffectContext);
 
 	UFUNCTION(BlueprintCallable)
-	bool ApplyPendingAttributeModifier(const FPendingAttributeModifier PendingEffect);
+	bool ApplyPendingAttributeModifier(const FPendingAttributeModifier PendingAttributeModifier);
 
 	UFUNCTION(BlueprintCallable)
 	bool HasModifierWithTags(const FGameplayTagContainer& Tags) const;
@@ -115,7 +115,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void RemoveFloatAttributes(FGameplayTagContainer AttributeTags);
-
+	
 	UFUNCTION(BlueprintCallable)
 	bool HasFloatAttribute(FGameplayTag AttributeTag) const;
 	
@@ -128,6 +128,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
 
+	UFUNCTION(BlueprintCallable)
+	bool OverrideFloatAttribute(FGameplayTag AttributeTag, FFloatAttribute NewAttribute);
+	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void AddStructAttribute(FStructAttribute Attribute);
 
@@ -285,5 +288,6 @@ protected:
 private:
 	TArray<FGuid> LocalPredictedEventIDs;
 	int32 GetFloatAttributeIndex(FGameplayTag AttributeTag) const;
+	void CompareFloatAttributesAndSendEvents(const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute) const;
 	void SendFloatAttributeChangedEvent(FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue) const;
 };
