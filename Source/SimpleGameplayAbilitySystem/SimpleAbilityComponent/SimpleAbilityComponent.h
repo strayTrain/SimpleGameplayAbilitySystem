@@ -106,9 +106,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool ApplyPendingAttributeModifier(const FPendingAttributeModifier PendingAttributeModifier);
-
-	UFUNCTION(BlueprintCallable)
-	bool HasModifierWithTags(const FGameplayTagContainer& Tags) const;
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void AddFloatAttribute(FFloatAttribute Attribute);
@@ -116,38 +113,11 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void RemoveFloatAttributes(FGameplayTagContainer AttributeTags);
 	
-	UFUNCTION(BlueprintCallable)
-	bool HasFloatAttribute(FGameplayTag AttributeTag) const;
-	
-	UFUNCTION(BlueprintCallable)
-	FFloatAttribute GetFloatAttribute(FGameplayTag AttributeTag, bool& WasFound) const;
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
-	float GetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound) const;
-
-	UFUNCTION(BlueprintCallable)
-	bool SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
-
-	UFUNCTION(BlueprintCallable)
-	bool OverrideFloatAttribute(FGameplayTag AttributeTag, FFloatAttribute NewAttribute);
-	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void AddStructAttribute(FStructAttribute Attribute);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void RemoveStructAttributes(FGameplayTagContainer AttributeTags);
-
-	UFUNCTION(BlueprintCallable)
-	bool HasStructAttribute(FGameplayTag AttributeTag) const;
-	
-	UFUNCTION(BlueprintCallable)
-	FStructAttribute GetStructAttribute(FGameplayTag AttributeTag, bool& WasFound) const;
-	
-	UFUNCTION(BlueprintCallable)
-	FInstancedStruct GetStructAttributeValue(FGameplayTag AttributeTag, bool& WasFound) const;
-
-	UFUNCTION(BlueprintCallable)
-	bool SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue);
 	
 	/* Replicated Event Functions */
 	
@@ -221,7 +191,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FSimpleGameplayAbilityConfig GetAbilityConfig(TSubclassOf<USimpleAbility> Ability);
 
-	static float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EAttributeValueType ValueType, float NewValue, float& Overflow);
 protected:
 	virtual void BeginPlay() override;
 
@@ -287,7 +256,4 @@ protected:
 
 private:
 	TArray<FGuid> LocalPredictedEventIDs;
-	int32 GetFloatAttributeIndex(FGameplayTag AttributeTag) const;
-	void CompareFloatAttributesAndSendEvents(const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute) const;
-	void SendFloatAttributeChangedEvent(FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue) const;
 };

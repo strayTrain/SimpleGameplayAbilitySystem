@@ -2,6 +2,7 @@
 
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
+#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/AbilitySet.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/AttributeSet.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
@@ -298,11 +299,6 @@ bool USimpleAbilityComponent::ApplyPendingAttributeModifier(const FPendingAttrib
 	return ApplyAttributeModifier(PendingAttributeModifier.Instigator, PendingAttributeModifier.AttributeModifierClass, PendingAttributeModifier.AttributeModifierContext);
 }
 
-bool USimpleAbilityComponent::HasModifierWithTags(const FGameplayTagContainer& Tags) const
-{
-	return false;
-}
-
 void USimpleAbilityComponent::AddFloatAttribute(FFloatAttribute Attribute)
 {
 	// Check if the attribute already exists
@@ -311,7 +307,7 @@ void USimpleAbilityComponent::AddFloatAttribute(FFloatAttribute Attribute)
 		if (FloatAttributes[i].AttributeTag == Attribute.AttributeTag)
 		{
 			// If it does, update the attribute
-			OverrideFloatAttribute(Attribute.AttributeTag, Attribute);
+			USimpleAttributeFunctionLibrary::OverrideFloatAttribute(this, Attribute.AttributeTag, Attribute);
 			return;
 		}
 	}
@@ -325,123 +321,6 @@ void USimpleAbilityComponent::RemoveFloatAttributes(FGameplayTagContainer Attrib
 	{
 		return AttributeTags.HasTag(Attribute.AttributeTag);
 	});
-}
-
-bool USimpleAbilityComponent::HasFloatAttribute(FGameplayTag AttributeTag) const
-{
-	for (int i = 0; i < FloatAttributes.Num(); i++)
-	{
-		if (FloatAttributes[i].AttributeTag == AttributeTag)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-FFloatAttribute USimpleAbilityComponent::GetFloatAttribute(FGameplayTag AttributeTag, bool& WasFound) const
-{
-	for (int i = 0; i < FloatAttributes.Num(); i++)
-	{
-		if (FloatAttributes[i].AttributeTag == AttributeTag)
-		{
-			WasFound = true;
-			return FloatAttributes[i];
-		}
-	}
-
-	WasFound = false;
-	return FFloatAttribute();
-}
-
-float USimpleAbilityComponent::GetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound) const
-{
-	const FFloatAttribute Attribute = GetFloatAttribute(AttributeTag, WasFound);
-	
-	if (!WasFound)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Attribute %s not found."), *AttributeTag.ToString());
-		return 0.0f;
-	}
-
-	switch (ValueType)
-	{
-		case EAttributeValueType::BaseValue:
-			return Attribute.BaseValue;
-		case EAttributeValueType::CurrentValue:
-			return Attribute.CurrentValue;
-		case EAttributeValueType::MaxCurrentValue:
-			return Attribute.ValueLimits.MaxCurrentValue;
-		case EAttributeValueType::MinCurrentValue:
-			return Attribute.ValueLimits.MinCurrentValue;
-		case EAttributeValueType::MaxBaseValue:
-			return Attribute.ValueLimits.MaxBaseValue;
-		case EAttributeValueType::MinBaseValue:
-			return Attribute.ValueLimits.MinBaseValue;
-		
-		default:
-			WasFound = false;
-			return 0.0f;
-	}
-}
-
-bool USimpleAbilityComponent::SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow)
-{
-	const int32 AttributeIndex = GetFloatAttributeIndex(AttributeTag);
-
-	if (AttributeIndex < 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Attribute %s not found."), *AttributeTag.ToString());
-		return false;
-	}
-	
-	switch (ValueType)
-	{
-		case EAttributeValueType::BaseValue:
-			FloatAttributes[AttributeIndex].BaseValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], EAttributeValueType::BaseValue, NewValue, Overflow);
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[AttributeIndex].BaseValue);
-			return true;
-		case EAttributeValueType::CurrentValue:
-			FloatAttributes[AttributeIndex].CurrentValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], EAttributeValueType::CurrentValue, NewValue, Overflow);
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, AttributeTag, EAttributeValueType::CurrentValue, FloatAttributes[AttributeIndex].CurrentValue);
-			return true;
-		case EAttributeValueType::MaxBaseValue:
-			FloatAttributes[AttributeIndex].ValueLimits.MaxBaseValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, AttributeTag, EAttributeValueType::MaxBaseValue, NewValue);
-			return true;
-		case EAttributeValueType::MinBaseValue:
-			FloatAttributes[AttributeIndex].ValueLimits.MinBaseValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, AttributeTag, EAttributeValueType::MinBaseValue, NewValue);
-			return true;
-		case EAttributeValueType::MaxCurrentValue:
-			FloatAttributes[AttributeIndex].ValueLimits.MaxCurrentValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, AttributeTag, EAttributeValueType::MaxCurrentValue, NewValue);
-			return true;
-		case EAttributeValueType::MinCurrentValue:
-			FloatAttributes[AttributeIndex].ValueLimits.MinCurrentValue = NewValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, AttributeTag, EAttributeValueType::MinCurrentValue, NewValue);
-			return true;
-		
-		default:
-			return false;
-	}
-}
-
-bool USimpleAbilityComponent::OverrideFloatAttribute(FGameplayTag AttributeTag, FFloatAttribute NewAttribute)
-{
-	for (int i = 0; i < FloatAttributes.Num(); i++)
-	{
-		if (FloatAttributes[i].AttributeTag == AttributeTag)
-		{
-			// Send events for any changed values
-			CompareFloatAttributesAndSendEvents(FloatAttributes[i], NewAttribute);
-			FloatAttributes[i] = NewAttribute;
-			return true;
-		}
-	}
-	
-	return false;
 }
 
 void USimpleAbilityComponent::AddStructAttribute(FStructAttribute Attribute)
@@ -467,82 +346,6 @@ void USimpleAbilityComponent::RemoveStructAttributes(FGameplayTagContainer Attri
 	{
 		return AttributeTags.HasTagExact(Attribute.AttributeTag);
 	});
-}
-
-bool USimpleAbilityComponent::HasStructAttribute(FGameplayTag AttributeTag) const
-{
-	for (int i = 0; i < StructAttributes.Num(); i++)
-	{
-		if (StructAttributes[i].AttributeTag == AttributeTag)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-FStructAttribute USimpleAbilityComponent::GetStructAttribute(FGameplayTag AttributeTag, bool& WasFound) const
-{
-	for (int i = 0; i < StructAttributes.Num(); i++)
-	{
-		if (StructAttributes[i].AttributeTag == AttributeTag)
-		{
-			WasFound = true;
-			return StructAttributes[i];
-		}
-	}
-
-	WasFound = false;
-	return FStructAttribute();
-}
-
-FInstancedStruct USimpleAbilityComponent::GetStructAttributeValue(FGameplayTag AttributeTag, bool& WasFound) const
-{
-	FStructAttribute Attribute = GetStructAttribute(AttributeTag, WasFound);
-
-	if (WasFound)
-	{
-		return Attribute.AttributeValue;
-	}
-
-	return FInstancedStruct();
-}
-
-bool USimpleAbilityComponent::SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue)
-{
-	for (int i = 0; i < StructAttributes.Num(); i++)
-	{
-		if (StructAttributes[i].AttributeTag == AttributeTag)
-		{
-			if (StructAttributes[i].AttributeType != NewValue.GetScriptStruct())
-			{
-				UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::SetStructAttributeValue: New value type does not match attribute type."));
-				return false;
-			}
-			
-			StructAttributes[i].AttributeValue = NewValue;
-
-			if (USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
-			{
-				FStructAttributeModification Payload;
-				Payload.AttributeTag = AttributeTag;
-				Payload.Value = NewValue;
-
-				const FInstancedStruct EventPayload = FInstancedStruct::Make(Payload);
-		
-				//EventSubsystem->SendEvent(FDefaultTags::AttributeChanged, FDefaultTags::AuthorityDomain, EventPayload, GetOwner());
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::SetStructAttributeValue: No event subsystem found."));
-			}
-			
-			return true;
-		}
-	}
-
-	return false;
 }
 
 /* Replicated Events */
@@ -692,79 +495,6 @@ void USimpleAbilityComponent::SetAvatarActor(AActor* NewAvatarActor)
 	AvatarActor = NewAvatarActor;
 }
 
-/* Utility */
-
-FSimpleGameplayAbilityConfig USimpleAbilityComponent::GetAbilityConfig(TSubclassOf<USimpleAbility> Ability)
-{
-	if (!Ability)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Ability class in GetAbilityConfig is not valid. Returning default config"));
-		return FSimpleGameplayAbilityConfig();
-	}
-	
-	return Ability.GetDefaultObject()->AbilityConfig;
-}
-
-USimpleAbility* USimpleAbilityComponent::FindAnyAbilityInstanceByID(const FGuid AbilityInstanceID)
-{
-	for (USimpleAbility* Ability : RunningAbilities)
-	{
-		if (Ability->AbilityInstanceID == AbilityInstanceID)
-		{
-			return Ability;
-		}
-	}
-
-	for (USimpleAbility* Ability : LocalRunningAbilities)
-	{
-		if (Ability->AbilityInstanceID == AbilityInstanceID)
-		{
-			return Ability;
-		}
-	}
-
-	return nullptr;
-}
-
-USimpleAbility* USimpleAbilityComponent::FindAuthorityAbilityInstanceByID(const FGuid AbilityInstanceID)
-{
-	for (USimpleAbility* Ability : RunningAbilities)
-	{
-		if (Ability->AbilityInstanceID == AbilityInstanceID)
-		{
-			return Ability;
-		}
-	}
-
-	return nullptr;
-}
-
-USimpleAbility* USimpleAbilityComponent::FindPredictedAbilityInstanceByID(const FGuid AbilityInstanceID)
-{
-	for (USimpleAbility* Ability : LocalRunningAbilities)
-	{
-		if (Ability->AbilityInstanceID == AbilityInstanceID)
-		{
-			return Ability;
-		}
-	}
-
-	return nullptr;
-}
-
-TSubclassOf<USimpleAbility> USimpleAbilityComponent::FindGrantedAbilityByTag(FGameplayTag AbilityTag)
-{
-	for (TSubclassOf<USimpleAbility> Ability : GrantedAbilities)
-	{
-		if (Ability.GetDefaultObject()->AbilityConfig.AbilityName == AbilityTag)
-		{
-			return Ability;
-		}
-	}
-
-	return nullptr;
-}
-
 /* Overridable functions */
 
 double USimpleAbilityComponent::GetServerTime_Implementation() const
@@ -843,6 +573,79 @@ void USimpleAbilityComponent::OnAbilityEndedInternal(FGameplayTag AbilityTag, FG
 	}
 }
 
+/* Utility */
+
+FSimpleGameplayAbilityConfig USimpleAbilityComponent::GetAbilityConfig(TSubclassOf<USimpleAbility> Ability)
+{
+	if (!Ability)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability class in GetAbilityConfig is not valid. Returning default config"));
+		return FSimpleGameplayAbilityConfig();
+	}
+	
+	return Ability.GetDefaultObject()->AbilityConfig;
+}
+
+USimpleAbility* USimpleAbilityComponent::FindAnyAbilityInstanceByID(const FGuid AbilityInstanceID)
+{
+	for (USimpleAbility* Ability : RunningAbilities)
+	{
+		if (Ability->AbilityInstanceID == AbilityInstanceID)
+		{
+			return Ability;
+		}
+	}
+
+	for (USimpleAbility* Ability : LocalRunningAbilities)
+	{
+		if (Ability->AbilityInstanceID == AbilityInstanceID)
+		{
+			return Ability;
+		}
+	}
+
+	return nullptr;
+}
+
+USimpleAbility* USimpleAbilityComponent::FindAuthorityAbilityInstanceByID(const FGuid AbilityInstanceID)
+{
+	for (USimpleAbility* Ability : RunningAbilities)
+	{
+		if (Ability->AbilityInstanceID == AbilityInstanceID)
+		{
+			return Ability;
+		}
+	}
+
+	return nullptr;
+}
+
+USimpleAbility* USimpleAbilityComponent::FindPredictedAbilityInstanceByID(const FGuid AbilityInstanceID)
+{
+	for (USimpleAbility* Ability : LocalRunningAbilities)
+	{
+		if (Ability->AbilityInstanceID == AbilityInstanceID)
+		{
+			return Ability;
+		}
+	}
+
+	return nullptr;
+}
+
+TSubclassOf<USimpleAbility> USimpleAbilityComponent::FindGrantedAbilityByTag(FGameplayTag AbilityTag)
+{
+	for (TSubclassOf<USimpleAbility> Ability : GrantedAbilities)
+	{
+		if (Ability.GetDefaultObject()->AbilityConfig.AbilityName == AbilityTag)
+		{
+			return Ability;
+		}
+	}
+
+	return nullptr;
+}
+
 /* Replication */
 
 void USimpleAbilityComponent::OnRep_RunningAbilities()
@@ -914,7 +717,7 @@ void USimpleAbilityComponent::OnRep_FloatAttributes(TArray<FFloatAttribute> OldA
 	{
 		if (!OldAttributeTags.HasTagExact(FloatAttributes[i].AttributeTag))
 		{
-			SendFloatAttributeChangedEvent(FDefaultTags::AttributeAdded, FloatAttributes[i].AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[i].BaseValue);
+			USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeAdded, FloatAttributes[i].AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[i].BaseValue);
 		}
 
 		NewAttributeTags.AddTag(FloatAttributes[i].AttributeTag);
@@ -925,26 +728,26 @@ void USimpleAbilityComponent::OnRep_FloatAttributes(TArray<FFloatAttribute> OldA
 	{
 		if (!NewAttributeTags.HasTagExact(OldAttributes[i].AttributeTag))
 		{
-			SendFloatAttributeChangedEvent(FDefaultTags::AttributeRemoved, OldAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
+			USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeRemoved, OldAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
 		}
 		else
 		{
-			const int32 NewAttributeIndex = GetFloatAttributeIndex(OldAttributes[i].AttributeTag);
+			const int32 NewAttributeIndex = USimpleAttributeFunctionLibrary::GetFloatAttributeIndex(this, OldAttributes[i].AttributeTag);
 
 			if (NewAttributeIndex < 0)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::OnRep_FloatAttributes: Attribute %s not found."), *OldAttributes[i].AttributeTag.ToString());
 				continue;
 			}
-			
-			CompareFloatAttributesAndSendEvents(OldAttributes[i], FloatAttributes[NewAttributeIndex]);
+
+			USimpleAttributeFunctionLibrary::CompareFloatAttributesAndSendEvents(this, OldAttributes[i], FloatAttributes[NewAttributeIndex]);
 		}
 	}
 }
 
 void USimpleAbilityComponent::OnRep_StructAttributes(TArray<FStructAttribute> OldAttributes)
 {
-	// Check if any new attributes were added
+	/*// Check if any new attributes were added
 	FGameplayTagContainer OldAttributeTags;
 	FGameplayTagContainer NewAttributeTags;
 	
@@ -957,7 +760,7 @@ void USimpleAbilityComponent::OnRep_StructAttributes(TArray<FStructAttribute> Ol
 	{
 		if (!OldAttributeTags.HasTagExact(StructAttributes[i].AttributeTag))
 		{
-			SendFloatAttributeChangedEvent(FDefaultTags::AttributeAdded, StructAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
+			//SendFloatAttributeChangedEvent(FDefaultTags::AttributeAdded, StructAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
 		}
 
 		NewAttributeTags.AddTag(StructAttributes[i].AttributeTag);
@@ -985,7 +788,7 @@ void USimpleAbilityComponent::OnRep_StructAttributes(TArray<FStructAttribute> Ol
 				//SendFloatAttributeChangedEvent(FDefaultTags::AttributeChanged, OldAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
 			}
 		}
-	}
+	}*/
 }
 
 void USimpleAbilityComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -1000,109 +803,3 @@ void USimpleAbilityComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 	DOREPLIFETIME(USimpleAbilityComponent, RunningAttributeModifiers);
 	DOREPLIFETIME(USimpleAbilityComponent, GrantedAbilities);
 }
-
-int32 USimpleAbilityComponent::GetFloatAttributeIndex(FGameplayTag AttributeTag) const
-{
-	for (int i = 0; i < FloatAttributes.Num(); i++)
-	{
-		if (FloatAttributes[i].AttributeTag == AttributeTag)
-		{
-			return i;
-		}
-	}
-
-	return -1;
-}
-
-void USimpleAbilityComponent::CompareFloatAttributesAndSendEvents(const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute) const
-{
-	if (OldAttribute.BaseValue != NewAttribute.BaseValue)
-	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::BaseValue, NewAttribute.BaseValue);
-	}
-
-	if (NewAttribute.ValueLimits.UseMaxBaseValue && OldAttribute.ValueLimits.MaxBaseValue != NewAttribute.ValueLimits.MaxBaseValue)
-	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MaxBaseValue, NewAttribute.ValueLimits.MaxBaseValue);
-	}
-
-	if (NewAttribute.ValueLimits.UseMinBaseValue && OldAttribute.ValueLimits.MinBaseValue != NewAttribute.ValueLimits.MinBaseValue)
-	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MinBaseValue, NewAttribute.ValueLimits.MinBaseValue);
-	}
-	
-	if (OldAttribute.CurrentValue != NewAttribute.CurrentValue)
-	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::CurrentValue, NewAttribute.CurrentValue);
-	}
-	
-	if (NewAttribute.ValueLimits.UseMaxCurrentValue && OldAttribute.ValueLimits.MaxCurrentValue != NewAttribute.ValueLimits.MaxCurrentValue)
-	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MaxCurrentValue, NewAttribute.ValueLimits.MaxCurrentValue);
-	}
-
-	if (NewAttribute.ValueLimits.UseMinCurrentValue && OldAttribute.ValueLimits.MinCurrentValue != NewAttribute.ValueLimits.MinCurrentValue)
-	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MinCurrentValue, NewAttribute.ValueLimits.MinCurrentValue);
-	}	
-}
-
-void USimpleAbilityComponent::SendFloatAttributeChangedEvent(const FGameplayTag EventTag, const FGameplayTag AttributeTag, const EAttributeValueType ValueType, const float NewValue) const
-{
-	if (USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
-	{
-		FFloatAttributeModification Payload;
-		Payload.AttributeTag = AttributeTag;
-		Payload.ValueType = ValueType;
-		Payload.NewValue = NewValue;
-
-		const FInstancedStruct EventPayload = FInstancedStruct::Make(Payload);
-		
-		EventSubsystem->SendEvent(EventTag, FDefaultTags::AttributeDomain, EventPayload, GetOwner());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::SendFloatAttributeChangedEvent: No event subsystem found."));
-	}
-}
-
-float USimpleAbilityComponent::ClampFloatAttributeValue(const FFloatAttribute& Attribute, EAttributeValueType ValueType, float NewValue, float& Overflow)
-{
-	switch (ValueType)
-	{
-		case EAttributeValueType::BaseValue:
-			if (Attribute.ValueLimits.UseMaxBaseValue && NewValue > Attribute.ValueLimits.MaxBaseValue)
-			{
-				Overflow = NewValue - Attribute.ValueLimits.MaxBaseValue;
-				return Attribute.ValueLimits.MaxBaseValue;
-			}
-
-			if (Attribute.ValueLimits.UseMinBaseValue && NewValue < Attribute.ValueLimits.MinBaseValue)
-			{
-				Overflow = Attribute.ValueLimits.MinBaseValue + NewValue;
-				return Attribute.ValueLimits.MinBaseValue;
-			}
-
-			return NewValue;
-			
-		case EAttributeValueType::CurrentValue:
-			if (Attribute.ValueLimits.UseMaxCurrentValue && NewValue > Attribute.ValueLimits.MaxCurrentValue)
-			{
-				Overflow = NewValue - Attribute.ValueLimits.MaxCurrentValue;
-				return Attribute.ValueLimits.MaxCurrentValue;
-			}
-
-			if (Attribute.ValueLimits.UseMinCurrentValue && NewValue < Attribute.ValueLimits.MinCurrentValue)
-			{
-				Overflow = Attribute.ValueLimits.MinCurrentValue + NewValue;
-				return Attribute.ValueLimits.MinCurrentValue;
-			}
-
-			return NewValue;
-			
-		default:
-			UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::ClampValue: Invalid attribute value type."));
-			return 0.0f;
-	}
-}
-

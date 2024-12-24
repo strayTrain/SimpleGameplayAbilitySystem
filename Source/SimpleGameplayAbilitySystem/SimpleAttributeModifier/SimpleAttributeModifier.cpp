@@ -3,6 +3,7 @@
 
 #include "SimpleAttributeModifier.h"
 
+#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbilityComponent/SimpleAbilityComponent.h"
 
 void USimpleAttributeModifier::InitializeModifier(const FGuid NewModifierID, USimpleAbilityComponent* InstigatingAbilityComponent, USimpleAbilityComponent* TargetedAbilityComponent)
@@ -48,7 +49,7 @@ bool USimpleAttributeModifier::CanApplyModifierInternal() const
 		return false;
 	}
 
-	if (TargetAbilityComponent->HasModifierWithTags(TagConfig.ApplicationBlockingModifierTags))
+	if (USimpleAttributeFunctionLibrary::HasModifierWithTags(TargetAbilityComponent, TagConfig.ApplicationBlockingModifierTags))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("USimpleAttributeModifier::ApplyModifier: Target ability component has blocking modifiers."));
 		return false;
@@ -123,7 +124,7 @@ bool USimpleAttributeModifier::ApplyModifier(FInstancedStruct ModifierContext)
 	{
 		if (ModifiedFloatAttributes.Contains(Attribute.AttributeTag))
 		{
-			TargetAbilityComponent->OverrideFloatAttribute(Attribute.AttributeTag, Attribute);
+			USimpleAttributeFunctionLibrary::OverrideFloatAttribute(TargetAbilityComponent, Attribute.AttributeTag, Attribute);
 		}
 	}
 
@@ -186,8 +187,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 				return false;
 			}
 
-			
-			ModificationInputValue = InstigatorAbilityComponent->GetFloatAttributeValue(Modifier.SourceAttributeValueType, Modifier.SourceAttribute, WasInstigatorAttributeFound);
+			ModificationInputValue = USimpleAttributeFunctionLibrary::GetFloatAttributeValue(InstigatorAbilityComponent, Modifier.SourceAttributeValueType, Modifier.SourceAttribute, WasTargetAttributeFound);
 
 			if (!WasInstigatorAttributeFound)
 			{
@@ -203,8 +203,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 				return false;
 			}
 
-			
-			ModificationInputValue = TargetAbilityComponent->GetFloatAttributeValue(Modifier.SourceAttributeValueType, Modifier.SourceAttribute, WasTargetAttributeFound);
+			ModificationInputValue = USimpleAttributeFunctionLibrary::GetFloatAttributeValue(TargetAbilityComponent, Modifier.SourceAttributeValueType, Modifier.SourceAttribute, WasTargetAttributeFound);
 
 			if (!WasTargetAttributeFound)
 			{
@@ -234,13 +233,13 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			switch (Modifier.ModificationOperation)
 			{
 				case EFloatAttributeModificationOperation::Add:
-					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue + ModificationInputValue, CurrentOverflow);
+					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue + ModificationInputValue, CurrentOverflow);
 					break;
 				case EFloatAttributeModificationOperation::Multiply:
-					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue * ModificationInputValue, CurrentOverflow);
+					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue * ModificationInputValue, CurrentOverflow);
 					break;
 				case EFloatAttributeModificationOperation::Override:
-					AttributeToModify->BaseValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, ModificationInputValue, CurrentOverflow);
+					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, ModificationInputValue, CurrentOverflow);
 					break;
 				default:
 					break;
@@ -251,13 +250,13 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			switch (Modifier.ModificationOperation)
 			{
 				case EFloatAttributeModificationOperation::Add:
-					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue + ModificationInputValue, CurrentOverflow);
+					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->CurrentValue + ModificationInputValue, CurrentOverflow);
 						break;
 				case EFloatAttributeModificationOperation::Multiply:
-					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue * ModificationInputValue, CurrentOverflow);
+					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->CurrentValue * ModificationInputValue, CurrentOverflow);
 						break;
 				case EFloatAttributeModificationOperation::Override:
-					AttributeToModify->CurrentValue = USimpleAbilityComponent::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, ModificationInputValue, CurrentOverflow);
+					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, ModificationInputValue, CurrentOverflow);
 						break;
 				default:
 					break;

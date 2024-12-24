@@ -151,13 +151,13 @@ struct FAttributeModifierDurationSettings
 	bool HasInfiniteDuration = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "!HasInfiniteDuration"))
-	float Duration;
+	float Duration = 1;
 
 	/**
 	 * How often the modifier ticks. If 0 the modifier will only tick once when applied.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float TickInterval;
+	float TickInterval = 1;
 	
 	/**
 	 * If true, the modifier will undo any float attribute modifications it made when it is removed.
