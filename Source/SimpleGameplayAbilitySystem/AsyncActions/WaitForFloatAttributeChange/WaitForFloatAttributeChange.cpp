@@ -5,16 +5,17 @@
 
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
+#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
 UWaitForFloatAttributeChange* UWaitForFloatAttributeChange::WaitForFloatAttributeChange(UObject* WorldContextObject,
-	USimpleAbilityComponent* AttributeOwner, FGameplayTag AttributeTag,
-	bool OnlyTriggerOnce,
-	bool ListenForBaseValueChange,
-	bool ListenForCurrentValueChange,
-	bool ListenForMaxBaseValueChange,
-	bool ListenForMinBaseValueChange,
-	bool ListenForMaxCurrentValueChange,
-	bool ListenForMinCurrentValueChange)
+                                                                                        USimpleGameplayAbilityComponent* AttributeOwner, FGameplayTag AttributeTag,
+                                                                                        bool OnlyTriggerOnce,
+                                                                                        bool ListenForBaseValueChange,
+                                                                                        bool ListenForCurrentValueChange,
+                                                                                        bool ListenForMaxBaseValueChange,
+                                                                                        bool ListenForMinBaseValueChange,
+                                                                                        bool ListenForMaxCurrentValueChange,
+                                                                                        bool ListenForMinCurrentValueChange)
 {
 	UWaitForFloatAttributeChange* Task = NewObject<UWaitForFloatAttributeChange>();
 

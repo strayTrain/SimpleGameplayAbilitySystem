@@ -3,11 +3,11 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
-#include "SimpleGameplayAbilitySystem/SimpleAbilityComponent/SimpleAbilityComponent.h"
-#include "SimpleGameplayAbilitySystem/SimpleAbilityComponent/SimpleAbilityComponentTypes.h"
+#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventTypes.h"
 #include "WaitForFloatAttributeChange.generated.h"
 
+class USimpleGameplayAbilityComponent;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
 	FSimpleAttributeChangedDelegate,
 	EAttributeValueType, ChangedValueType,
@@ -23,7 +23,7 @@ public:
 	UFUNCTION(BlueprintCallable, meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true, AdvancedDisplay=4))
 	static UWaitForFloatAttributeChange* WaitForFloatAttributeChange(
 		UObject* WorldContextObject,
-		USimpleAbilityComponent* AttributeOwner,
+		USimpleGameplayAbilityComponent* AttributeOwner,
 		FGameplayTag AttributeTag,
 		bool OnlyTriggerOnce = false,
 		bool ListenForBaseValueChange = true,
@@ -46,7 +46,7 @@ protected:
 	void OnEventSubscriptionRemoved(FGuid SubscriptionID);
 
 	TWeakObjectPtr<UWorld> WorldContext;
-	TWeakObjectPtr<USimpleAbilityComponent> AttributeOwner;
+	TWeakObjectPtr<USimpleGameplayAbilityComponent> AttributeOwner;
 	
 	bool ShouldOnlyTriggerOnce;
 	bool ShouldListenForBaseValueChange = true;

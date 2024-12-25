@@ -10,19 +10,11 @@
 UENUM(BlueprintType)
 enum class ESimpleEventReplicationPolicy : uint8
 {
-	// The same as using the SimpleEventSubsystem directly. i.e. no replication
 	NoReplication,
-	// The event is sent on the client first and then sent on the server. If called from the server nothing happens.
-	ClientToServer,
-	// The event is sent on the server first and then sent to the connected client. If called from the client nothing happens.
-	ServerToClient,
-	// The event is sent on the server first and then to the client. If called from the client a server RPC is sent which then calls the event on the client.
-	ServerToClientPredicted,
-	// The event is sent on the server first and then to all connected clients. If called from the client nothing happens.
-	ServerToAll,
-	/* The event is sent on the client first and then to the server and then to all connected clients.
-	   Behaves the same as ServerToAll if called from the server */
-	ServerToAllPredicted,
+	OwningClientOnly,
+	ServerOnly,
+	ServerAndOwningClient,
+	AllConnectedClients
 };
 
 UENUM(BlueprintType)

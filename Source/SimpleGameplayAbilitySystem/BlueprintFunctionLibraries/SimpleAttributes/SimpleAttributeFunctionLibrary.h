@@ -17,7 +17,7 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeFunctionLibrary : public U
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable, BlueprintPure)
+	/*UFUNCTION(BlueprintCallable, BlueprintPure)
 	static bool HasFloatAttribute(const USimpleAbilityComponent* AbilityComponent, const FGameplayTag AttributeTag);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -60,5 +60,5 @@ public:
 	static void CompareFloatAttributesAndSendEvents(const USimpleAbilityComponent* AbilityComponent, const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute);
 
 	UFUNCTION()
-	static void SendFloatAttributeChangedEvent(const USimpleAbilityComponent* AbilityComponent, FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue);
+	static void SendFloatAttributeChangedEvent(const USimpleAbilityComponent* AbilityComponent, FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue);*/
 };

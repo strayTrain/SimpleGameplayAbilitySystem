@@ -1,5 +1,5 @@
 ﻿#include "SimpleAttributeFunctionLibrary.h"
-
+/*
 #include "GameplayTagContainer.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbilityComponent/SimpleAbilityComponent.h"
@@ -287,3 +287,4 @@ void USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(const USimp
 		UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::SendFloatAttributeChangedEvent: No event subsystem found."));
 	}
 }
+*/

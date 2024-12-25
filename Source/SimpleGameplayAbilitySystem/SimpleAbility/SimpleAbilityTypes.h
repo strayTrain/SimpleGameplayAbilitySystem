@@ -22,8 +22,8 @@ DECLARE_DYNAMIC_DELEGATE_FourParams(
 /**
  * The different ways an ability can be activated.
  */
-UENUM()
-enum EAbilityActivationPolicy
+UENUM(BlueprintType)
+enum class EAbilityActivationPolicy :uint8
 {
 	/* The ability is activated only on the local client. Use this for single player games or non gameplay critical/cosmetic abilities in multiplayer games. */
 	LocalOnly,
@@ -39,8 +39,8 @@ enum EAbilityActivationPolicy
 	ServerOnly
 };
 
-UENUM()
-enum EAbilityInstancingPolicy
+UENUM(BlueprintType)
+enum class EAbilityInstancingPolicy : uint8
 {
 	/* Only one instance of this ability can be active at a time.
 	If we activate it again, the previous instance will be cancelled */
@@ -53,6 +53,14 @@ enum EAbilityInstancingPolicy
 	/* Multiple instances of this ability can be active at the same time.
 	Activating the ability again will create a new instance and they both run in parallel */
 	MultipleInstances
+};
+
+UENUM(BlueprintType)
+enum class EAbilityStatus :uint8
+{
+	Running,
+	Ended,
+	WaitingForServerResolve
 };
 
 /* Structs */
@@ -131,10 +139,10 @@ struct FSimpleGameplayAbilityConfig
 	FGameplayTag AbilityName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TEnumAsByte<EAbilityActivationPolicy> ActivationPolicy = EAbilityActivationPolicy::LocalPredicted;
+	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalPredicted;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TEnumAsByte<EAbilityInstancingPolicy> InstancingPolicy = EAbilityInstancingPolicy::SingleInstanceCancellable;
+	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstanceCancellable;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FAbilityTagConfig TagConfig;
@@ -159,27 +167,21 @@ struct FSimpleGameplayAbilityConfig
 };
 
 USTRUCT(BlueprintType)
-struct FAbilityState
+struct FSimpleAbilityState
 {
 	GENERATED_BODY()
-
+	
 	UPROPERTY(BlueprintReadWrite)
 	FGameplayTag StateTag;
-	
+
 	UPROPERTY(BlueprintReadWrite)
-	float TimeStamp;
-	
+	double TimeStamp;
+
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct StateData;
-
-	UPROPERTY(BlueprintReadWrite)
-	FResolveStateMispredictionDelegate OnResolveState;
-
-	UPROPERTY(BlueprintReadWrite)
-	TSubclassOf<UAbilityStateResolver> CustomStateResolverClass;
 	
 	UPROPERTY(BlueprintReadWrite)
-	bool IsStateResolved = false;
+	bool IsClientStateResolved = false;
 };
 
 USTRUCT(BlueprintType)
@@ -195,4 +197,19 @@ struct FAbilityActivationStateChangedData
 
 	UPROPERTY()
 	double TimeStamp;
+};
+
+USTRUCT(BlueprintType)
+struct FActiveAbility
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGuid AbilityInstanceID;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TArray<FSimpleAbilityState> AbilityStateHistory;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	EAbilityStatus AbilityStatus = EAbilityStatus::Running;
 };

@@ -4,7 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "AbilitySet.generated.h"
 
-class USimpleAbility;
+class USimpleGameplayAbility;
 UCLASS()
 class SIMPLEGAMEPLAYABILITYSYSTEM_API UAbilitySet : public UDataAsset
 {
@@ -12,5 +12,5 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UAbilitySet : public UDataAsset
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TArray<TSubclassOf<USimpleAbility>> AbilitiesToGrant;
+	TArray<TSubclassOf<USimpleGameplayAbility>> AbilitiesToGrant;
 };
