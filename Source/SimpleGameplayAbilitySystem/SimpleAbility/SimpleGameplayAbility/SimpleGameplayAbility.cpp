@@ -7,14 +7,14 @@ bool USimpleGameplayAbility::CanActivate_Implementation(FInstancedStruct Ability
 	return true;
 }
 
-bool USimpleGameplayAbility::Activate(FInstancedStruct AbilityContext)
+bool USimpleGameplayAbility::Activate(FInstancedStruct ActivationContext)
 {
-	if (CanActivate(AbilityContext))
+	if (CanActivate(ActivationContext))
 	{
 		bIsAbilityActive = true;
 		ActivationTime = OwningAbilityComponent->GetServerTime();
-		OwningAbilityComponent->OnAbilityActivated(this);
-		OnActivate(AbilityContext);
+		CurrentActivationContext = ActivationContext;
+		OnActivate(ActivationContext);
 		
 		return true;
 	}

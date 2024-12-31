@@ -7,7 +7,6 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
 
-
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
@@ -51,6 +50,9 @@ public:
 	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2))
 	bool ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy);
 
+	UFUNCTION(Server, Reliable)
+	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
+	
 	/* Replicated Event Functions */
 	
 	/**
@@ -68,32 +70,20 @@ public:
 	bool HasAuthority() const { return GetOwner()->HasAuthority(); }
 
 	UFUNCTION()
-	void PushAbilityState(FGuid AbilityInstanceID, FSimpleAbilityState State);
-
-	// Called by instanced abilities if they successfully activate
-	void OnAbilityActivated(const USimpleGameplayAbility* Ability);
-	void OnAbilityEnded(const USimpleGameplayAbility* Ability);
+	void PushAbilityState(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
 	
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_AuthorityActiveAbilities)
-	TArray<FActiveAbility> AuthorityActiveAbilities;
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_AuthorityAbilityStates)
+	TArray<FAbilityState> AuthorityAbilityStates;
 	UPROPERTY(BlueprintReadOnly)
-	TArray<FActiveAbility> LocalActiveAbilities;
+	TArray<FAbilityState> LocalAbilityStates;
 	
 	UFUNCTION()
-	void OnRep_AuthorityActiveAbilities();
+	void OnRep_AuthorityAbilityStates();
 
 protected:
-	bool ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
-
-	UFUNCTION(Server, Reliable, BlueprintInternalUseOnly)
-	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
-	
-	UFUNCTION(NetMulticast, Reliable, BlueprintInternalUseOnly)
-	void MulticastActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
-
-	UFUNCTION(NetMulticast, Unreliable, BlueprintInternalUseOnly)
-	void MulticastActivateAbilityUnreliable(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
-	
+	bool ActivateAbilityInternal(TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
+	void AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID, bool DidActivateSuccessfully);
+	USimpleGameplayAbility* GetAbilityInstance(FGuid AbilityInstanceID);
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:

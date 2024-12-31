@@ -4,7 +4,7 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "SimpleGameplayAbility.generated.h"
 
-UCLASS()
+UCLASS(Blueprintable)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbilityBase
 {
 	GENERATED_BODY()
@@ -20,7 +20,7 @@ public:
 	bool CanActivate(FInstancedStruct AbilityContext);
 
 	UFUNCTION(BlueprintCallable)
-	bool Activate(FInstancedStruct AbilityContext);
+	bool Activate(FInstancedStruct ActivationContext);
 	
 	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = 1))
 	void EndAbility(FGameplayTag EndStatus, FInstancedStruct EndingContext);
@@ -28,7 +28,7 @@ public:
 	/* Override these functions in your ability blueprint */
 	
 	UFUNCTION(BlueprintImplementableEvent)
-	void OnActivate(FInstancedStruct AbilityContext);
+	void OnActivate(FInstancedStruct ActivationContext);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnEnd(FGameplayTag EndStatus, FInstancedStruct EndingContext);
@@ -40,10 +40,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsAbilityActive() const { return bIsAbilityActive; }
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "SimpleGAS|Ability")
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	double GetActivationTime() const { return ActivationTime; }
 
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FInstancedStruct GetActivationContext() const { return CurrentActivationContext; }
+
 protected:
+	FInstancedStruct CurrentActivationContext;
 	virtual UWorld* GetWorld() const override;
 	
 private:

@@ -8,7 +8,7 @@ void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOw
 	AbilityInstanceID = InAbilityInstanceID;
 }
 
-void USimpleAbilityBase::PushState(FSimpleAbilityState State)
+void USimpleAbilityBase::PushState(FSimpleAbilitySnapshot State)
 {
 	if (!OwningAbilityComponent)
 	{

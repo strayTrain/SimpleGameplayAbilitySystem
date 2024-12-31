@@ -7,6 +7,7 @@
 
 /* Delegates */
 
+class USimpleAbilityBase;
 class USimpleAbilityComponent;
 class USimpleAttributeModifier;
 class UAbilityStateResolver;
@@ -33,8 +34,6 @@ enum class EAbilityActivationPolicy :uint8
 	/* The ability is activated on the server first and then activated on all connected clients through a reliable multicast RPC.
 	If called from the client this will send a reliable RPC to the server which then reliably multicasts activation to all connected clients. */
 	ServerInitiated,
-	/* Same as ServerInitiated except can only be called from the server and the multicast is unreliable. Use this for non gameplay critical abilities. */
-	ServerInitiatedNonReliable,
 	/* The ability is only activated on the server. If called from the client the ability will fail to activate. */
 	ServerOnly
 };
@@ -58,9 +57,14 @@ enum class EAbilityInstancingPolicy : uint8
 UENUM(BlueprintType)
 enum class EAbilityStatus :uint8
 {
-	Running,
-	Ended,
-	WaitingForServerResolve
+	// The ability passed all activation requirements and is running
+	ActivationSuccess,
+	// The ability failed to activate because of missing requirements (tags, etc.)
+	EndedActivationFailed,
+	// The ability ran to completion and ended successfully
+	EndedSuccessfully,
+	// The ability was cancelled by another ability
+	EndedCancelled,
 };
 
 /* Structs */
@@ -167,7 +171,7 @@ struct FSimpleGameplayAbilityConfig
 };
 
 USTRUCT(BlueprintType)
-struct FSimpleAbilityState
+struct FSimpleAbilitySnapshot
 {
 	GENERATED_BODY()
 	
@@ -185,31 +189,25 @@ struct FSimpleAbilityState
 };
 
 USTRUCT(BlueprintType)
-struct FAbilityActivationStateChangedData
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	FGameplayTag AbilityName;
-
-	UPROPERTY()
-	FGuid AbilityInstanceID;
-
-	UPROPERTY()
-	double TimeStamp;
-};
-
-USTRUCT(BlueprintType)
-struct FActiveAbility
+struct FAbilityState
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGuid AbilityInstanceID;
+	FGuid AbilityID;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<FSimpleAbilityState> AbilityStateHistory;
+	TSubclassOf<USimpleAbilityBase> AbilityClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	EAbilityStatus AbilityStatus = EAbilityStatus::Running;
+	double ActivationTimeStamp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FInstancedStruct ActivationContext;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	EAbilityStatus AbilityStatus;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TArray<FSimpleAbilitySnapshot> SnapshotHistory;
 };
