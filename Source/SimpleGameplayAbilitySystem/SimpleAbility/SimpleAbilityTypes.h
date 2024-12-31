@@ -57,61 +57,19 @@ enum class EAbilityInstancingPolicy : uint8
 UENUM(BlueprintType)
 enum class EAbilityStatus :uint8
 {
-	// The ability passed all activation requirements and is running
+	/* The ability passed all activation requirements and is running */
 	ActivationSuccess,
-	// The ability failed to activate because of missing requirements (tags, etc.)
+	/* The ability failed to activate because of missing requirements (tags, etc.) */
 	EndedActivationFailed,
-	// The ability ran to completion and ended successfully
+	/* The ability ran to completion and ended successfully */
 	EndedSuccessfully,
-	// The ability was cancelled by another ability
+	/* The ability was cancelled for some reason */
 	EndedCancelled,
+	/* The ability was ended with a custom status */
+	EndedCustomStatus,
 };
 
 /* Structs */
-
-USTRUCT(BlueprintType)
-struct FAbilityTagConfig
-{
-	GENERATED_BODY()
-
-	/* Tags that can be used to classify this ability. e.g. "Melee", "Ranged", "AOE", etc. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer AbilityTags;
-	
-	/** These tags must be present for this ability to activate. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer ActivationRequiredTags;
-
-	/**
-	 * These tags must NOT be present for this ability to activate.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer ActivationBlockingTags;
-
-	/**
-	 * Cancel abilities with these AbilityNames when this ability activates.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer CancelAbilities;
-	
-	/**
-	 * Cancel abilities with these AbilityTags in their tag config when this ability activates.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer CancelAbilitiesWithAbilityTags;
-	
-	/**
-	 * These tags are applied when this ability is activated and removed when it ends.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer TemporaryAppliedTags;
-
-	/**
-	 * These tags are applied when this ability is activated and not automatically removed when it ends.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer PermanentAppliedTags;
-};
 
 USTRUCT(BlueprintType)
 struct FAbilityEventActivationConfig
@@ -132,42 +90,6 @@ struct FAbilityEventActivationConfig
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "CanActivateFromEvent && RequireContext"))
 	UScriptStruct* RequiredContextType;
-};
-
-USTRUCT(BlueprintType)
-struct FSimpleGameplayAbilityConfig
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag AbilityName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalPredicted;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstanceCancellable;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FAbilityTagConfig TagConfig;
-
-	/**
-	 * If this ability can be activated by an event, configure the triggering event tags and domain tags here.
-	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FAbilityEventActivationConfig AutoActivationEventConfig;
-
-	/* If set to false the OnTick function of the gameplay ability won't be called for better performance */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool CanAbilityTick = false;
-
-	/**
-	Every time we change state in an ability we add it to a history list.
-	This is the maximum number of states we keep in the history, the oldest history is discarded first
-	The reason we limit history size is to manage bandwidth usage when replicating.
-	*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 MaxAbilityStateHistorySize = 10;
 };
 
 USTRUCT(BlueprintType)
@@ -193,11 +115,14 @@ struct FAbilityState
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid AbilityID;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TSubclassOf<USimpleAbilityBase> AbilityClass;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FGameplayTagContainer AbilityTags;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	double ActivationTimeStamp;

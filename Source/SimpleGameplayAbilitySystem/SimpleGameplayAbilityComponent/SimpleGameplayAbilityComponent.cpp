@@ -13,16 +13,6 @@ USimpleGameplayAbilityComponent::USimpleGameplayAbilityComponent()
 	AvatarActor = nullptr;
 }
 
-void USimpleGameplayAbilityComponent::AddGameplayTags(FGameplayTagContainer Tags)
-{
-	GameplayTags.AppendTags(Tags);
-}
-
-void USimpleGameplayAbilityComponent::RemoveGameplayTags(FGameplayTagContainer Tags)
-{
-	GameplayTags.RemoveTags(Tags);
-}
-
 bool USimpleGameplayAbilityComponent::ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy)
 {
 	const FGuid NewAbilityInstanceID = FGuid::NewGuid();
@@ -87,28 +77,35 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(TSubc
 	AddNewAbilityState(AbilityClass, AbilityContext, AbilityInstanceID, WasAbilityActivated);
 }
 
-void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy)
+bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, FInstancedStruct CancellationContext)
 {
-}
-
-double USimpleGameplayAbilityComponent::GetServerTime_Implementation() const
-{
-	if (!GetWorld())
+	if (USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AbilityInstanceID))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("GetServerTime called but GetWorld is not valid!"));
-		return 0.0;
-	}
-
-	if (!GetWorld()->GetGameState())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("GetServerTime called but GetGameState is not valid!"));
-		return 0.0;
+		AbilityInstance->EndCancel(CancellationContext);
+		return true;
 	}
 	
-	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+	UE_LOG(LogTemp, Warning, TEXT("Ability with ID %s not found in InstancedAbilities array"), *AbilityInstanceID.ToString());
+	return false;
 }
 
-void USimpleGameplayAbilityComponent::PushAbilityState(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State)
+TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithTags(const FGameplayTagContainer Tags, FInstancedStruct CancellationContext)
+{
+	TArray<FGuid> CancelledAbilities;
+	
+	for (USimpleGameplayAbility* AbilityInstance : InstancedAbilities)
+	{
+		if (AbilityInstance->AbilityTags.HasAnyExact(Tags))
+		{
+			AbilityInstance->EndCancel(CancellationContext);
+			CancelledAbilities.Add(AbilityInstance->AbilityInstanceID);
+		}
+	}
+	
+	return CancelledAbilities;
+}
+
+void USimpleGameplayAbilityComponent::AddAbilityStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State)
 {
 	if (HasAuthority())
 	{
@@ -136,6 +133,20 @@ void USimpleGameplayAbilityComponent::PushAbilityState(FGuid AbilityInstanceID, 
 	UE_LOG(LogTemp, Warning, TEXT("Ability with ID %s not found in InstancedAbilities array"), *AbilityInstanceID.ToString());
 }
 
+void USimpleGameplayAbilityComponent::AddGameplayTags(FGameplayTagContainer Tags)
+{
+	GameplayTags.AppendTags(Tags);
+}
+
+void USimpleGameplayAbilityComponent::RemoveGameplayTags(FGameplayTagContainer Tags)
+{
+	GameplayTags.RemoveTags(Tags);
+}
+
+void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy)
+{
+}
+
 // Utility Functions
 
 bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, const FGuid AbilityInstanceID)
@@ -156,11 +167,11 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(TSubclassOf<USimpl
 			{
 				if (InstancedAbility->IsAbilityActive())
 				{
-					InstancedAbility->EndAbility(FDefaultTags::AbilityCancelled, FInstancedStruct());
+					InstancedAbility->EndCancel(FInstancedStruct());
 				}
 				
 				InstancedAbility->InitializeAbility(this, AbilityInstanceID);
-				return InstancedAbility->Activate(AbilityContext);
+				return InstancedAbility->ActivateAbility(AbilityContext);
 			}
 		}
 	}
@@ -178,7 +189,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(TSubclassOf<USimpl
 				}
 				
 				InstancedAbility->InitializeAbility(this, AbilityInstanceID);
-				return InstancedAbility->Activate(AbilityContext);
+				return InstancedAbility->ActivateAbility(AbilityContext);
 			}
 		}
 	}
@@ -187,7 +198,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(TSubclassOf<USimpl
 	AbilityToActivate->InitializeAbility(this, AbilityInstanceID);
 	InstancedAbilities.Add(AbilityToActivate);
 	
-	return AbilityToActivate->Activate(AbilityContext);
+	return AbilityToActivate->ActivateAbility(AbilityContext);
 }
 
 void USimpleGameplayAbilityComponent::AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID, bool DidActivateSuccessfully)
@@ -243,6 +254,52 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(FGui
 	return nullptr;
 }
 
+double USimpleGameplayAbilityComponent::GetServerTime_Implementation() const
+{
+	if (!GetWorld())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GetServerTime called but GetWorld is not valid!"));
+		return 0.0;
+	}
+
+	if (!GetWorld()->GetGameState())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GetServerTime called but GetGameState is not valid!"));
+		return 0.0;
+	}
+	
+	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+}
+
+FAbilityState USimpleGameplayAbilityComponent::GetAbilityState(const FGuid AbilityInstanceID, bool& WasFound) const
+{
+	if (HasAuthority())
+	{
+		for (const FAbilityState& AbilityState : AuthorityAbilityStates)
+		{
+			if (AbilityState.AbilityID == AbilityInstanceID)
+			{
+				WasFound = true;
+				return AbilityState;
+			}
+		}
+	}
+	else
+	{
+		for (const FAbilityState& AbilityState : LocalAbilityStates)
+		{
+			if (AbilityState.AbilityID == AbilityInstanceID)
+			{
+				WasFound = true;
+				return AbilityState;
+			}
+		}
+	}
+	
+	WasFound = false;
+	return FAbilityState();
+}
+
 // Attribute Replication
 void USimpleGameplayAbilityComponent::OnRep_FloatAttributes()
 {
@@ -294,7 +351,7 @@ void USimpleGameplayAbilityComponent::OnRep_AuthorityAbilityStates()
 			{
 				if (USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AuthorityAbilityState.AbilityID))
 				{
-					AbilityInstance->EndAbility(FDefaultTags::AbilityCancelled, FInstancedStruct());
+					AbilityInstance->EndCancel(FInstancedStruct());
 				}
 			}
 		}

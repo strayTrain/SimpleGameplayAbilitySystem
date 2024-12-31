@@ -10,23 +10,81 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbi
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ability|Policies")
 	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ability|Policies")
 	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstanceCancellable;
-	
-	UFUNCTION(BlueprintNativeEvent)
-	bool CanActivate(FInstancedStruct AbilityContext);
 
-	UFUNCTION(BlueprintCallable)
-	bool Activate(FInstancedStruct ActivationContext);
+	/* Tags that can be used to classify this ability. e.g. "Melee", "Ranged", "AOE", etc. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	FGameplayTagContainer AbilityTags;
+
+	/* These tags must be present on the owning ability component for this ability to activate. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	FGameplayTagContainer ActivationRequiredTags;
+
+	/* These tags must NOT be present on the owning ability component for this ability to activate. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	FGameplayTagContainer ActivationBlockingTags;
 	
+	/* These tags are applied when this ability is activated and removed when it ends. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	FGameplayTagContainer TemporarilyAppliedTags;
+
+	/* These tags are applied when this ability is activated and not automatically removed when it ends. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	FGameplayTagContainer PermanentlyAppliedTags;
+	
+	/**
+	 * Use this function to add custom rules for when this ability can activate.
+	 * E.g. Check for activation cost like mana, stamina, etc.
+	 * @param ActivationContext The context passed to this ability when it was activated. Can be empty.
+	 * @return True if the ability can activate, false otherwise
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	bool CanActivate(FInstancedStruct ActivationContext);
+
+	UFUNCTION()
+	bool ActivateAbility(FInstancedStruct ActivationContext);
+	
+	/**
+	 * A generic function to end the ability. This function should be called by the ability itself when it's done.
+	 * @param EndStatus A custom tag that describes the reason for ending the ability
+	 * @param EndingContext Optional context to pass to the OnEnd event
+	 */
 	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = 1))
 	void EndAbility(FGameplayTag EndStatus, FInstancedStruct EndingContext);
 
+	/**
+	 * A shortcut function to end the ability with EndStatus "SimpleGAS.Events.Ability.AbilityEndedSuccessfully".
+	 * @param EndingContext Optional context to pass to the OnEnd event
+	 */
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = 1))
+	void EndSuccess(FInstancedStruct EndingContext);
+
+	/**
+	 * A shortcut function to end the ability with EndStatus "SimpleGAS.Events.Ability.AbilityCancelled".
+	 * @param EndingContext Optional context to pass to the OnEnd event
+	 */
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = 1))
+	void EndCancel(FInstancedStruct EndingContext);
+
 	/* Override these functions in your ability blueprint */
+
+	/**
+	 * This function is called if CanActivate returns true and runs before OnActivate is called.
+	 * Use this function to prepare the ability for activation, consume resources, etc.
+	 * @param ActivationContext The context passed to this ability when it was activated. Can be empty.
+	 */
+	UFUNCTION(BlueprintImplementableEvent)
+	void PreActivate(FInstancedStruct ActivationContext);
 	
+	/**
+	 * Called after CanActivate returns true and PreActivate has been called.
+	 * This is where the ability should do its main work.
+	 * @param ActivationContext The context passed to this ability when it was activated. Can be empty.
+	 */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnActivate(FInstancedStruct ActivationContext);
 
@@ -36,21 +94,19 @@ public:
 	/* Utility functions */
 	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
 	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const;
-	
-	UFUNCTION(BlueprintCallable)
-	bool IsAbilityActive() const { return bIsAbilityActive; }
-	
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	double GetActivationTime() const { return ActivationTime; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	FInstancedStruct GetActivationContext() const { return CurrentActivationContext; }
+	bool IsAbilityActive() const;
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	double GetActivationTime() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FInstancedStruct GetActivationContext() const;
 
 protected:
-	FInstancedStruct CurrentActivationContext;
 	virtual UWorld* GetWorld() const override;
 	
 private:
-	bool bIsAbilityActive = false;
-	double ActivationTime = 0.0;
+	bool MeetsTagRequirements() const;
 };
