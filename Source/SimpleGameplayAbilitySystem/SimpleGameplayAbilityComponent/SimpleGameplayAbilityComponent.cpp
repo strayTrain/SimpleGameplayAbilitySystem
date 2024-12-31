@@ -133,6 +133,16 @@ void USimpleGameplayAbilityComponent::AddAbilityStateSnapshot(FGuid AbilityInsta
 	UE_LOG(LogTemp, Warning, TEXT("Ability with ID %s not found in InstancedAbilities array"), *AbilityInstanceID.ToString());
 }
 
+void USimpleGameplayAbilityComponent::GrantAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass)
+{
+	GrantedAbilities.AddUnique(AbilityClass);
+}
+
+void USimpleGameplayAbilityComponent::RevokeAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass)
+{
+	GrantedAbilities.Remove(AbilityClass);
+}
+
 void USimpleGameplayAbilityComponent::AddGameplayTags(FGameplayTagContainer Tags)
 {
 	GameplayTags.AppendTags(Tags);
@@ -154,6 +164,12 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(TSubclassOf<USimpl
 	if (!AbilityClass)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("AbilityClass is null!"));
+		return false;
+	}
+
+	if (AbilityClass.GetDefaultObject()->bRequireGrantToActivate && !GrantedAbilities.Contains(AbilityClass))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s requires bring granted on the owning ability component to activate."), *AbilityClass->GetName());
 		return false;
 	}
 
@@ -196,9 +212,15 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(TSubclassOf<USimpl
 	
 	USimpleGameplayAbility* AbilityToActivate = NewObject<USimpleGameplayAbility>(this, AbilityClass);
 	AbilityToActivate->InitializeAbility(this, AbilityInstanceID);
-	InstancedAbilities.Add(AbilityToActivate);
+
+	const bool WasAbilityActivated = AbilityToActivate->ActivateAbility(AbilityContext);
+
+	if (WasAbilityActivated)
+	{
+		InstancedAbilities.Add(AbilityToActivate);
+	}
 	
-	return AbilityToActivate->ActivateAbility(AbilityContext);
+	return WasAbilityActivated;
 }
 
 void USimpleGameplayAbilityComponent::AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID, bool DidActivateSuccessfully)

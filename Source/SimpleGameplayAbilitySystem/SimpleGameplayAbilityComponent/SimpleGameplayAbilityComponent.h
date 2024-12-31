@@ -29,6 +29,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_StructAttributes, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FStructAttribute> StructAttributes;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
+	TArray<TSubclassOf<USimpleGameplayAbility>> GrantedAbilities;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_AuthorityAbilityStates, Category = "AbilityComponent|State")
 	TArray<FAbilityState> AuthorityAbilityStates;
 	
@@ -41,6 +44,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|AvatarActor")
 	void SetAvatarActor(AActor* NewAvatarActor) { AvatarActor = NewAvatarActor; }
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Abilities")
+	void GrantAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Abilities")
+	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+	
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Tags")
 	void AddGameplayTags(FGameplayTagContainer Tags);
 
@@ -79,6 +88,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Utility")
 	bool HasAuthority() const { return GetOwner()->HasAuthority(); }
 
+	UPROPERTY(VisibleAnywhere)
+	TArray<USimpleGameplayAbility*> InstancedAbilities;
+
 protected:
 	bool ActivateAbilityInternal(TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
 	void AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID, bool DidActivateSuccessfully);
@@ -93,5 +105,5 @@ protected:
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
-	TArray<USimpleGameplayAbility*> InstancedAbilities;
+	
 };

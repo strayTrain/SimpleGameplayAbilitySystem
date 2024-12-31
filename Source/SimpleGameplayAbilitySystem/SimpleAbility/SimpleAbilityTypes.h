@@ -75,20 +75,17 @@ USTRUCT(BlueprintType)
 struct FAbilityEventActivationConfig
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool CanActivateFromEvent = false;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "CanActivateFromEvent"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTag EventTag;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "CanActivateFromEvent"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTag DomainTag;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "CanActivateFromEvent"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool RequireContext = false;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "CanActivateFromEvent && RequireContext"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "RequireContext"))
 	UScriptStruct* RequiredContextType;
 };
 

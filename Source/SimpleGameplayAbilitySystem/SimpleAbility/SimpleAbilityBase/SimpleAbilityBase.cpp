@@ -8,11 +8,11 @@ void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOw
 	AbilityInstanceID = InAbilityInstanceID;
 }
 
-void USimpleAbilityBase::TakeSnapshot(FSimpleAbilitySnapshot State)
+void USimpleAbilityBase::TakeStateSnapshot(FSimpleAbilitySnapshot State)
 {
 	if (!OwningAbilityComponent)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Ability %s has no owning ability component"), *AbilityInstanceID.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s has no owning ability component"), *GetName());
 		return;
 	}
 

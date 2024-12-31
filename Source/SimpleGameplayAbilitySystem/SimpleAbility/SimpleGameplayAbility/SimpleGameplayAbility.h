@@ -10,23 +10,27 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbi
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ability|Policies")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
 	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ability|Policies")
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
 	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstanceCancellable;
 
-	/* Tags that can be used to classify this ability. e.g. "Melee", "Ranged", "AOE", etc. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
-	FGameplayTagContainer AbilityTags;
-
 	/* These tags must be present on the owning ability component for this ability to activate. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Activation")
 	FGameplayTagContainer ActivationRequiredTags;
 
 	/* These tags must NOT be present on the owning ability component for this ability to activate. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Activation")
 	FGameplayTagContainer ActivationBlockingTags;
+
+	/* If true, the owning ability component must have this ability granted to it for it to activate. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
+	bool bRequireGrantToActivate = true;
+	
+	/* Tags that can be used to classify this ability. e.g. "Melee", "Ranged", "AOE", etc. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	FGameplayTagContainer AbilityTags;
 	
 	/* These tags are applied when this ability is activated and removed when it ends. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
@@ -35,6 +39,13 @@ public:
 	/* These tags are applied when this ability is activated and not automatically removed when it ends. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
 	FGameplayTagContainer PermanentlyAppliedTags;
+
+	/**
+	 * A list of events that can trigger this ability to activate.
+	 * The ability must be granted to the owning ability component for it to activate.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation Events")
+	TArray<FAbilityEventActivationConfig> ActivationEvents;
 	
 	/**
 	 * Use this function to add custom rules for when this ability can activate.

@@ -60,7 +60,7 @@ bool USimpleGameplayAbility::IsAbilityActive() const
 		return AbilityState.AbilityStatus == EAbilityStatus::ActivationSuccess;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Ability with ID %s not found in AbilityState array"), *AbilityInstanceID.ToString());
+	//UE_LOG(LogTemp, Warning, TEXT("Ability with ID %s not found in AbilityState array"), *AbilityInstanceID.ToString());
 	return false;
 }
 

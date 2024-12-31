@@ -24,7 +24,7 @@ public:
 	void InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID);
 
 	UFUNCTION(BlueprintCallable)
-	void TakeSnapshot(FSimpleAbilitySnapshot State);
+	void TakeStateSnapshot(FSimpleAbilitySnapshot State);
 
 	// Called when the snapshot history locally is ahead of the server (usually in the case of a local predicted ability)
 	UFUNCTION(BlueprintImplementableEvent)
