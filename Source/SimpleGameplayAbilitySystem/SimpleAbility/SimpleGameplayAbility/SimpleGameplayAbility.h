@@ -24,7 +24,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Activation")
 	FGameplayTagContainer ActivationBlockingTags;
 
-	/* If true, the owning ability component must have this ability granted to it for it to activate. */
+	/* If true, the owning ability component must have this ability granted to it for this ability to activate. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
 	bool bRequireGrantToActivate = true;
 	

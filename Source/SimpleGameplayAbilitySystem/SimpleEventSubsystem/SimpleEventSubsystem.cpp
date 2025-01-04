@@ -1,4 +1,5 @@
 #include "SimpleEventSubSystem.h"
+#include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 
 void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender)
 {
@@ -60,7 +61,7 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 			if (!Payload.IsValid())
 			{
 				UE_LOG(
-					LogTemp, Warning,
+					LogSimpleGAS, Warning,
 					TEXT("No payload passed for Listener %s but the listener has a payload filter"), 
 					*Listener->GetName());
 				continue;	
@@ -69,7 +70,7 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 			if (!Subscription.PayloadFilter.Contains(Payload.GetScriptStruct()))
 			{
 				UE_LOG(
-					LogTemp, Warning,
+					LogSimpleGAS, Warning,
 					TEXT("Payload type %s does not pass the Listener payload filter"),
 					*Payload.GetScriptStruct()->GetName());
 				continue;
@@ -81,7 +82,7 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 			if (!Sender)
 			{
 				UE_LOG(
-					LogTemp, Warning,
+					LogSimpleGAS, Warning,
 					TEXT("No sender passed for Listener %s but the listener has a sender filter"),
 					*Listener->GetName());
 				continue;
@@ -90,7 +91,7 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 			if (!Subscription.SenderFilter.Contains(Sender))
 			{
 				UE_LOG(
-					LogTemp, Warning,
+					LogSimpleGAS, Warning,
 					TEXT("Sender %s does not pass the Listener sender filter"),
 					*Sender->GetName());
 				continue;
@@ -101,7 +102,7 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 
 		if (!WasCalled)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Event %s passed filters but failed to call the delegate for Listener %s"),
+			UE_LOG(LogSimpleGAS, Warning, TEXT("Event %s passed filters but failed to call the delegate for Listener %s"),
 				*EventTag.GetTagName().ToString(), *Listener->GetName());
 		}
 		else if (Subscription.OnlyTriggerOnce)
@@ -125,13 +126,13 @@ FGuid USimpleEventSubsystem::ListenForEvent(UObject* Listener, bool OnlyTriggerO
 
 	if (!Listener)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Null Listener passed to ListenForEvent. Can't listen for event."));
+		UE_LOG(LogSimpleGAS, Warning, TEXT("Null Listener passed to ListenForEvent. Can't listen for event."));
 		return Subscription.EventSubscriptionID;
 	}
 
 	if (!EventReceivedDelegate.IsBound())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No delegate bound to ListenForEvent. Can't listen for event."));
+		UE_LOG(LogSimpleGAS, Warning, TEXT("No delegate bound to ListenForEvent. Can't listen for event."));
 		return Subscription.EventSubscriptionID;
 	}
 

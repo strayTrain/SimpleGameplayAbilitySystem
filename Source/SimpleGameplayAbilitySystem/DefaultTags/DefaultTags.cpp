@@ -1,6 +1,7 @@
 #include "DefaultTags.h"
 
 #include "GameplayTagsManager.h"
+#include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 
 FGameplayTag FDefaultTags::AbilityAdded;
 FGameplayTag FDefaultTags::AbilityRemoved;
@@ -60,7 +61,7 @@ FGameplayTag FDefaultTags::FindTag(FName TagName)
 
 	if (!Tag.IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Gameplay Tag %s was not found when looking for default tags."), *TagName.ToString());
+		UE_LOG(LogSimpleGAS, Warning, TEXT("Gameplay Tag %s was not found when looking for default tags."), *TagName.ToString());
 	}
 	
 	return Tag;

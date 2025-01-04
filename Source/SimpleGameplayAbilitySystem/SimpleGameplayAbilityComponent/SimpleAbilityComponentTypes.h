@@ -10,11 +10,28 @@
 UENUM(BlueprintType)
 enum class ESimpleEventReplicationPolicy : uint8
 {
+	/**
+	 * Behaves the same as sending an event normally using the SimpleEventSubsystem.
+	 */
 	NoReplication,
-	OwningClientOnly,
-	ServerOnly,
+	/**
+	 * This event will be sent to the server and the owning client. Always gets sent on the server first.
+	 */
 	ServerAndOwningClient,
-	AllConnectedClients
+	/**
+	 * This event will be sent to the server and the owning client.
+	 * Clients can send the event locally before the server sends the event.
+	 */
+	ServerAndOwningClientPredicted,
+	/**
+	 * This event will be sent to all connected clients. Always sent on the server first.
+	 */
+	AllConnectedClients,
+	/**
+	 * This event will be sent to all connected clients.
+	 * Clients can send the event locally before the server sends the event.
+	 */
+	AllConnectedClientsPredicted
 };
 
 UENUM(BlueprintType)
@@ -104,6 +121,16 @@ struct FFloatAttribute
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleGAS|Ability")
 	FValueLimits ValueLimits;
+
+	bool operator==(const FFloatAttribute& Other) const
+	{
+		return AttributeTag == Other.AttributeTag;
+	}
+
+	friend uint32 GetTypeHash(const FFloatAttribute& FloatAttribute)
+	{
+		return GetTypeHash(FloatAttribute.AttributeTag);
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -122,6 +149,16 @@ struct FStructAttribute
 
 	UPROPERTY(BlueprintReadWrite, Category = "SimpleGAS|Ability")
 	FInstancedStruct AttributeValue;
+
+	bool operator==(const FStructAttribute& Other) const
+	{
+		return AttributeTag == Other.AttributeTag;
+	}
+
+	friend uint32 GetTypeHash(const FStructAttribute& StructAttribute)
+	{
+		return GetTypeHash(StructAttribute.AttributeTag);
+	}
 };
 
 USTRUCT(BlueprintType)

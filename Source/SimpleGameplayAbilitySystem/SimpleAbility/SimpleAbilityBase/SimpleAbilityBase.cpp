@@ -1,5 +1,6 @@
 ﻿#include "SimpleAbilityBase.h"
 
+#include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
 void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID)
@@ -12,7 +13,7 @@ void USimpleAbilityBase::TakeStateSnapshot(FSimpleAbilitySnapshot State)
 {
 	if (!OwningAbilityComponent)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Ability %s has no owning ability component"), *GetName());
+		UE_LOG(LogSimpleGAS, Warning, TEXT("Ability %s has no owning ability component"), *GetName());
 		return;
 	}
 
