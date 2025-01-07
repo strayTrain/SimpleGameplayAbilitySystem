@@ -14,6 +14,13 @@ FGameplayTag FDefaultTags::AbilityStateSnapshotTaken;
 FGameplayTag FDefaultTags::AttributeAdded;
 FGameplayTag FDefaultTags::AttributeRemoved;
 
+FGameplayTag FDefaultTags::AttributeModifierInitiallyApplied;
+FGameplayTag FDefaultTags::AttributeModifierTicked;
+FGameplayTag FDefaultTags::AttributeModifierEnded;
+
+FGameplayTag FDefaultTags::GameplayTagAdded;
+FGameplayTag FDefaultTags::GameplayTagRemoved;
+
 FGameplayTag FDefaultTags::FloatAttributeBaseValueChanged;
 FGameplayTag FDefaultTags::FloatAttributeMinBaseValueChanged;
 FGameplayTag FDefaultTags::FloatAttributeMaxBaseValueChanged;
@@ -28,7 +35,7 @@ FGameplayTag FDefaultTags::AttributeDomain;
 
 void FDefaultTags::InitializeDefaultTags()
 {
-	// Events
+	// Ability Events
 	AbilityAdded = FindTag("SimpleGAS.Events.Ability.AbilityAdded");
 	AbilityRemoved = FindTag("SimpleGAS.Events.Ability.AbilityRemoved");
 	AbilityActivated = FindTag("SimpleGAS.Events.Ability.AbilityActivated");
@@ -37,6 +44,10 @@ void FDefaultTags::InitializeDefaultTags()
 	AbilityCancelled = FindTag("SimpleGAS.Events.Ability.AbilityCancelled");
 	AbilityStateSnapshotTaken = FindTag("SimpleGAS.Events.Ability.AbilityStateSnapshotTaken");
 
+	// Ability Component Events
+	GameplayTagAdded = FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagAdded");
+	GameplayTagRemoved = FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagRemoved");
+	
 	// Attributes
 	AttributeAdded = FindTag("SimpleGAS.Events.Attributes.AttributeAdded");
 	AttributeRemoved = FindTag("SimpleGAS.Events.Attributes.AttributeRemoved");
@@ -48,6 +59,11 @@ void FDefaultTags::InitializeDefaultTags()
 	FloatAttributeMinCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MinCurrentValue");
 	FloatAttributeMaxCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MaxCurrentValue");
 
+	// Attribute Modifiers
+	AttributeModifierInitiallyApplied = FindTag("SimpleGAS.Events.AttributeModifer.ModifierInitiallyApplied");
+	AttributeModifierTicked = FindTag("SimpleGAS.Events.AttributeModifer.ModifierTicked");
+	AttributeModifierEnded = FindTag("SimpleGAS.Events.AttributeModifer.ModifierEnded");
+	
 	// Domains
 	LocalDomain = FindTag("SimpleGAS.Domains.Ability.Local");
 	AuthorityDomain = FindTag("SimpleGAS.Domains.Ability.Authority");

@@ -100,7 +100,7 @@ public:
 	void OnActivate(FInstancedStruct ActivationContext);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void OnEnd(FGameplayTag EndStatus, FInstancedStruct EndingContext);
+	void OnEnd(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
 
 	/* Utility functions */
 	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))

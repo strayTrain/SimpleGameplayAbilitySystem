@@ -21,6 +21,13 @@ class FDefaultTags
 		static FGameplayTag AttributeAdded;
 		static FGameplayTag AttributeRemoved;
 
+		static FGameplayTag AttributeModifierInitiallyApplied;
+		static FGameplayTag AttributeModifierTicked;
+		static FGameplayTag AttributeModifierEnded;
+
+		static FGameplayTag GameplayTagAdded;
+		static FGameplayTag GameplayTagRemoved;
+
 		static FGameplayTag FloatAttributeBaseValueChanged;
 		static FGameplayTag FloatAttributeMinBaseValueChanged;
 		static FGameplayTag FloatAttributeMaxBaseValueChanged;

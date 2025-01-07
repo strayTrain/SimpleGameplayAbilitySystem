@@ -108,22 +108,27 @@ bool USimpleAttributeFunctionLibrary::SetFloatAttributeValue(USimpleGameplayAbil
 			FloatAttributes[AttributeIndex].BaseValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], EAttributeValueType::BaseValue, NewValue, Overflow);
 			SendFloatAttributeChangedEvent(AbilityComponent, FDefaultTags::FloatAttributeBaseValueChanged, AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[AttributeIndex].BaseValue);
 			return true;
+		
 		case EAttributeValueType::CurrentValue:
 			FloatAttributes[AttributeIndex].CurrentValue = ClampFloatAttributeValue(FloatAttributes[AttributeIndex], EAttributeValueType::CurrentValue, NewValue, Overflow);
 			SendFloatAttributeChangedEvent(AbilityComponent, FDefaultTags::FloatAttributeCurrentValueChanged, AttributeTag, EAttributeValueType::CurrentValue, FloatAttributes[AttributeIndex].CurrentValue);
 			return true;
+		
 		case EAttributeValueType::MaxBaseValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MaxBaseValue = NewValue;
 			SendFloatAttributeChangedEvent(AbilityComponent, FDefaultTags::FloatAttributeMaxBaseValueChanged, AttributeTag, EAttributeValueType::MaxBaseValue, NewValue);
 			return true;
+		
 		case EAttributeValueType::MinBaseValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MinBaseValue = NewValue;
 			SendFloatAttributeChangedEvent(AbilityComponent, FDefaultTags::FloatAttributeMinBaseValueChanged, AttributeTag, EAttributeValueType::MinBaseValue, NewValue);
 			return true;
+		
 		case EAttributeValueType::MaxCurrentValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MaxCurrentValue = NewValue;
 			SendFloatAttributeChangedEvent(AbilityComponent, FDefaultTags::FloatAttributeMaxCurrentValueChanged, AttributeTag, EAttributeValueType::MaxCurrentValue, NewValue);
 			return true;
+		
 		case EAttributeValueType::MinCurrentValue:
 			FloatAttributes[AttributeIndex].ValueLimits.MinCurrentValue = NewValue;
 			SendFloatAttributeChangedEvent(AbilityComponent, FDefaultTags::FloatAttributeMinCurrentValueChanged, AttributeTag, EAttributeValueType::MinCurrentValue, NewValue);
@@ -192,7 +197,7 @@ bool USimpleAttributeFunctionLibrary::SetStructAttributeValue(USimpleGameplayAbi
 	return true;
 }
 
-bool USimpleAttributeFunctionLibrary::HasModifierWithTags(const USimpleGameplayAbilityComponent* AbilityComponent,const FGameplayTagContainer& Tags)
+bool USimpleAttributeFunctionLibrary::HasModifierWithTags(const USimpleGameplayAbilityComponent* AbilityComponent, const FGameplayTagContainer& Tags)
 {
 	return false;
 }

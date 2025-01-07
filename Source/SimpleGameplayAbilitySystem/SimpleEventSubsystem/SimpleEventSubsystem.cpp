@@ -81,19 +81,11 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 		{
 			if (!Sender)
 			{
-				UE_LOG(
-					LogSimpleGAS, Warning,
-					TEXT("No sender passed for Listener %s but the listener has a sender filter"),
-					*Listener->GetName());
 				continue;
 			}
 
 			if (!Subscription.SenderFilter.Contains(Sender))
 			{
-				UE_LOG(
-					LogSimpleGAS, Warning,
-					TEXT("Sender %s does not pass the Listener sender filter"),
-					*Sender->GetName());
 				continue;
 			}
 		}

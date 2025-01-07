@@ -3,11 +3,14 @@
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/AbilitySet.h"
+#include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/AttributeSet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
+#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
 
 class USimpleEventSubsystem;
 
@@ -34,6 +37,18 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 		}
 
 		// Create attributes from the provided attribute sets
+		for (UAttributeSet* AttributeSet : AttributeSets)
+		{
+			for (FFloatAttribute Attribute : AttributeSet->FloatAttributes)
+			{
+				AddFloatAttribute(Attribute);
+			}
+
+			for (FStructAttribute Attribute : AttributeSet->StructAttributes)
+			{
+				AddStructAttribute(Attribute);
+			}
+		}
 	}
 }
 
@@ -273,6 +288,47 @@ void USimpleGameplayAbilityComponent::AddNewAbilityState(const TSubclassOf<USimp
 	}
 }
 
+void USimpleGameplayAbilityComponent::AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass,
+	const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID)
+{
+	FAbilityState NewAttributeState;
+	
+	NewAttributeState.AbilityID = AttributeInstanceID;
+	NewAttributeState.AbilityClass = AttributeClass;
+	NewAttributeState.ActivationTimeStamp = GetServerTime();
+	NewAttributeState.ActivationContext = AttributeContext;
+	NewAttributeState.AbilityStatus = EAbilityStatus::ActivationSuccess;
+	
+	if (HasAuthority())
+	{
+		for (FAbilityState& AbilityState : AuthorityAbilityStates)
+		{
+			if (AbilityState.AbilityID == AttributeInstanceID)
+			{
+				UE_LOG(LogSimpleGAS, Warning, TEXT("Attribute state with ID %s already exists in AuthorityAttributeStates array, overwriting"), *AttributeInstanceID.ToString());
+				AbilityState = NewAttributeState;
+				return;
+			}
+		}
+		
+		AuthorityAttributeStates.Add(NewAttributeState);
+	}
+	else
+	{
+		for (FAbilityState& AbilityState : LocalAbilityStates)
+		{
+			if (AbilityState.AbilityID == AttributeInstanceID)
+			{
+				UE_LOG(LogSimpleGAS, Warning, TEXT("Attribute state with ID %s already exists in LocalAttributeStates array, overwriting"), *AttributeInstanceID.ToString());
+				AbilityState = NewAttributeState;
+				return;
+			}
+		}
+		
+		LocalAttributeStates.Add(NewAttributeState);
+	}
+}
+
 /* Attribute Functions */
 
 void USimpleGameplayAbilityComponent::AddFloatAttribute(FFloatAttribute AttributeToAdd, bool OverrideValuesIfExists)
@@ -327,16 +383,68 @@ void USimpleGameplayAbilityComponent::RemoveStructAttribute(FGameplayTag Attribu
 	StructAttributes.RemoveAll([AttributeTag](const FStructAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
 }
 
+bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* ModifierTarget,
+	TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext)
+{
+	if (!ModifierClass)
+	{
+		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget]: ModifierClass is null!"));
+		return false;
+	}
+	
+	const FGuid ModifierInstanceID = FGuid::NewGuid();
+	USimpleAttributeModifier* Modifier = nullptr;
+
+	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributes)
+	{
+		if (InstancedModifier->GetClass() == ModifierClass)
+		{
+			if (InstancedModifier->ModifierType == EAttributeModifierType::Duration && InstancedModifier->IsModifierActive())
+			{
+				if (InstancedModifier->CanStack)
+				{
+					InstancedModifier->AddModifierStack(1);
+					return true;
+				}
+
+				InstancedModifier->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+			}
+
+			Modifier = InstancedModifier;
+			break;
+		}
+	}
+
+	if (!Modifier)
+	{
+		Modifier = NewObject<USimpleAttributeModifier>(this, ModifierClass);
+		InstancedAttributes.Add(Modifier);
+	}
+	
+	Modifier->InitializeAbility(this, ModifierInstanceID);
+	AddNewAttributeState(ModifierClass, ModifierContext, ModifierInstanceID);
+	
+	return Modifier->ApplyModifier(this, ModifierTarget, ModifierContext);
+}
+
+bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	FInstancedStruct ModifierContext)
+{
+	return ApplyAttributeModifierToTarget(this, ModifierClass, ModifierContext);
+}
+
 /* Tag Functions */
 
 void USimpleGameplayAbilityComponent::AddGameplayTag(FGameplayTag Tag, FInstancedStruct Payload)
 {
 	GameplayTags.AddTag(Tag);
+	SendEvent(FDefaultTags::GameplayTagAdded, Tag, Payload, GetOwner(), ESimpleEventReplicationPolicy::ServerAndOwningClientPredicted);
 }
 
 void USimpleGameplayAbilityComponent::RemoveGameplayTag(FGameplayTag Tag, FInstancedStruct Payload)
 {
 	GameplayTags.RemoveTag(Tag);
+	SendEvent(FDefaultTags::GameplayTagRemoved, Tag, Payload, GetOwner(), ESimpleEventReplicationPolicy::ServerAndOwningClientPredicted);
 }
 
 /* Event Functions */
@@ -385,7 +493,7 @@ void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplay
 }
 
 void USimpleGameplayAbilityComponent::SendEventInternal(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag,
-                                                        const FInstancedStruct& Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
+	const FInstancedStruct& Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
 {
 	USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>();
 	
@@ -414,7 +522,7 @@ void USimpleGameplayAbilityComponent::SendEventInternal(FGuid EventID, FGameplay
 }
 
 void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(FGuid EventID,
-                                                                     FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
+	FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
 {
 	switch (ReplicationPolicy)
 	{
@@ -441,15 +549,14 @@ void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(FGuid Event
 }
 
 void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(FGuid EventID,
-                                                                     FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-                                                                     AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
+	FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
+	AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
 {
 	SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
 }
 
 void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(FGuid EventID,
-                                                                        FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor
-                                                                        * Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
+	FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor*Sender, ESimpleEventReplicationPolicy ReplicationPolicy)
 {
 	SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
 }
@@ -549,11 +656,50 @@ FAbilityState USimpleGameplayAbilityComponent::GetAbilityState(const FGuid Abili
 }
 
 // Attribute Replication
-void USimpleGameplayAbilityComponent::OnRep_FloatAttributes()
+void USimpleGameplayAbilityComponent::OnRep_FloatAttributes(TArray<FFloatAttribute>& OldFloatAttributes)
 {
+	// Check if any new attributes were added
+	FGameplayTagContainer OldAttributeTags;
+	FGameplayTagContainer NewAttributeTags;
+	
+	for (int i = 0; i < OldFloatAttributes.Num(); i++)
+	{
+		OldAttributeTags.AddTag(OldFloatAttributes[i].AttributeTag);
+	}
+	
+	for (int i = 0; i < FloatAttributes.Num(); i++)
+	{
+		if (!OldAttributeTags.HasTagExact(FloatAttributes[i].AttributeTag))
+		{
+			USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeAdded, FloatAttributes[i].AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[i].BaseValue);
+		}
+
+		NewAttributeTags.AddTag(FloatAttributes[i].AttributeTag);
+	}
+
+	// Check if any old attributes were removed and check if any existing attributes were updated
+	for (int i = 0; i < OldFloatAttributes.Num(); i++)
+	{
+		if (!NewAttributeTags.HasTagExact(OldFloatAttributes[i].AttributeTag))
+		{
+			USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeRemoved, OldFloatAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
+		}
+		else
+		{
+			const int32 NewAttributeIndex = USimpleAttributeFunctionLibrary::GetFloatAttributeIndex(this, OldFloatAttributes[i].AttributeTag);
+
+			if (NewAttributeIndex < 0)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("USimpleGameplayAttributes::OnRep_FloatAttributes: Attribute %s not found."), *OldFloatAttributes[i].AttributeTag.ToString());
+				continue;
+			}
+
+			USimpleAttributeFunctionLibrary::CompareFloatAttributesAndSendEvents(this, OldFloatAttributes[i], FloatAttributes[NewAttributeIndex]);
+		}
+	}
 }
 
-void USimpleGameplayAbilityComponent::OnRep_StructAttributes()
+void USimpleGameplayAbilityComponent::OnRep_StructAttributes(TArray<FStructAttribute>& OldStructAttributes)
 {
 }
 
@@ -608,6 +754,10 @@ void USimpleGameplayAbilityComponent::OnRep_AuthorityAbilityStates()
 	}
 }
 
+void USimpleGameplayAbilityComponent::OnRep_AuthorityAttributeStates()
+{
+}
+
 // Variable Replication
 void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -615,8 +765,11 @@ void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FL
 
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AvatarActor);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, GameplayTags);
-	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, GrantedAbilities);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, FloatAttributes);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, StructAttributes);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAttributeStates);
 }
 
 
