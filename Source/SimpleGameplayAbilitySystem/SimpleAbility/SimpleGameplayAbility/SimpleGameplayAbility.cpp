@@ -11,24 +11,26 @@ bool USimpleGameplayAbility::CanActivate_Implementation(FInstancedStruct Activat
 
 bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 {
-	if (MeetsTagRequirements() && CanActivate(ActivationContext))
+	if (!MeetsTagRequirements() && CanActivate(ActivationContext))
 	{
-		for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
-		{
-			OwningAbilityComponent->AddGameplayTag(TempTag, ActivationContext);
-		}
-
-		for (const FGameplayTag& PermTag : PermanentlyAppliedTags)
-		{
-			OwningAbilityComponent->AddGameplayTag(PermTag, ActivationContext);
-		}
-		
-		OnActivate(ActivationContext);
-		
-		return true;
+		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedActivationFailed);
+		return false;	
 	}
 
-	return false;
+	for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
+	{
+		OwningAbilityComponent->AddGameplayTag(TempTag, ActivationContext);
+	}
+
+	for (const FGameplayTag& PermTag : PermanentlyAppliedTags)
+	{
+		OwningAbilityComponent->AddGameplayTag(PermTag, ActivationContext);
+	}
+
+	OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
+	OnActivate(ActivationContext);
+	
+	return true;
 }
 
 void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct EndingContext)
@@ -44,15 +46,15 @@ void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct
 	{
 		if (EndStatus == FDefaultTags::AbilityEndedSuccessfully)
 		{
-			OwningAbilityComponent->UpdateAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedSuccessfully);
+			OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedSuccessfully);
 		}
 		else if (EndStatus == FDefaultTags::AbilityCancelled)
 		{
-			OwningAbilityComponent->UpdateAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCancelled);
+			OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCancelled);
 		}
 		else
 		{
-			OwningAbilityComponent->UpdateAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCustomStatus);
+			OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCustomStatus);
 		}
 	}
 	

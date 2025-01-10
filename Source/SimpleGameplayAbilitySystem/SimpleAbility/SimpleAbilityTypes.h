@@ -3,14 +3,16 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "InstancedStruct.h"
+#include "Net/Serialization/FastArraySerializer.h"
 #include "SimpleAbilityTypes.generated.h"
-
-/* Delegates */
 
 class USimpleAbilityBase;
 class USimpleAbilityComponent;
 class USimpleAttributeModifier;
 class UAbilityStateResolver;
+
+/* Delegates */
+
 DECLARE_DYNAMIC_DELEGATE_FourParams(
 	FResolveStateMispredictionDelegate,
 	FInstancedStruct, AuthorityStateData,
@@ -57,6 +59,8 @@ enum class EAbilityInstancingPolicy : uint8
 UENUM(BlueprintType)
 enum class EAbilityStatus :uint8
 {
+	/* The ability is created but not activated yet */
+	PreActivation,
 	/* The ability passed all activation requirements and is running */
 	ActivationSuccess,
 	/* The ability failed to activate because of missing requirements (tags, etc.) */
@@ -93,6 +97,9 @@ USTRUCT(BlueprintType)
 struct FSimpleAbilitySnapshot
 {
 	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGuid AbilityID;
 	
 	UPROPERTY(BlueprintReadWrite)
 	FGameplayTag StateTag;
@@ -102,9 +109,9 @@ struct FSimpleAbilitySnapshot
 
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct StateData;
-	
-	UPROPERTY(BlueprintReadWrite)
-	bool IsClientStateResolved = false;
+
+	UPROPERTY()
+	bool WasClientSnapshotResolved = false;
 };
 
 USTRUCT(BlueprintType)
@@ -128,8 +135,81 @@ struct FAbilityState
 	FInstancedStruct ActivationContext;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	EAbilityStatus AbilityStatus;
-	
+	EAbilityStatus AbilityStatus = EAbilityStatus::PreActivation;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<FSimpleAbilitySnapshot> SnapshotHistory;
+};
+
+USTRUCT()
+struct FSimpleAbilityStateItem : public FFastArraySerializerItem
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere)
+	FAbilityState AbilityState;
+};
+
+DECLARE_DELEGATE_OneParam(FOnAbilityStateAdded, const FAbilityState&);
+DECLARE_DELEGATE_OneParam(FOnAbilityStateChanged, const FAbilityState&);
+DECLARE_DELEGATE_OneParam(FOnAbilityStateRemoved, const FAbilityState&);
+
+USTRUCT()
+struct FAbilityStateContainer : public FFastArraySerializer
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere)
+	TArray<FSimpleAbilityStateItem> AbilityStates;
+
+	FOnAbilityStateAdded   OnAbilityStateAdded;
+	FOnAbilityStateChanged OnAbilityStateChanged;
+	FOnAbilityStateRemoved OnAbilityStateRemoved;
+	
+	void PostReplicatedAdd(const TArrayView< int32 >& AddedIndices, int32 FinalSize)
+	{
+		if (OnAbilityStateAdded.IsBound())
+		{
+			for (const int32 AddedIndex : AddedIndices)
+			{
+				OnAbilityStateAdded.Execute(AbilityStates[AddedIndex].AbilityState);
+			}
+		}
+	}
+	
+	void PostReplicatedChange(const TArrayView< int32 >& ChangedIndices, int32 FinalSize)
+	{
+		if (OnAbilityStateChanged.IsBound())
+		{
+			for (const int32 ChangedIndex : ChangedIndices)
+			{
+				OnAbilityStateChanged.Execute(AbilityStates[ChangedIndex].AbilityState);
+			}
+		}
+	}
+
+	void PreReplicatedRemove (const TArrayView< int32 >& RemovedIndices, int32 FinalSize)
+	{
+		if (OnAbilityStateRemoved.IsBound())
+		{
+			for (const int32 RemovedIndex : RemovedIndices)
+			{
+				OnAbilityStateRemoved.Execute(AbilityStates[RemovedIndex].AbilityState);
+			}
+		}
+	}
+
+	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
+	{
+		return FFastArraySerializer::FastArrayDeltaSerialize<FSimpleAbilityStateItem, FAbilityStateContainer>(AbilityStates, DeltaParms, *this);
+	}
+};
+
+template<>
+struct TStructOpsTypeTraits<FAbilityStateContainer> : public TStructOpsTypeTraitsBase2<FAbilityStateContainer>
+{
+	enum 
+	{
+		WithNetDeltaSerializer = true,
+	};
 };

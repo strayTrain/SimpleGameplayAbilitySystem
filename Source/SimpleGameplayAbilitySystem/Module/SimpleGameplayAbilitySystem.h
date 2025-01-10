@@ -7,6 +7,23 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSimpleGAS, Log, All);
 
+static void SIMPLE_LOG(UObject* WorldContext, FString Msg)
+{
+	if (!ensure(WorldContext))
+	{
+		return;
+	}
+
+	UWorld* World = WorldContext->GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	FString NetPrefix = World->IsNetMode(NM_Client) ? "[CLIENT]" : "[SERVER]";
+	UE_LOG(LogSimpleGAS, Log, TEXT("%s %s"), *NetPrefix, *Msg);
+}
+
 class FSimpleGameplayAbilitySystemModule : public IModuleInterface
 {
 	public:

@@ -18,6 +18,8 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public U
 
 public:
 	USimpleGameplayAbilityComponent();
+
+	/* Properties */
 	
 	UPROPERTY(Replicated)
 	AActor* AvatarActor;
@@ -40,17 +42,17 @@ public:
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
 	TArray<TSubclassOf<USimpleGameplayAbility>> GrantedAbilities;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_AuthorityAbilityStates, Category = "AbilityComponent|State")
-	TArray<FAbilityState> AuthorityAbilityStates;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilityComponent|State")
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "AbilityComponent|State")
+	FAbilityStateContainer AuthorityAbilityStates;
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
 	TArray<FAbilityState> LocalAbilityStates;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_AuthorityAttributeStates, Category = "AbilityComponent|State")
-	TArray<FAbilityState> AuthorityAttributeStates;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilityComponent|State")
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "AbilityComponent|State")
+	FAbilityStateContainer AuthorityAttributeStates;
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
 	TArray<FAbilityState> LocalAttributeStates;
+
+	/* Avatar Actor Functions */
 	
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AvatarActor")
 	AActor* GetAvatarActor() const { return AvatarActor; }
@@ -58,12 +60,31 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|AvatarActor")
 	void SetAvatarActor(AActor* NewAvatarActor) { AvatarActor = NewAvatarActor; }
 
+	/* Ability Functions */
+	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Abilities")
 	void GrantAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Abilities")
 	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 
+	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
+	bool ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy);
+
+	UFUNCTION(Server, Reliable)
+	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
+
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
+	bool CancelAbility(FGuid AbilityInstanceID, FInstancedStruct CancellationContext);
+
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
+	TArray<FGuid> CancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
+	
+	void AddAbilityStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
+	void ChangeAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus);
+	
+	/* Attribute Functions */
+	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Attributes", meta = (AdvancedDisplay=1))
 	void AddFloatAttribute(FFloatAttribute AttributeToAdd, bool OverrideValuesIfExists = true );
 
@@ -81,6 +102,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	bool ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext);
+
+	/* Gameplay Tag Functions */
 	
 	/**
 	 * Adds a gameplay tag to this component. Upon being added a tag added event is sent to the event system.
@@ -100,26 +123,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Tags", meta = (AdvancedDisplay=1))
 	void RemoveGameplayTag(FGameplayTag Tag, FInstancedStruct Payload);
 	
-	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
-	bool ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy);
-
-	UFUNCTION(Server, Reliable)
-	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
-
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
-	bool CancelAbility(FGuid AbilityInstanceID, FInstancedStruct CancellationContext);
-
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
-	TArray<FGuid> CancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
-	
-	UFUNCTION()
-	void AddAbilityStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
-	
 	/* Replicated Event Functions */
 	
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
 	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy);
-	
+	void SendEventInternal(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, const FInstancedStruct& Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy);
+
 	UFUNCTION(Server, Reliable)
 	void ServerSendEvent(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy);
 
@@ -128,14 +137,12 @@ public:
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastSendEvent(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy);
-
-	void SendEventInternal(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, const FInstancedStruct& Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy);
-
+	
 	/* Utility Functions */
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
-	double GetServerTime() const;
-	virtual double GetServerTime_Implementation() const;
+	double GetServerTime();
+	virtual double GetServerTime_Implementation();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
 	FAbilityState GetAbilityState(FGuid AbilityInstanceID, bool& WasFound) const;
@@ -145,36 +152,31 @@ public:
 
 	/* Called by multiple instance abilities to set themselves up for deletion once the ability is over */
 	void RemoveInstancedAbility(USimpleGameplayAbility* AbilityToRemove);
-	/* Called by abilities to signal if they activated or ended */
-	void UpdateAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus);
 
 protected:
+	UPROPERTY()
+	TArray<USimpleGameplayAbility*> InstancedAbilities;
+	UPROPERTY()
+	TArray<USimpleAttributeModifier*> InstancedAttributes;
+	
+	// Used to keep track of which events have been handled locally to avoid double event sending with multicast
+	TArray<FGuid> HandledEventIDs;
+	
 	virtual void BeginPlay() override;
-	bool ActivateAbilityInternal(TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
-	void AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID, bool DidActivateSuccessfully);
+	bool ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
+	void AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
 	void AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass, const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID);
 	USimpleGameplayAbility* GetAbilityInstance(FGuid AbilityInstanceID);
+
+	// Called on the client after an ability or attribute state has been added, changed or removed
+	void OnStateAdded(const FAbilityState& NewAbilityState);
+	void OnStateChanged(const FAbilityState& ChangedAbilityState);
+	void OnStateRemoved(const FAbilityState& RemovedAbilityState);
 	
-	UFUNCTION()
-	void OnRep_AuthorityAbilityStates();
-	UFUNCTION()
-	void OnRep_AuthorityAttributeStates();
 	UFUNCTION()
 	void OnRep_FloatAttributes(TArray<FFloatAttribute>& OldFloatAttributes);
 	UFUNCTION()
 	void OnRep_StructAttributes(TArray<FStructAttribute>& OldStructAttributes);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
-
-private:
-	// The actual instances of the abilities. Visible for debugging purposes.
-	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
-	TArray<USimpleGameplayAbility*> InstancedAbilities;
-	
-	// The actual instances of the attributes. Visible for debugging purposes.
-	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
-	TArray<USimpleAttributeModifier*> InstancedAttributes;
-	
-	// Used to keep track of which events have been handled locally to void double event sending with multicast
-	TArray<FGuid> HandledEventIDs;
 };
