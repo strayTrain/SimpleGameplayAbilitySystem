@@ -35,6 +35,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && !HasInfiniteDuration"))
 	float Duration = 1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
+	bool TickOnApply = true;
+	
 	/**
 	 * How often the modifier ticks. If 0 the modifier will only tick once when applied.
 	 */
@@ -133,7 +136,7 @@ public:
 	bool ApplyModifier(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, FInstancedStruct ModifierContext);
 
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
-	void ApplySideEffects(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target);
+	void ApplySideEffects(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, EAttributeModifierSideEffectTrigger EffectPhase);
 
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
@@ -173,6 +176,9 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
 	FInstancedStruct GetAttributeModifierSideEffectContext(FGameplayTag MetaTag, bool& WasHandled) const;
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
+	void GetAttributeModifierSideEffectTargets(FGameplayTag TargetsTag, USimpleGameplayAbilityComponent*& OutInstigator, USimpleGameplayAbilityComponent*& OutTarget) const;
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Utility")
 	bool IsModifierActive() const { return bIsModifierActive; }
 protected:
@@ -186,7 +192,7 @@ protected:
 
 	bool ApplyFloatAttributeModifier(const FAttributeModifier& Modifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const;
 	bool ApplyStructAttributeModifier(const FAttributeModifier& Modifier, TArray<FStructAttribute>& TempStructAttributes) const;
-	bool ApplyModifiersInternal(bool IsTick = false);
+	bool ApplyModifiersInternal(const EAttributeModifierSideEffectTrigger TriggerPhase);
 
 private:
 	bool bIsModifierActive = false;

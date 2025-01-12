@@ -29,12 +29,19 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Attributes")
 	TArray<UAttributeSet*> AttributeSets;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
+	TArray<FFloatAttribute> DirectlyGrantedFloatAttributes;
+	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
+	TArray<FStructAttribute> DirectlyGrantedStructAttributes;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_FloatAttributes, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
-	TArray<FFloatAttribute> FloatAttributes;
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
+	FFloatAttributeContainer AuthorityFloatAttributes;
+	TArray<FFloatAttribute> PreviousFloatAttributes;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_StructAttributes, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
-	TArray<FStructAttribute> StructAttributes;
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
+	FStructAttributeContainer AuthorityStructAttributes;
+	TArray<FStructAttribute> PreviousStructAttributes;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
 	TArray<UAbilitySet*> AbilitySets;
@@ -87,7 +94,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Attributes", meta = (AdvancedDisplay=1))
 	void AddFloatAttribute(FFloatAttribute AttributeToAdd, bool OverrideValuesIfExists = true );
-
+	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Attributes")
 	void RemoveFloatAttribute(FGameplayTag AttributeTag);
 
@@ -172,11 +179,14 @@ protected:
 	void OnStateAdded(const FAbilityState& NewAbilityState);
 	void OnStateChanged(const FAbilityState& ChangedAbilityState);
 	void OnStateRemoved(const FAbilityState& RemovedAbilityState);
-	
-	UFUNCTION()
-	void OnRep_FloatAttributes(TArray<FFloatAttribute>& OldFloatAttributes);
-	UFUNCTION()
-	void OnRep_StructAttributes(TArray<FStructAttribute>& OldStructAttributes);
+
+	void OnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute);
+	void OnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute);
+	void OnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute);
+
+	void OnStructAttributeAdded(const FStructAttribute& NewStructAttribute);
+	void OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute);
+	void OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

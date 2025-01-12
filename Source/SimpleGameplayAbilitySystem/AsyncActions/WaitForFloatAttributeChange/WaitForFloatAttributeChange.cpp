@@ -84,7 +84,8 @@ void UWaitForFloatAttributeChange::Activate()
 		}
 
 		FGameplayTagContainer DomainFilter;
-		DomainFilter.AddTagFast(FDefaultTags::AttributeDomain);
+		DomainFilter.AddTagFast(FDefaultTags::LocalDomain);
+		DomainFilter.AddTagFast(FDefaultTags::AuthorityDomain);
 		
 		TArray<UScriptStruct*> PayloadFilter;
 		PayloadFilter.Add(FFloatAttributeModification::StaticStruct());

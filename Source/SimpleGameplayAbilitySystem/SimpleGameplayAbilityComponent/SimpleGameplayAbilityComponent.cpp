@@ -25,6 +25,23 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 {
 	UActorComponent::BeginPlay();
 
+	// Delegates called on the client to handle replicated data
+	AuthorityAbilityStates.OnAbilityStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateAdded);
+	AuthorityAbilityStates.OnAbilityStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateChanged);
+	AuthorityAbilityStates.OnAbilityStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateRemoved);
+	
+	AuthorityAttributeStates.OnAbilityStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateAdded);
+	AuthorityAttributeStates.OnAbilityStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateChanged);
+	AuthorityAttributeStates.OnAbilityStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateRemoved);
+
+	AuthorityFloatAttributes.OnFloatAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeAdded);
+	AuthorityFloatAttributes.OnFloatAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeChanged);
+	AuthorityFloatAttributes.OnFloatAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeRemoved);
+
+	AuthorityStructAttributes.OnStructAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeAdded);
+	AuthorityStructAttributes.OnStructAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeChanged);
+	AuthorityStructAttributes.OnStructAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeRemoved);
+	
 	if (HasAuthority())
 	{
 		// Grant abilities to the owning actor
@@ -39,27 +56,29 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 		// Create attributes from the provided attribute sets
 		for (UAttributeSet* AttributeSet : AttributeSets)
 		{
-			for (FFloatAttribute Attribute : AttributeSet->FloatAttributes)
+			for (const FFloatAttribute Attribute : AttributeSet->FloatAttributes)
 			{
 				AddFloatAttribute(Attribute);
 			}
 
-			for (FStructAttribute Attribute : AttributeSet->StructAttributes)
+			for (const FFloatAttribute Attribute : DirectlyGrantedFloatAttributes)
+			{
+				AddFloatAttribute(Attribute);
+			}
+
+			for (const FStructAttribute Attribute : AttributeSet->StructAttributes)
+			{
+				AddStructAttribute(Attribute);
+			}
+
+			for (const FStructAttribute Attribute : DirectlyGrantedStructAttributes)
 			{
 				AddStructAttribute(Attribute);
 			}
 		}
-
-		return;
 	}
 
-	// Delegates called on the client to handle replicated ability states
-	AuthorityAbilityStates.OnAbilityStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateAdded);
-	AuthorityAbilityStates.OnAbilityStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateChanged);
-	AuthorityAbilityStates.OnAbilityStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateRemoved);
-	AuthorityAttributeStates.OnAbilityStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateAdded);
-	AuthorityAttributeStates.OnAbilityStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateChanged);
-	AuthorityAttributeStates.OnAbilityStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateRemoved);
+	PreviousFloatAttributes = AuthorityFloatAttributes.Attributes;
 }
 
 /* Ability Functions */
@@ -229,17 +248,17 @@ void USimpleGameplayAbilityComponent::AddNewAbilityState(const TSubclassOf<USimp
 	
 	if (HasAuthority())
 	{
-		for (FSimpleAbilityStateItem& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
+		for (FAbilityState& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
 		{
-			if (AuthorityAbilityState.AbilityState.AbilityID == AbilityInstanceID)
+			if (AuthorityAbilityState.AbilityID == AbilityInstanceID)
 			{
 				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddNewAbilityState]: Ability with ID %s already exists in AuthorityAbilityStates array."), *AbilityInstanceID.ToString()));
 				return;
 			}
 		}
 
-		FSimpleAbilityStateItem NewAbilityStateItem;
-		NewAbilityStateItem.AbilityState = NewAbilityState;
+		FAbilityState NewAbilityStateItem;
+		NewAbilityStateItem = NewAbilityState;
 		
 		AuthorityAbilityStates.AbilityStates.Add(NewAbilityStateItem);
 		AuthorityAbilityStates.MarkArrayDirty();
@@ -265,11 +284,11 @@ void USimpleGameplayAbilityComponent::AddAbilityStateSnapshot(FGuid AbilityInsta
 {
 	if (HasAuthority())
 	{
-		for (FSimpleAbilityStateItem& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
+		for (FAbilityState& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
 		{
-			if (AuthorityAbilityState.AbilityState.AbilityID == AbilityInstanceID)
+			if (AuthorityAbilityState.AbilityID == AbilityInstanceID)
 			{
-				AuthorityAbilityState.AbilityState.SnapshotHistory.Add(State);
+				AuthorityAbilityState.SnapshotHistory.Add(State);
 				AuthorityAbilityStates.MarkItemDirty(AuthorityAbilityState);
 				return;
 			}
@@ -294,11 +313,11 @@ void USimpleGameplayAbilityComponent::ChangeAbilityStatus(FGuid AbilityInstanceI
 {
 	if (HasAuthority())
 	{
-		for (FSimpleAbilityStateItem& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
+		for (FAbilityState& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
 		{
-			if (AuthorityAbilityState.AbilityState.AbilityID == AbilityInstanceID)
+			if (AuthorityAbilityState.AbilityID == AbilityInstanceID)
 			{
-				AuthorityAbilityState.AbilityState.AbilityStatus = NewStatus;
+				AuthorityAbilityState.AbilityStatus = NewStatus;
 				AuthorityAbilityStates.MarkItemDirty(AuthorityAbilityState);
 				return;
 			}
@@ -325,38 +344,56 @@ void USimpleGameplayAbilityComponent::ChangeAbilityStatus(FGuid AbilityInstanceI
 
 void USimpleGameplayAbilityComponent::AddFloatAttribute(FFloatAttribute AttributeToAdd, bool OverrideValuesIfExists)
 {
-	const int32 AttributeIndex = FloatAttributes.Find(AttributeToAdd);
-
-	// This is a new attribute
-	if (AttributeIndex == INDEX_NONE)
+	for (FFloatAttribute& AuthorityAttribute : AuthorityFloatAttributes.Attributes)
 	{
-		FloatAttributes.Add(AttributeToAdd);
-		return;
-	}
+		if (AuthorityAttribute.AttributeTag.MatchesTagExact(AttributeToAdd.AttributeTag))
+		{
+			// Attribute exists but we don't want to override it
+			if (!OverrideValuesIfExists)
+			{
+				return;
+			}
 
-	// Attribute exists but we don't want to override it
-	if (!OverrideValuesIfExists)
-	{
-		return;
+			// Attribute exists and we want to override it
+			AuthorityAttribute = AttributeToAdd;
+			AuthorityFloatAttributes.MarkItemDirty(AuthorityAttribute);
+			return;
+		}
 	}
-
-	// Attribute exists and we want to override it
-	FloatAttributes[AttributeIndex] = AttributeToAdd;
+	
+	AuthorityFloatAttributes.Attributes.Add(AttributeToAdd);
+	AuthorityFloatAttributes.MarkArrayDirty();
 }
 
 void USimpleGameplayAbilityComponent::RemoveFloatAttribute(FGameplayTag AttributeTag)
 {
-	FloatAttributes.RemoveAll([AttributeTag](const FFloatAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
+	if (HasAuthority())
+	{
+		AuthorityFloatAttributes.Attributes.RemoveAll([AttributeTag](const FFloatAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
+		AuthorityFloatAttributes.MarkArrayDirty();
+		return;
+	}
+	
+	PreviousFloatAttributes.RemoveAll([AttributeTag](const FFloatAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
 }
 
 void USimpleGameplayAbilityComponent::AddStructAttribute(FStructAttribute AttributeToAdd, bool OverrideValuesIfExists)
 {
-	const int32 AttributeIndex = StructAttributes.Find(AttributeToAdd);
+	const int32 AttributeIndex = HasAuthority() ? AuthorityStructAttributes.Attributes.Find(AttributeToAdd) : PreviousStructAttributes.Find(AttributeToAdd);
 
 	// This is a new attribute
 	if (AttributeIndex == INDEX_NONE)
 	{
-		StructAttributes.Add(AttributeToAdd);
+		if (HasAuthority())
+		{
+			AuthorityStructAttributes.Attributes.Add(AttributeToAdd);
+			AuthorityStructAttributes.MarkArrayDirty();
+		}
+		else
+		{
+			PreviousStructAttributes.Add(AttributeToAdd);
+		}
+
 		return;
 	}
 
@@ -367,12 +404,26 @@ void USimpleGameplayAbilityComponent::AddStructAttribute(FStructAttribute Attrib
 	}
 
 	// Attribute exists and we want to override it
-	StructAttributes[AttributeIndex] = AttributeToAdd;
+	if (HasAuthority())
+	{
+		AuthorityStructAttributes.Attributes[AttributeIndex] = AttributeToAdd;
+		AuthorityStructAttributes.MarkItemDirty(AuthorityStructAttributes.Attributes[AttributeIndex]);
+		return;
+	}
+
+	PreviousStructAttributes[AttributeIndex] = AttributeToAdd;
 }
 
 void USimpleGameplayAbilityComponent::RemoveStructAttribute(FGameplayTag AttributeTag)
 {
-	StructAttributes.RemoveAll([AttributeTag](const FStructAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
+	if (HasAuthority())
+	{
+		AuthorityStructAttributes.Attributes.RemoveAll([AttributeTag](const FStructAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
+		AuthorityStructAttributes.MarkArrayDirty();
+		return;
+	}
+	
+	PreviousStructAttributes.RemoveAll([AttributeTag](const FStructAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
 }
 
 bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* ModifierTarget,
@@ -438,17 +489,17 @@ void USimpleGameplayAbilityComponent::AddNewAttributeState(const TSubclassOf<USi
 	
 	if (HasAuthority())
 	{
-		for (FSimpleAbilityStateItem& AuthorityAttributeState : AuthorityAttributeStates.AbilityStates)
+		for (FAbilityState& AuthorityAttributeState : AuthorityAttributeStates.AbilityStates)
 		{
-			if (AuthorityAttributeState.AbilityState.AbilityID == AttributeInstanceID)
+			if (AuthorityAttributeState.AbilityID == AttributeInstanceID)
 			{
 				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddNewAttributeState]: Attribute with ID %s already exists in AuthorityAttributeStates array."), *AttributeInstanceID.ToString()));
 				return;
 			}
 		}
 		
-		FSimpleAbilityStateItem NewAttributeStateItem;
-		NewAttributeStateItem.AbilityState = NewAttributeState;
+		FAbilityState NewAttributeStateItem;
+		NewAttributeStateItem = NewAttributeState;
 
 		AuthorityAttributeStates.AbilityStates.Add(NewAttributeStateItem);
 		AuthorityAttributeStates.MarkArrayDirty();
@@ -643,12 +694,12 @@ FAbilityState USimpleGameplayAbilityComponent::GetAbilityState(const FGuid Abili
 {
 	if (HasAuthority())
 	{
-		for (const FSimpleAbilityStateItem& AbilityStateItem : AuthorityAbilityStates.AbilityStates)
+		for (const FAbilityState& AbilityStateItem : AuthorityAbilityStates.AbilityStates)
 		{
-			if (AbilityStateItem.AbilityState.AbilityID == AbilityInstanceID)
+			if (AbilityStateItem.AbilityID == AbilityInstanceID)
 			{
 				WasFound = true;
-				return AbilityStateItem.AbilityState;
+				return AbilityStateItem;
 			}
 		}
 	}
@@ -692,8 +743,6 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 
 			LocalAbilityStates.Add(NewAbilityState);
 			ActivateAbilityInternal(AbilityClass, NewAbilityState.ActivationContext, NewAbilityState.AbilityID);
-
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateAdded]: New ability state with ID %s created locally."), *NewAbilityState.AbilityID.ToString()));
 		}
 	}
 
@@ -713,8 +762,6 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 
 			LocalAttributeStates.Add(NewAbilityState);
 			ApplyAttributeModifierToSelf(AttributeClass, NewAbilityState.ActivationContext);
-
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateAdded]: New attribute state with ID %s has an invalid class upon replication."), *NewAbilityState.AbilityID.ToString()));
 		}
 	}
 }
@@ -744,13 +791,13 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 		}
 
 		// Check if the status of the ability has changed
-		//if (ChangedAbilityState.AbilityStatus != LocalAbilityState->AbilityStatus)
-		//{
+		if (ChangedAbilityState.AbilityStatus != LocalAbilityState->AbilityStatus)
+		{
 			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Ability with ID %s has has status %s locally and %s on the server."),
 				*ChangedAbilityState.AbilityID.ToString(),
 				*UEnum::GetValueAsString(LocalAbilityState->AbilityStatus),
 				*UEnum::GetValueAsString(ChangedAbilityState.AbilityStatus)));
-		//}
+		}
 
 		// Check if the latest SnapshotHistory of the ability has changed
 		if (ChangedAbilityState.SnapshotHistory.Num() > 0)
@@ -786,53 +833,53 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 
 void USimpleGameplayAbilityComponent::OnStateRemoved(const FAbilityState& RemovedAbilityState)
 {
-	LocalAbilityStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
+	if (RemovedAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))
+	{
+		LocalAbilityStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
+		return;
+	}
+
+	if (RemovedAbilityState.AbilityClass->IsChildOf(USimpleAttributeModifier::StaticClass()))
+	{
+		LocalAttributeStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
+	}
 }
 
-void USimpleGameplayAbilityComponent::OnRep_FloatAttributes(TArray<FFloatAttribute>& OldFloatAttributes)
+void USimpleGameplayAbilityComponent::OnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute)
 {
-	// Check if any new attributes were added
-	FGameplayTagContainer OldAttributeTags;
-	FGameplayTagContainer NewAttributeTags;
-	
-	for (int i = 0; i < OldFloatAttributes.Num(); i++)
+	PreviousFloatAttributes.AddUnique(NewFloatAttribute);
+	USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeAdded, NewFloatAttribute.AttributeTag, EAttributeValueType::BaseValue, NewFloatAttribute.BaseValue);
+}
+
+void USimpleGameplayAbilityComponent::OnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute)
+{
+	for (FFloatAttribute& LocalFloatAttribute : PreviousFloatAttributes)
 	{
-		OldAttributeTags.AddTag(OldFloatAttributes[i].AttributeTag);
-	}
-	
-	for (int i = 0; i < FloatAttributes.Num(); i++)
-	{
-		if (!OldAttributeTags.HasTagExact(FloatAttributes[i].AttributeTag))
+		if (LocalFloatAttribute.AttributeTag.MatchesTagExact(ChangedFloatAttribute.AttributeTag))
 		{
-			USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeAdded, FloatAttributes[i].AttributeTag, EAttributeValueType::BaseValue, FloatAttributes[i].BaseValue);
-		}
-
-		NewAttributeTags.AddTag(FloatAttributes[i].AttributeTag);
-	}
-
-	// Check if any old attributes were removed and check if any existing attributes were updated
-	for (int i = 0; i < OldFloatAttributes.Num(); i++)
-	{
-		if (!NewAttributeTags.HasTagExact(OldFloatAttributes[i].AttributeTag))
-		{
-			USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeRemoved, OldFloatAttributes[i].AttributeTag, EAttributeValueType::BaseValue, 0.0f);
-		}
-		else
-		{
-			const int32 NewAttributeIndex = USimpleAttributeFunctionLibrary::GetFloatAttributeIndex(this, OldFloatAttributes[i].AttributeTag);
-
-			if (NewAttributeIndex < 0)
-			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("USimpleGameplayAttributes::OnRep_FloatAttributes: Attribute %s not found."), *OldFloatAttributes[i].AttributeTag.ToString()));
-				continue;
-			}
-
-			USimpleAttributeFunctionLibrary::CompareFloatAttributesAndSendEvents(this, OldFloatAttributes[i], FloatAttributes[NewAttributeIndex]);
+			USimpleAttributeFunctionLibrary::CompareFloatAttributesAndSendEvents(this, LocalFloatAttribute, ChangedFloatAttribute);
+			LocalFloatAttribute = ChangedFloatAttribute;
+			break;
 		}
 	}
 }
 
-void USimpleGameplayAbilityComponent::OnRep_StructAttributes(TArray<FStructAttribute>& OldStructAttributes)
+void USimpleGameplayAbilityComponent::OnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute)
+{
+	PreviousFloatAttributes.Remove(RemovedFloatAttribute);
+	USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(this, FDefaultTags::AttributeRemoved,
+		RemovedFloatAttribute.AttributeTag, EAttributeValueType::BaseValue, 0.0f);
+}
+
+void USimpleGameplayAbilityComponent::OnStructAttributeAdded(const FStructAttribute& NewStructAttribute)
+{
+}
+
+void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute)
+{
+}
+
+void USimpleGameplayAbilityComponent::OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute)
 {
 }
 
@@ -843,8 +890,8 @@ void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FL
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AvatarActor);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, GameplayTags);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, GrantedAbilities);
-	DOREPLIFETIME(USimpleGameplayAbilityComponent, FloatAttributes);
-	DOREPLIFETIME(USimpleGameplayAbilityComponent, StructAttributes);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityFloatAttributes);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityStructAttributes);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAttributeStates);
 }

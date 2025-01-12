@@ -44,12 +44,12 @@ enum class EAttributeModifierApplicationPolicy : uint8
 UENUM(BlueprintType)
 enum class EAttributeModifierSideEffectTrigger : uint8
 {
-	OnInstantModifierAppliedSuccess,
+	OnInstantModifierEndedSuccess,
 	OnInstantModifierEndedCancel,
 	OnDurationModifierInitiallyAppliedSuccess,
-	OnDurationModifierTickSuccess,
 	OnDurationModifierEndedSuccess,
 	OnDurationModifierEndedCancel,
+	OnDurationModifierTickSuccess,
 	OnDurationModifierTickCancel,
 };
 
@@ -105,6 +105,12 @@ struct FAttributeModifier
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool CancelIfAttributeNotFound = true;
+
+	/**
+	 * If the attribute modifier is a duration type, this modifier will only trigger during these phases.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<EAttributeModifierSideEffectTrigger> DurationApplicationTriggers;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
 	EFloatAttributeModificationOperation ModificationOperation;
@@ -158,7 +164,7 @@ struct FAbilitySideEffect
 	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAttributeModifierSideEffectTarget SideEffectTarget;
+	EAttributeModifierSideEffectTarget ActivatingAbilityComponent;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<USimpleGameplayAbility> AbilityClass;
@@ -185,7 +191,7 @@ struct FEventSideEffect
 	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAttributeModifierSideEffectTarget SideEffectTarget;
+	EAttributeModifierSideEffectTarget EventSender;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag EventTag;
@@ -209,13 +215,19 @@ struct FAttributeModifierSideEffect
 	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAttributeModifierSideEffectTarget SideEffectTarget;
+	EAttributeModifierSideEffectTarget ModifierInstigator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EAttributeModifierSideEffectTarget ModifierTarget;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<USimpleAttributeModifier> AttributeModifierClass;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag ModifierContextTag;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag ModifierTargetsTag;
 };
 
 USTRUCT(BlueprintType)

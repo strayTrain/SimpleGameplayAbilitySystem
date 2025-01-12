@@ -118,10 +118,25 @@ struct FFloatAttributeModification
 	float NewValue;
 };
 
+USTRUCT(BlueprintType)
+struct FStructAttributeModification
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag AttributeTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct Value;
+};
+
 // Float attribute 
+DECLARE_DELEGATE_OneParam(FOnFloatAttributeAdded, const FFloatAttribute&);
+DECLARE_DELEGATE_OneParam(FOnFloatAttributeChanged, const FFloatAttribute&);
+DECLARE_DELEGATE_OneParam(FOnFloatAttributeRemoved, const FFloatAttribute&);
 
 USTRUCT(BlueprintType)
-struct FFloatAttribute
+struct FFloatAttribute : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
@@ -140,6 +155,10 @@ struct FFloatAttribute
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FValueLimits ValueLimits;
 
+	void PreReplicatedRemove(const struct FFloatAttributeContainer& InArraySerializer);
+	void PostReplicatedAdd(const struct FFloatAttributeContainer& InArraySerializer);
+	void PostReplicatedChange(const struct FFloatAttributeContainer& InArraySerializer);
+	
 	bool operator==(const FFloatAttribute& Other) const
 	{
 		return AttributeTag == Other.AttributeTag;
@@ -152,73 +171,36 @@ struct FFloatAttribute
 };
 
 USTRUCT()
-struct FFloatAttributeItem : public FFastArraySerializerItem
-{
-	GENERATED_BODY()
-	
-	UPROPERTY()
-	FFloatAttribute FloatAttribute;
-};
-
-DECLARE_DELEGATE_OneParam(FOnFloatAttributeAdded, const FFloatAttribute&);
-DECLARE_DELEGATE_OneParam(FOnFloatAttributeChanged, const FFloatAttribute&);
-DECLARE_DELEGATE_OneParam(FOnFloatAttributeRemoved, const FFloatAttribute&);
-
-USTRUCT()
 struct FFloatAttributeContainer : public FFastArraySerializer
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	TArray<FFloatAttributeItem> Items;
+	UPROPERTY(EditAnywhere, meta = (TitleProperty = "AttributeName"))
+	TArray<FFloatAttribute> Attributes;
 
 	FOnFloatAttributeAdded   OnFloatAttributeAdded;
 	FOnFloatAttributeChanged OnFloatAttributeChanged;
 	FOnFloatAttributeRemoved OnFloatAttributeRemoved;
-	
-	void PostReplicatedAdd(const TArrayView< int32 >& AddedIndices, int32 FinalSize)
-	{
-		if (OnFloatAttributeAdded.IsBound())
-		{
-			for (const int32 AddedIndex : AddedIndices)
-			{
-				OnFloatAttributeAdded.Execute(Items[AddedIndex].FloatAttribute);
-			}
-		}
-	}
-	
-	void PostReplicatedChange(const TArrayView< int32 >& ChangedIndices, int32 FinalSize)
-	{
-		if (OnFloatAttributeChanged.IsBound())
-		{
-			for (const int32 ChangedIndex : ChangedIndices)
-			{
-				OnFloatAttributeChanged.Execute(Items[ChangedIndex].FloatAttribute);
-			}
-		}
-	}
-
-	void PreReplicatedRemove (const TArrayView< int32 >& RemovedIndices, int32 FinalSize)
-	{
-		if (OnFloatAttributeRemoved.IsBound())
-		{
-			for (const int32 RemovedIndex : RemovedIndices)
-			{
-				OnFloatAttributeRemoved.Execute(Items[RemovedIndex].FloatAttribute);
-			}
-		}
-	}
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
 	{
-		return FFastArraySerializer::FastArrayDeltaSerialize<FFloatAttributeItem, FFloatAttributeContainer>(Items, DeltaParms, *this);
+		return FFastArraySerializer::FastArrayDeltaSerialize<FFloatAttribute, FFloatAttributeContainer>(Attributes, DeltaParms, *this);
 	}
+};
+
+template<>
+struct TStructOpsTypeTraits<FFloatAttributeContainer> : public TStructOpsTypeTraitsBase2<FFloatAttributeContainer>
+{
+	enum 
+	{
+		WithNetDeltaSerializer = true,
+	};
 };
 
 // Struct attribute
 
 USTRUCT(BlueprintType)
-struct FStructAttribute
+struct FStructAttribute : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
@@ -245,27 +227,6 @@ struct FStructAttribute
 	}
 };
 
-USTRUCT(BlueprintType)
-struct FStructAttributeModification
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag AttributeTag;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct Value;
-};
-
-USTRUCT()
-struct FStructAttributeItem : public FFastArraySerializerItem
-{
-	GENERATED_BODY()
-	
-	UPROPERTY()
-	FStructAttribute StructAttribute;
-};
-
 DECLARE_DELEGATE_OneParam(FOnStructAttributeAdded, const FStructAttribute&);
 DECLARE_DELEGATE_OneParam(FOnStructAttributeChanged, const FStructAttribute&);
 DECLARE_DELEGATE_OneParam(FOnStructAttributeRemoved, const FStructAttribute&);
@@ -275,8 +236,8 @@ struct FStructAttributeContainer : public FFastArraySerializer
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	TArray<FStructAttributeItem> Items;
+	UPROPERTY(EditAnywhere, meta = (TitleProperty = "AttributeName"))
+	TArray<FStructAttribute> Attributes;
 
 	FOnStructAttributeAdded   OnStructAttributeAdded;
 	FOnStructAttributeChanged OnStructAttributeChanged;
@@ -288,7 +249,7 @@ struct FStructAttributeContainer : public FFastArraySerializer
 		{
 			for (const int32 AddedIndex : AddedIndices)
 			{
-				OnStructAttributeAdded.Execute(Items[AddedIndex].StructAttribute);
+				OnStructAttributeAdded.Execute(Attributes[AddedIndex]);
 			}
 		}
 	}
@@ -299,7 +260,7 @@ struct FStructAttributeContainer : public FFastArraySerializer
 		{
 			for (const int32 ChangedIndex : ChangedIndices)
 			{
-				OnStructAttributeAdded.Execute(Items[ChangedIndex].StructAttribute);
+				OnStructAttributeAdded.Execute(Attributes[ChangedIndex]);
 			}
 		}
 	}
@@ -310,13 +271,22 @@ struct FStructAttributeContainer : public FFastArraySerializer
 		{
 			for (const int32 RemovedIndex : RemovedIndices)
 			{
-				OnStructAttributeAdded.Execute(Items[RemovedIndex].StructAttribute);
+				OnStructAttributeAdded.Execute(Attributes[RemovedIndex]);
 			}
 		}
 	}
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
 	{
-		return FFastArraySerializer::FastArrayDeltaSerialize<FStructAttributeItem, FStructAttributeContainer>(Items, DeltaParms, *this);
+		return FFastArraySerializer::FastArrayDeltaSerialize<FStructAttribute, FStructAttributeContainer>(Attributes, DeltaParms, *this);
 	}
+};
+
+template<>
+struct TStructOpsTypeTraits<FStructAttributeContainer> : public TStructOpsTypeTraitsBase2<FStructAttributeContainer>
+{
+	enum 
+	{
+		WithNetDeltaSerializer = true,
+	};
 };

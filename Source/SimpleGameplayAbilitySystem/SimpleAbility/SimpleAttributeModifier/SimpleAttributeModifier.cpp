@@ -53,28 +53,16 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 	InstigatorAbilityComponent = Instigator;
 	TargetAbilityComponent = Target;
 	InitialModifierContext = ModifierContext;
-	bIsModifierActive = true;
 	
+	// Check if we can apply the modifier
 	if (!CanApplyModifierInternal(ModifierContext) || !CanApplyModifier(ModifierContext))
 	{
 		EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+		
 		return false;
 	}
-
-	if (USimpleEventSubsystem* EventSubsystem = Instigator->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
-	{
-		FGameplayTagContainer EventTags;
-		EventTags.AddTag(FDefaultTags::GameplayTagAdded);
-		EventTags.AddTag(FDefaultTags::GameplayTagRemoved);
-    
-		FSimpleEventDelegate EventDelegate;
-		EventDelegate.BindDynamic(this, &USimpleAttributeModifier::OnTagsChanged);
-		
-		TArray<AActor*> SenderFilter;
-		SenderFilter.Add(Target->GetAvatarActor());
-    
-		EventSubsystem->ListenForEvent(this, false, EventTags, FGameplayTagContainer(), EventDelegate, TArray<UScriptStruct*>(), SenderFilter);
-	}
+	
+	bIsModifierActive = true;
 	
 	for (const FGameplayTag& Tag : PermanentlyAppliedTags)
 	{
@@ -87,9 +75,26 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 	}
 
 	OnPreApplyModifier();
-	
+
+	// Set up for duration type modifiers
 	if (ModifierType == EAttributeModifierType::Duration)
 	{
+		// Listen for tag changes on the target ability component
+		if (USimpleEventSubsystem* EventSubsystem = Instigator->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
+		{
+			FGameplayTagContainer EventTags;
+			EventTags.AddTag(FDefaultTags::GameplayTagAdded);
+			EventTags.AddTag(FDefaultTags::GameplayTagRemoved);
+    
+			FSimpleEventDelegate EventDelegate;
+			EventDelegate.BindDynamic(this, &USimpleAttributeModifier::OnTagsChanged);
+		
+			TArray<AActor*> SenderFilter;
+			SenderFilter.Add(Target->GetAvatarActor());
+    
+			EventSubsystem->ListenForEvent(this, false, EventTags, FGameplayTagContainer(), EventDelegate, TArray<UScriptStruct*>(), SenderFilter);
+		}
+		
 		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
 		{
 			TargetAbilityComponent->AddGameplayTag(Tag, FInstancedStruct());
@@ -120,6 +125,7 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 						switch (TickTagRequirementBehaviour)
 						{
 							case EDurationTickTagRequirementBehaviour::CancelOnTagRequirementFailed:
+								ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierTickCancel);
 								EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
 								return;
 							case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
@@ -135,19 +141,26 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 					InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(DurationTimerHandle);
 					InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(TickTimerHandle);
 					
-					ApplyModifiersInternal(true);
+					ApplyModifiersInternal(EAttributeModifierSideEffectTrigger::OnDurationModifierTickSuccess);
+					ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierTickSuccess);
 				},
 				TickInterval,
 				true
 			);
 		}
+
+		if (TickOnApply)
+		{
+			ApplyModifiersInternal(EAttributeModifierSideEffectTrigger::OnDurationModifierInitiallyAppliedSuccess);
+		}
 		
+		ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierInitiallyAppliedSuccess);
 		return true;
 	}
 	
 	// Instant type modifier
 	
-	if (ApplyModifiersInternal())
+	if (ApplyModifiersInternal(EAttributeModifierSideEffectTrigger::OnInstantModifierEndedSuccess))
 	{
 		OnPostApplyModifier();
 		EndModifier(FDefaultTags::AbilityEndedSuccessfully, FInstancedStruct());
@@ -158,11 +171,11 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 	return false;
 }
 
-bool USimpleAttributeModifier::ApplyModifiersInternal(bool IsTick)
+bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSideEffectTrigger TriggerPhase)
 {
 	// We process the modifier stack as a transaction to avoid partial changes of attributes
-	TArray<FFloatAttribute> TempFloatAttributes = TargetAbilityComponent->FloatAttributes;
-	TArray<FStructAttribute> TempStructAttributes = TargetAbilityComponent->StructAttributes;
+	TArray<FFloatAttribute> TempFloatAttributes = TargetAbilityComponent->AuthorityFloatAttributes.Attributes;
+	TArray<FStructAttribute> TempStructAttributes = TargetAbilityComponent->AuthorityStructAttributes.Attributes;
 
 	TArray<FGameplayTag> ModifiedFloatAttributes;
 	TArray<FGameplayTag> ModifiedStructAttributes;
@@ -171,6 +184,11 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(bool IsTick)
 	
 	for (const FAttributeModifier& Modifier : AttributeModifications )
 	{
+		if (ModifierType == EAttributeModifierType::Duration && !Modifier.DurationApplicationTriggers.Contains(TriggerPhase))
+		{
+			continue;
+		}
+		
 		bool WasModifierApplied = false;
 		
 		switch (Modifier.AttributeType)
@@ -199,7 +217,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(bool IsTick)
 		}
 	}
 
-	// If all the modifiers were applied successfully, we update the target ability component's attributes if we are the authority
+	// If all the modifiers were applied successfully, we update the target ability component's attributes
 	if (InstigatorAbilityComponent->HasAuthority())
 	{
 		for (FFloatAttribute Attribute : TempFloatAttributes)
@@ -219,8 +237,6 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(bool IsTick)
 		}
 	}
 	
-	ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent);
-
 	return true;
 }
 
@@ -234,16 +250,6 @@ void USimpleAttributeModifier::EndModifier(const FGameplayTag EndingStatus, cons
 		EventSubsystem->StopListeningForAllEvents(this);
 	}
 
-	OnModifierEnded(EndingStatus, EndingContext);
-	
-	if (ModifierType == EAttributeModifierType::Duration)
-	{
-		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
-		{
-			TargetAbilityComponent->RemoveGameplayTag(Tag, FInstancedStruct());
-		}
-	}
-
 	if (EndingStatus == FDefaultTags::AbilityCancelled)
 	{
 		for (const FGameplayTag& Tag : PermanentlyAppliedTags)
@@ -252,6 +258,39 @@ void USimpleAttributeModifier::EndModifier(const FGameplayTag EndingStatus, cons
 		}
 	}
 
+	if (ModifierType == EAttributeModifierType::Instant)
+	{
+		if (EndingStatus == FDefaultTags::AbilityCancelled)
+		{
+			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnInstantModifierEndedCancel);
+		}
+
+		if (EndingStatus == FDefaultTags::AbilityEndedSuccessfully)
+		{
+			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnInstantModifierEndedSuccess);
+		}
+	}
+	
+	if (ModifierType == EAttributeModifierType::Duration)
+	{
+		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
+		{
+			TargetAbilityComponent->RemoveGameplayTag(Tag, FInstancedStruct());
+		}
+
+		if (EndingStatus == FDefaultTags::AbilityCancelled)
+		{
+			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierEndedCancel);
+		}
+
+		if (EndingStatus == FDefaultTags::AbilityEndedSuccessfully)
+		{
+			ApplyModifiersInternal(EAttributeModifierSideEffectTrigger::OnDurationModifierEndedSuccess);
+			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierEndedSuccess);
+		}
+	}
+	
+	OnModifierEnded(EndingStatus, EndingContext);
 	bIsModifierActive = false;
 }
 
@@ -283,7 +322,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 	
 	if (!AttributeToModify)
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Attribute %s not found on target ability component."), *Modifier.ModifiedAttribute.ToString());
+		SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Attribute %s not found."), *Modifier.ModifiedAttribute.ToString()));
 		return false;
 	}
 
@@ -437,8 +476,76 @@ bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FAttributeModi
 	return true;
 }
 
-void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target)
+void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, EAttributeModifierSideEffectTrigger EffectPhase)
 {
+	// Ability side effects
+	for (const FAbilitySideEffect& SideEffect : AbilitySideEffects)
+	{
+		if (SideEffect.ApplicationTriggers.Contains(EffectPhase))
+		{
+			USimpleGameplayAbilityComponent* ActivatingAbilityComponent = SideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+
+			FInstancedStruct Payload;
+
+			if (SideEffect.AbilityContextTag.IsValid())
+			{
+				bool IsPayloadValid = true;
+				Payload = GetAbilitySideEffectContext(SideEffect.AbilityContextTag, IsPayloadValid);
+			}
+
+			ActivatingAbilityComponent->ActivateAbility(SideEffect.AbilityClass, Payload, true, SideEffect.ActivationPolicy);
+		}
+	}
+
+	// Event side effects
+	for (const FEventSideEffect& SideEffect : EventSideEffects)
+	{
+		USimpleGameplayAbilityComponent* EventSendingComponent = SideEffect.EventSender == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+		
+		if (SideEffect.ApplicationTriggers.Contains(EffectPhase))
+		{
+			FInstancedStruct Payload;
+
+			if (SideEffect.EventContextTag.IsValid())
+			{
+				bool IsPayloadValid = true;
+				Payload = GetEventSideEffectContext(SideEffect.EventContextTag, IsPayloadValid);
+			}
+
+			EventSendingComponent->SendEvent(SideEffect.EventTag, SideEffect.EventDomain, Payload, EventSendingComponent->GetOwner(), SideEffect.EventReplicationPolicy);
+		}
+	}
+
+	// Attribute modifier side effects
+	for (const FAttributeModifierSideEffect& SideEffect : AttributeModifierSideEffects)
+	{
+		if (SideEffect.ApplicationTriggers.Contains(EffectPhase))
+		{
+			USimpleGameplayAbilityComponent* InstigatingAbilityComponent = SideEffect.ModifierInstigator == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+			USimpleGameplayAbilityComponent* TargetedAbilityComponent = SideEffect.ModifierTarget == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+
+			if (SideEffect.ModifierTargetsTag.IsValid())
+			{
+				GetAttributeModifierSideEffectTargets(SideEffect.ModifierTargetsTag, InstigatingAbilityComponent, TargetedAbilityComponent);
+
+				if (!InstigatingAbilityComponent || !TargetedAbilityComponent)
+				{
+					SIMPLE_LOG(InstigatingAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplySideEffects]: InstigatingAbilityComponent or TargetedAbilityComponent is null. Can't apply Attribute Modifier side effect.")));
+					return;
+				}
+			}
+			
+			FInstancedStruct Payload;
+
+			if (SideEffect.ModifierContextTag.IsValid())
+			{
+				bool IsPayloadValid = true;
+				Payload = GetAttributeModifierSideEffectContext(SideEffect.ModifierContextTag, IsPayloadValid);
+			}
+
+			InstigatingAbilityComponent->ApplyAttributeModifierToTarget(TargetedAbilityComponent, SideEffect.AttributeModifierClass, Payload);
+		}
+	}
 }
 
 /* Meta Attribute Functions */
@@ -473,13 +580,19 @@ FInstancedStruct USimpleAttributeModifier::GetAttributeModifierSideEffectContext
 	return FInstancedStruct();
 }
 
+void USimpleAttributeModifier::GetAttributeModifierSideEffectTargets_Implementation(FGameplayTag TargetsTag, USimpleGameplayAbilityComponent*& OutInstigator, USimpleGameplayAbilityComponent*& OutTarget) const
+{
+	OutInstigator = nullptr;
+	OutTarget = nullptr;
+}
+
 /* Utility Functions */
 
 FFloatAttribute* USimpleAttributeModifier::GetTempFloatAttribute(const FGameplayTag AttributeTag, TArray<FFloatAttribute>& TempFloatAttributes) const
 {
 	for (int i = 0; i < TempFloatAttributes.Num(); i++)
 	{
-		if (TempFloatAttributes[i].AttributeTag == AttributeTag)
+		if (TempFloatAttributes[i].AttributeTag.MatchesTagExact(AttributeTag))
 		{
 			return &TempFloatAttributes[i];
 		}

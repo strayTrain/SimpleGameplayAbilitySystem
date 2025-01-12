@@ -115,7 +115,7 @@ struct FSimpleAbilitySnapshot
 };
 
 USTRUCT(BlueprintType)
-struct FAbilityState
+struct FAbilityState : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
@@ -141,15 +141,6 @@ struct FAbilityState
 	TArray<FSimpleAbilitySnapshot> SnapshotHistory;
 };
 
-USTRUCT()
-struct FSimpleAbilityStateItem : public FFastArraySerializerItem
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(VisibleAnywhere)
-	FAbilityState AbilityState;
-};
-
 DECLARE_DELEGATE_OneParam(FOnAbilityStateAdded, const FAbilityState&);
 DECLARE_DELEGATE_OneParam(FOnAbilityStateChanged, const FAbilityState&);
 DECLARE_DELEGATE_OneParam(FOnAbilityStateRemoved, const FAbilityState&);
@@ -160,7 +151,7 @@ struct FAbilityStateContainer : public FFastArraySerializer
 	GENERATED_BODY()
 
 	UPROPERTY(VisibleAnywhere)
-	TArray<FSimpleAbilityStateItem> AbilityStates;
+	TArray<FAbilityState> AbilityStates;
 
 	FOnAbilityStateAdded   OnAbilityStateAdded;
 	FOnAbilityStateChanged OnAbilityStateChanged;
@@ -172,7 +163,7 @@ struct FAbilityStateContainer : public FFastArraySerializer
 		{
 			for (const int32 AddedIndex : AddedIndices)
 			{
-				OnAbilityStateAdded.Execute(AbilityStates[AddedIndex].AbilityState);
+				OnAbilityStateAdded.Execute(AbilityStates[AddedIndex]);
 			}
 		}
 	}
@@ -183,7 +174,7 @@ struct FAbilityStateContainer : public FFastArraySerializer
 		{
 			for (const int32 ChangedIndex : ChangedIndices)
 			{
-				OnAbilityStateChanged.Execute(AbilityStates[ChangedIndex].AbilityState);
+				OnAbilityStateChanged.Execute(AbilityStates[ChangedIndex]);
 			}
 		}
 	}
@@ -194,14 +185,14 @@ struct FAbilityStateContainer : public FFastArraySerializer
 		{
 			for (const int32 RemovedIndex : RemovedIndices)
 			{
-				OnAbilityStateRemoved.Execute(AbilityStates[RemovedIndex].AbilityState);
+				OnAbilityStateRemoved.Execute(AbilityStates[RemovedIndex]);
 			}
 		}
 	}
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
 	{
-		return FFastArraySerializer::FastArrayDeltaSerialize<FSimpleAbilityStateItem, FAbilityStateContainer>(AbilityStates, DeltaParms, *this);
+		return FFastArraySerializer::FastArrayDeltaSerialize<FAbilityState, FAbilityStateContainer>(AbilityStates, DeltaParms, *this);
 	}
 };
 
