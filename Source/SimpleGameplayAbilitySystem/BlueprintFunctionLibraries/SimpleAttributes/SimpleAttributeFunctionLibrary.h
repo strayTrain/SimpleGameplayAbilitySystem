@@ -6,6 +6,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SimpleAttributeFunctionLibrary.generated.h"
 
+struct FAbilitySideEffect;
+enum class EAttributeValueType : uint8;
 class USimpleGameplayAbilityComponent;
 struct FGameplayTag;
 struct FFloatAttribute;
@@ -61,4 +63,7 @@ public:
 
 	UFUNCTION()
 	static void SendFloatAttributeChangedEvent(const USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue);
+
+	UFUNCTION()
+	static void ApplyAbilitySideEffects(USimpleGameplayAbilityComponent* Instigator, const TArray<FAbilitySideEffect>& AbilitySideEffects);
 };

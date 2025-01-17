@@ -19,3 +19,11 @@ void USimpleAbilityBase::TakeStateSnapshot(FSimpleAbilitySnapshot State)
 
 	OwningAbilityComponent->AddAbilityStateSnapshot(AbilityInstanceID, State);
 }
+
+void USimpleAbilityBase::ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState)
+{
+}
+
+void USimpleAbilityBase::ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot LatestAuthorityState)
+{
+}

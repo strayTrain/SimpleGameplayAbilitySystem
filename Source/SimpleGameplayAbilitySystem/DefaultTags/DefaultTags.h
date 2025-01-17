@@ -25,6 +25,8 @@ class FDefaultTags
 		static FGameplayTag AttributeModifierTicked;
 		static FGameplayTag AttributeModifierEnded;
 
+		static FGameplayTag AttributeModifierApplied;
+
 		static FGameplayTag GameplayTagAdded;
 		static FGameplayTag GameplayTagRemoved;
 

@@ -30,15 +30,19 @@ UENUM(BlueprintType)
 enum class EAttributeModifierApplicationPolicy : uint8
 {
 	/**
-	 * This modifier will be applied immediately on the client and then on the server. When the server applies
-	 * the modifier it will be replicated to the client and corrections happen as needed
-	 */
-	ApplyPredicted,
-	/**
-	 * This modifier can only be applied on the server and then replicated to the client.
-	 * Applying this modifier on the client will have no effect.
+	 * This modifier can only be applied on the server. Changed attributes will be replicated to the client.
 	 */
 	ApplyServerOnly,
+	/**
+	 * This modifier only runs on the server but any side effects are replicated to the client.
+	 */
+	ApplyServerOnlyButReplicateSideEffects,
+	/**
+	 * This modifier will be applied immediately on the client and then on the server. The client won't modify any attributes
+	 * but it will simulate their modification and execute side effects based on that simulated modification. Tag adding/removing is also replicated.
+	 * The server then runs the side effect and modifies the attributes, then replicates the changed attributes and any side effects to the client, which then corrects it's simulated state.
+	 */
+	ApplyClientPredicted,
 };
 
 UENUM(BlueprintType)
@@ -180,6 +184,9 @@ struct FAbilitySideEffect
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag AbilityContextTag;
+
+	UPROPERTY(BlueprintInternalUseOnly)
+	FInstancedStruct AbilityContext;
 };
 
 USTRUCT(BlueprintType)
@@ -204,6 +211,9 @@ struct FEventSideEffect
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag EventContextTag;
+
+	UPROPERTY(BlueprintInternalUseOnly)
+	FInstancedStruct EventContext;
 };
 
 USTRUCT(BlueprintType)
@@ -228,120 +238,28 @@ struct FAttributeModifierSideEffect
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag ModifierTargetsTag;
+
+	UPROPERTY(BlueprintInternalUseOnly)
+	FInstancedStruct ModifierContext;
 };
 
 USTRUCT(BlueprintType)
-struct FAttributeModifierConfiguration
+struct FAttributeModifierResult
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
-	EAttributeModifierType ModifierType = EAttributeModifierType::Instant;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USimpleGameplayAbilityComponent* Instigator;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
-	EAttributeModifierApplicationPolicy ModifierApplicationPolicy;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USimpleGameplayAbilityComponent* Target;
 	
-	/**
-	 * Tags that can be used to classify this modifier. e.g. "DamageOverTime", "StatusEffect" etc.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
-	FGameplayTagContainer ModifierTags;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FAbilitySideEffect> AppliedAbilitySideEffects;
 
-	/**
-	 * If true, the modifier will not be removed until explicitly removed.
-	 * If false, the modifier has a duration and will be removed after the duration has elapsed.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	bool HasInfiniteDuration = false;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && !HasInfiniteDuration"))
-	float Duration = 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FEventSideEffect> AppliedEventSideEffects;
 
-	/**
-	 * How often the modifier ticks. If 0 the modifier will only tick once when applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	float TickInterval = 1;
-	
-	/**
-	 * If true, the modifier will undo any float attribute modifications it made when it is removed.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	bool UndoFloatAttributeModificationsOnRemoval = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	EDurationTickTagRequirementBehaviour TickTagRequirementBehaviour;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	bool CanStack;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && CanStack"))
-	int32 Stacks = 1;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && CanStack"))
-	bool HasMaxStacks;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && CanStack && HasMaxStacks"))
-	int32 MaxStacks;
-
-	/**
-	 * These tags must be present on the target ability component for this modifier to apply.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Requirements")
-	FGameplayTagContainer TargetRequiredTags;
-
-	/**
-	 * These tags must NOT be present on the target ability component for this modifier to apply.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Requirements")
-	FGameplayTagContainer TargetBlockingTags;
-
-	/**
-	 * If another duration type modifier with these tags is already applied, this modifier will not be applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Requirements")
-	FGameplayTagContainer TargetBlockingModifierTags;
-	
-	/**
-	 * Cancel abilities of these classes when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	TArray<TSubclassOf<USimpleGameplayAbility>> CancelAbilities;
-	
-	/**
-	 * Cancel abilities with these AbilityTags in their tag config when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer CancelAbilitiesWithAbilityTags;
-
-	/**
-	 * Cancel other duration modifiers with these tags when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer CancelModifiersWithTag;
-	
-	/**
-	 * These tags are applied to the target ability component when this modifier is applied and removed when it ends.
-	 * Only applies to duration type modifiers.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	FGameplayTagContainer TemporarilyAppliedTags;
-
-	/**
-	 * These tags are applied to the target ability component when this modifier is applied and must be removed manually.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer PermanentlyAppliedTags;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierName"))
-	TArray<FAttributeModifier> AttributeModifications;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
-	TArray<FAbilitySideEffect> AbilitySideEffects;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
-	TArray<FEventSideEffect> EventSideEffects;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
-	TArray<FAttributeModifierSideEffect> AttributeModifierSideEffects;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FAttributeModifierSideEffect> AppliedAttributeModifierSideEffects;
 };

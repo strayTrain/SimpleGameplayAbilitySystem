@@ -181,6 +181,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Utility")
 	bool IsModifierActive() const { return bIsModifierActive; }
+
+	virtual void ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot LatestAuthorityState) override;
+	virtual void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState) override;
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attribute Modifier|State")
 	USimpleGameplayAbilityComponent* InstigatorAbilityComponent;
@@ -189,7 +192,7 @@ protected:
 
 	UFUNCTION()
 	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload);
-
+	
 	bool ApplyFloatAttributeModifier(const FAttributeModifier& Modifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const;
 	bool ApplyStructAttributeModifier(const FAttributeModifier& Modifier, TArray<FStructAttribute>& TempStructAttributes) const;
 	bool ApplyModifiersInternal(const EAttributeModifierSideEffectTrigger TriggerPhase);

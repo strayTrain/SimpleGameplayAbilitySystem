@@ -3,6 +3,7 @@
 #include "GameplayTagContainer.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
@@ -322,5 +323,13 @@ void USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(const USimp
 	else
 	{
 		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleGameplayAttributes::SendFloatAttributeChangedEvent: No event subsystem found."));
+	}
+}
+
+void USimpleAttributeFunctionLibrary::ApplyAbilitySideEffects(USimpleGameplayAbilityComponent* Instigator, const TArray<FAbilitySideEffect>& AbilitySideEffects)
+{
+	for (const FAbilitySideEffect& SideEffect : AbilitySideEffects)
+	{
+		Instigator->ActivateAbility(SideEffect.AbilityClass, SideEffect.AbilityContext, true, SideEffect.ActivationPolicy);
 	}
 }

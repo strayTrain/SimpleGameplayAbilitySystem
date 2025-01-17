@@ -3,6 +3,7 @@
 #include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
@@ -50,6 +51,15 @@ bool USimpleAttributeModifier::CanApplyModifier_Implementation(FInstancedStruct 
 
 bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, FInstancedStruct ModifierContext)
 {
+	if (!OwningAbilityComponent->HasAuthority())
+	{
+		if (ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnly || ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnlyButReplicateSideEffects)
+		{
+			SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplyModifier]: ModifierApplicationPolicy is ApplyServerOnly but the ability component does not have authority."));
+			return false;
+		}	
+	}
+	
 	InstigatorAbilityComponent = Instigator;
 	TargetAbilityComponent = Target;
 	InitialModifierContext = ModifierContext;
@@ -478,55 +488,94 @@ bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FAttributeModi
 
 void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, EAttributeModifierSideEffectTrigger EffectPhase)
 {
-	// Ability side effects
-	for (const FAbilitySideEffect& SideEffect : AbilitySideEffects)
+	if (!OwningAbilityComponent->HasAuthority())
 	{
-		if (SideEffect.ApplicationTriggers.Contains(EffectPhase))
+		if (ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnly || ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnlyButReplicateSideEffects)
 		{
-			USimpleGameplayAbilityComponent* ActivatingAbilityComponent = SideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+			SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplySideEffects]: ModifierApplicationPolicy is ApplyServerOnly but the ability component does not have authority. Can't locally apply side effects."));
+			return;
+		}	
+	}
+
+	FAttributeModifierResult ModifierResult;
+	ModifierResult.Instigator = Instigator;
+	ModifierResult.Target = Target;
+	
+	// Ability side effects
+	for (FAbilitySideEffect& AbilitySideEffect : AbilitySideEffects)
+	{
+		if (AbilitySideEffect.ApplicationTriggers.Contains(EffectPhase))
+		{
+			if (ModifierApplicationPolicy != EAttributeModifierApplicationPolicy::ApplyClientPredicted)
+			{
+				if (AbilitySideEffect.ActivationPolicy != EAbilityActivationPolicy::ClientPredicted)
+				{
+					SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleAttributeModifier::ApplySideEffects]: Ability side effect %s has ActivationPolicy ApplyClientPredicted but ModifierApplicationPolicy is not ApplyClientPredicted."), *AbilitySideEffect.AbilityClass->GetName()));
+					continue;
+				}
+			}
+			
+			USimpleGameplayAbilityComponent* ActivatingAbilityComponent = AbilitySideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
 
 			FInstancedStruct Payload;
 
-			if (SideEffect.AbilityContextTag.IsValid())
+			if (AbilitySideEffect.AbilityContextTag.IsValid())
 			{
 				bool IsPayloadValid = true;
-				Payload = GetAbilitySideEffectContext(SideEffect.AbilityContextTag, IsPayloadValid);
+				Payload = GetAbilitySideEffectContext(AbilitySideEffect.AbilityContextTag, IsPayloadValid);
 			}
 
-			ActivatingAbilityComponent->ActivateAbility(SideEffect.AbilityClass, Payload, true, SideEffect.ActivationPolicy);
+			AbilitySideEffect.AbilityContext = Payload;
+			ModifierResult.AppliedAbilitySideEffects.Add(AbilitySideEffect);
+
+			ActivatingAbilityComponent->ActivateAbility(AbilitySideEffect.AbilityClass, Payload, true, AbilitySideEffect.ActivationPolicy);
 		}
 	}
 
 	// Event side effects
-	for (const FEventSideEffect& SideEffect : EventSideEffects)
+	for (FEventSideEffect& EventSideEffect : EventSideEffects)
 	{
-		USimpleGameplayAbilityComponent* EventSendingComponent = SideEffect.EventSender == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+		USimpleGameplayAbilityComponent* EventSendingComponent = EventSideEffect.EventSender == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
 		
-		if (SideEffect.ApplicationTriggers.Contains(EffectPhase))
+		if (EventSideEffect.ApplicationTriggers.Contains(EffectPhase))
 		{
 			FInstancedStruct Payload;
 
-			if (SideEffect.EventContextTag.IsValid())
+			if (EventSideEffect.EventContextTag.IsValid())
 			{
 				bool IsPayloadValid = true;
-				Payload = GetEventSideEffectContext(SideEffect.EventContextTag, IsPayloadValid);
+				Payload = GetEventSideEffectContext(EventSideEffect.EventContextTag, IsPayloadValid);
 			}
 
-			EventSendingComponent->SendEvent(SideEffect.EventTag, SideEffect.EventDomain, Payload, EventSendingComponent->GetOwner(), SideEffect.EventReplicationPolicy);
+			EventSideEffect.EventContext = Payload;
+			ModifierResult.AppliedEventSideEffects.Add(EventSideEffect);
+			
+			EventSendingComponent->SendEvent(EventSideEffect.EventTag, EventSideEffect.EventDomain, Payload, EventSendingComponent->GetOwner(), EventSideEffect.EventReplicationPolicy);
 		}
 	}
 
 	// Attribute modifier side effects
-	for (const FAttributeModifierSideEffect& SideEffect : AttributeModifierSideEffects)
+	for (FAttributeModifierSideEffect& AttributeSideEffect : AttributeModifierSideEffects)
 	{
-		if (SideEffect.ApplicationTriggers.Contains(EffectPhase))
+		if (ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyClientPredicted)
 		{
-			USimpleGameplayAbilityComponent* InstigatingAbilityComponent = SideEffect.ModifierInstigator == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
-			USimpleGameplayAbilityComponent* TargetedAbilityComponent = SideEffect.ModifierTarget == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
-
-			if (SideEffect.ModifierTargetsTag.IsValid())
+			if (AttributeSideEffect.AttributeModifierClass->GetDefaultObject<USimpleAttributeModifier>()->ModifierApplicationPolicy != EAttributeModifierApplicationPolicy::ApplyClientPredicted)
 			{
-				GetAttributeModifierSideEffectTargets(SideEffect.ModifierTargetsTag, InstigatingAbilityComponent, TargetedAbilityComponent);
+				SIMPLE_LOG(this, FString::Printf(TEXT(
+					"[USimpleAttributeModifier::ApplySideEffects]: Attribute side effect %s has ModifierApplicationPolicy ApplyClientPredicted but %s is not ApplyClientPredicted."),
+					*AttributeSideEffect.AttributeModifierClass->GetName(), *GetName()));
+				continue;
+			}
+		}
+		
+		if (AttributeSideEffect.ApplicationTriggers.Contains(EffectPhase))
+		{
+			USimpleGameplayAbilityComponent* InstigatingAbilityComponent = AttributeSideEffect.ModifierInstigator == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+			USimpleGameplayAbilityComponent* TargetedAbilityComponent = AttributeSideEffect.ModifierTarget == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+
+			if (AttributeSideEffect.ModifierTargetsTag.IsValid())
+			{
+				GetAttributeModifierSideEffectTargets(AttributeSideEffect.ModifierTargetsTag, InstigatingAbilityComponent, TargetedAbilityComponent);
 
 				if (!InstigatingAbilityComponent || !TargetedAbilityComponent)
 				{
@@ -537,15 +586,36 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 			
 			FInstancedStruct Payload;
 
-			if (SideEffect.ModifierContextTag.IsValid())
+			if (AttributeSideEffect.ModifierContextTag.IsValid())
 			{
 				bool IsPayloadValid = true;
-				Payload = GetAttributeModifierSideEffectContext(SideEffect.ModifierContextTag, IsPayloadValid);
+				Payload = GetAttributeModifierSideEffectContext(AttributeSideEffect.ModifierContextTag, IsPayloadValid);
 			}
 
-			InstigatingAbilityComponent->ApplyAttributeModifierToTarget(TargetedAbilityComponent, SideEffect.AttributeModifierClass, Payload);
+			AttributeSideEffect.ModifierContext = Payload;
+			ModifierResult.AppliedAttributeModifierSideEffects.Add(AttributeSideEffect);
+
+			InstigatingAbilityComponent->ApplyAttributeModifierToTarget(TargetedAbilityComponent, AttributeSideEffect.AttributeModifierClass, Payload);
 		}
 	}
+	
+	FSimpleAbilitySnapshot Snapshot;
+	Snapshot.AbilityID = AbilityInstanceID;
+	Snapshot.StateTag  = FDefaultTags::AttributeModifierApplied;
+	Snapshot.TimeStamp = OwningAbilityComponent->GetServerTime();
+
+	// ApplyServerOnly means we don't want to replicate any side effects so we clear the modifier result
+	if (OwningAbilityComponent->HasAuthority())
+	{
+		if (ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnly)
+		{
+			SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplySideEffects]: ModifierApplicationPolicy is ApplyServerOnly. Clearing modifier result."));
+			ModifierResult = FAttributeModifierResult();
+		}
+	} 
+
+	Snapshot.StateData = FInstancedStruct::Make(ModifierResult);
+	OwningAbilityComponent->AddAttributeStateSnapshot(AbilityInstanceID, Snapshot);
 }
 
 /* Meta Attribute Functions */
@@ -636,5 +706,36 @@ void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag
 		
 		InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(DurationTimerHandle);
 		InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(TickTimerHandle);
+	}
+}
+
+void USimpleAttributeModifier::ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot LatestAuthorityState)
+{
+	SIMPLE_LOG(this, TEXT("ClientFastForwardState called on USimpleAttributeModifier"));
+}
+
+void USimpleAttributeModifier::ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState)
+{
+	const FAttributeModifierResult* AuthorityModifierResult = AuthorityState.StateData.GetPtr<FAttributeModifierResult>();
+	const FAttributeModifierResult* PredictedModifierResult = PredictedState.StateData.GetPtr<FAttributeModifierResult>();
+
+	if (!AuthorityModifierResult || !PredictedModifierResult)
+	{
+		SIMPLE_LOG(this, TEXT("ClientResolvePastState: Authority or Predicted modifier result is null."));
+		return;
+	}
+
+	// Start by checking if ability side effects were predicted correctly
+	for (const FAbilitySideEffect& PredictedAbilitySideEffect : PredictedModifierResult->AppliedAbilitySideEffects)
+	{
+		for (const FAbilitySideEffect& AuthorityAbilitySideEffect : AuthorityModifierResult->AppliedAbilitySideEffects)
+		{
+			if (PredictedAbilitySideEffect.AbilityClass == AuthorityAbilitySideEffect.AbilityClass)
+			{
+				return;
+			}
+		}
+		
+		UE_LOG(LogSimpleGAS, Warning, TEXT("ClientResolvePastState: Predicted ability side effect not found in authority state."));
 	}
 }

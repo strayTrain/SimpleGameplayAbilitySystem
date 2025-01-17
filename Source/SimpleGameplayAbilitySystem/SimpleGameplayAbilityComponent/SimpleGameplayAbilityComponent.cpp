@@ -107,7 +107,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbility(const TSubclassOf<USimpleG
 			WasAbilityActivated = ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID);
 			break;
 			
-		case EAbilityActivationPolicy::LocalPredicted:
+		case EAbilityActivationPolicy::ClientPredicted:
 			AddNewAbilityState(AbilityClass, AbilityContext, NewAbilityInstanceID);
 			WasAbilityActivated = ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID);
 		
@@ -201,7 +201,7 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(TSubc
 
 bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, FInstancedStruct CancellationContext)
 {
-	if (USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AbilityInstanceID))
+	if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilityInstanceID))
 	{
 		AbilityInstance->EndCancel(CancellationContext);
 		return true;
@@ -476,8 +476,37 @@ bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToSelf(TSubclassOf<U
 	return ApplyAttributeModifierToTarget(this, ModifierClass, ModifierContext);
 }
 
+void USimpleGameplayAbilityComponent::AddAttributeStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State)
+{
+	if (HasAuthority())
+	{
+		for (FAbilityState& AuthorityAttributeState : AuthorityAttributeStates.AbilityStates)
+		{
+			if (AuthorityAttributeState.AbilityID == AbilityInstanceID)
+			{
+				AuthorityAttributeState.SnapshotHistory.Add(State);
+				AuthorityAttributeStates.MarkItemDirty(AuthorityAttributeState);
+				return;
+			}
+		}
+	}
+	else
+	{
+		for (FAbilityState& ActiveAttribute : LocalAttributeStates)
+		{
+			if (ActiveAttribute.AbilityID == AbilityInstanceID)
+			{
+				ActiveAttribute.SnapshotHistory.Add(State);
+				return;
+			}
+		}
+	}
+
+	SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddAttributeStateSnapshot]: Attribute with ID %s not found in InstancedAttributes array"), *AbilityInstanceID.ToString()));
+}
+
 void USimpleGameplayAbilityComponent::AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass,
-	const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID)
+                                                           const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID)
 {
 	FAbilityState NewAttributeState;
 	
@@ -660,7 +689,7 @@ void USimpleGameplayAbilityComponent::RemoveInstancedAbility(USimpleGameplayAbil
 	InstancedAbilities.Remove(AbilityToRemove);
 }
 
-USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(FGuid AbilityInstanceID)
+USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetGameplayAbilityInstance(FGuid AbilityInstanceID)
 {
 	for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
 	{
@@ -670,6 +699,32 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(FGui
 		}
 	}
 	
+	return nullptr;
+}
+
+USimpleAttributeModifier* USimpleGameplayAbilityComponent::GetAttributeModifierInstance(FGuid AttributeInstanceID)
+{
+	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributes)
+	{
+		if (InstancedModifier->AbilityInstanceID == AttributeInstanceID)
+		{
+			return InstancedModifier;
+		}
+	}
+
+	return nullptr;
+}
+
+TArray<FSimpleAbilitySnapshot>* USimpleGameplayAbilityComponent::GetLocalAttributeStateSnapshots(const FGuid AttributeInstanceID)
+{
+	for (FAbilityState& AttributeState : LocalAttributeStates)
+	{
+		if (AttributeState.AbilityID == AttributeInstanceID)
+		{
+			return &AttributeState.SnapshotHistory;
+		}
+	}
+
 	return nullptr;
 }
 
@@ -723,10 +778,15 @@ FAbilityState USimpleGameplayAbilityComponent::GetAbilityState(const FGuid Abili
 
 void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbilityState)
 {
+	if (HasAuthority())
+	{
+		return;
+	}
+	
 	// A mapping of the local ability states for quick lookups
 	TMap<FGuid, int32> LocalStateArrayIndexMap;
 
-	// Added a new ability state
+	// Added a new gameplay ability state
 	if (NewAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))
 	{
 		// Get a mapping of the local ability states for quick lookups
@@ -753,21 +813,40 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 		{
 			LocalStateArrayIndexMap.Add(LocalAttributeStates[i].AbilityID, i);
 		}
-	
-		// If the NewAbilityState doesn't exist locally, we activate it
+
+		// If the NewAbilityState doesn't exist locally, we create a state and apply side effects if the state history is not empty
 		if (!LocalStateArrayIndexMap.Contains(NewAbilityState.AbilityID))
 		{
-			UClass* ParentClassPtr = NewAbilityState.AbilityClass.Get();
-			const TSubclassOf<USimpleAttributeModifier> AttributeClass = Cast<UClass>(ParentClassPtr);
-
 			LocalAttributeStates.Add(NewAbilityState);
-			ApplyAttributeModifierToSelf(AttributeClass, NewAbilityState.ActivationContext);
+
+			if (NewAbilityState.SnapshotHistory.Num() > 0)
+			{
+				USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(NewAbilityState.AbilityID);
+
+				if (!Modifier)
+				{
+					UClass* ParentClassPtr = NewAbilityState.AbilityClass.Get();
+					const TSubclassOf<USimpleAttributeModifier> AbilityClass = Cast<UClass>(ParentClassPtr);
+					Modifier = NewObject<USimpleAttributeModifier>(this, AbilityClass);
+					InstancedAttributes.Add(Modifier);
+				}
+
+				Modifier->InitializeAbility(this, NewAbilityState.AbilityID);
+				Modifier->ClientFastForwardState(NewAbilityState.SnapshotHistory.Last().StateTag, NewAbilityState.SnapshotHistory.Last());
+			}
 		}
+		
 	}
 }
 
 void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& ChangedAbilityState)
 {
+	if (HasAuthority())
+	{
+		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Called on the server, this should only be called on clients."));
+		return;
+	}
+	
 	if (!ChangedAbilityState.AbilityClass)
 	{
 		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Changed ability state with ID %s has an invalid class upon replication."), *ChangedAbilityState.AbilityID.ToString()));
@@ -813,7 +892,7 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 						break;
 					}
 
-					if (USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(ChangedAbilityState.AbilityID))
+					if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(ChangedAbilityState.AbilityID))
 					{
 						AbilityInstance->ClientResolvePastState(LatestAuthoritySnapshot.StateTag, LatestAuthoritySnapshot, LocalAbilityState->SnapshotHistory[i]);
 						LocalAbilityState->SnapshotHistory[i].WasClientSnapshotResolved = true;
@@ -827,10 +906,37 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 	// Changed an attribute state
 	if (ChangedAbilityState.AbilityClass->IsChildOf(USimpleAttributeModifier::StaticClass()))
 	{
-		
+		if (ChangedAbilityState.SnapshotHistory.Num() > 0)
+		{
+			USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(ChangedAbilityState.AbilityID);
+
+			if (!Modifier)
+			{
+				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Attribute modifier with ID %s not found in InstancedAttributes array"), *ChangedAbilityState.AbilityID.ToString()));
+				return;
+			}
+
+			TArray<FSimpleAbilitySnapshot>* LocalSnapshots = GetLocalAttributeStateSnapshots(ChangedAbilityState.AbilityID);
+
+			if (!LocalSnapshots)
+			{
+				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Attribute modifier with ID %s not found in LocalAttributeStates array"), *ChangedAbilityState.AbilityID.ToString()));
+				return;
+			}
+			
+			for (FSimpleAbilitySnapshot& LocalSnapshot : *LocalSnapshots)
+			{
+				if (LocalSnapshot.StateTag == ChangedAbilityState.SnapshotHistory.Last().StateTag && !LocalSnapshot.WasClientSnapshotResolved)
+				{
+					Modifier->ClientResolvePastState(ChangedAbilityState.SnapshotHistory.Last().StateTag, ChangedAbilityState.SnapshotHistory.Last(), LocalSnapshot);
+					LocalSnapshot.WasClientSnapshotResolved = true;
+					break;
+				}
+			}
+		}	
 	}
 }
-
+  
 void USimpleGameplayAbilityComponent::OnStateRemoved(const FAbilityState& RemovedAbilityState)
 {
 	if (RemovedAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))

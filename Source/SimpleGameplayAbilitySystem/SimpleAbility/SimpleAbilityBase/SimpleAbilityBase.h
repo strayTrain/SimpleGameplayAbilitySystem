@@ -27,10 +27,8 @@ public:
 	void TakeStateSnapshot(FSimpleAbilitySnapshot State);
 
 	// Called when the snapshot history locally is ahead of the server (usually in the case of a local predicted ability)
-	UFUNCTION(BlueprintImplementableEvent)
-	void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState);
+	virtual void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState);
 
 	// Called when the snapshot history locally is behind the server (usually in the case of a server initiated ability)
-	UFUNCTION(BlueprintImplementableEvent)
-	void ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState);
+	virtual void ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot LatestAuthorityState);
 };

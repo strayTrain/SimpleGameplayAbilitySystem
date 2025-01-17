@@ -110,6 +110,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	bool ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext);
 
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	void AddAttributeStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
+	
 	/* Gameplay Tag Functions */
 	
 	/**
@@ -173,13 +176,15 @@ protected:
 	bool ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
 	void AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
 	void AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass, const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID);
-	USimpleGameplayAbility* GetAbilityInstance(FGuid AbilityInstanceID);
+	USimpleGameplayAbility* GetGameplayAbilityInstance(FGuid AbilityInstanceID);
+	USimpleAttributeModifier* GetAttributeModifierInstance(FGuid AttributeInstanceID);
+	TArray<FSimpleAbilitySnapshot>* GetLocalAttributeStateSnapshots(FGuid AttributeInstanceID);
 
 	// Called on the client after an ability or attribute state has been added, changed or removed
 	void OnStateAdded(const FAbilityState& NewAbilityState);
 	void OnStateChanged(const FAbilityState& ChangedAbilityState);
 	void OnStateRemoved(const FAbilityState& RemovedAbilityState);
-
+	
 	void OnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute);
 	void OnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute);
 	void OnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute);

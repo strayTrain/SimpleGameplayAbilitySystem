@@ -18,6 +18,8 @@ FGameplayTag FDefaultTags::AttributeModifierInitiallyApplied;
 FGameplayTag FDefaultTags::AttributeModifierTicked;
 FGameplayTag FDefaultTags::AttributeModifierEnded;
 
+FGameplayTag FDefaultTags::AttributeModifierApplied;
+
 FGameplayTag FDefaultTags::GameplayTagAdded;
 FGameplayTag FDefaultTags::GameplayTagRemoved;
 
@@ -63,6 +65,8 @@ void FDefaultTags::InitializeDefaultTags()
 	AttributeModifierInitiallyApplied = FindTag("SimpleGAS.Events.AttributeModifer.ModifierInitiallyApplied");
 	AttributeModifierTicked = FindTag("SimpleGAS.Events.AttributeModifer.ModifierTicked");
 	AttributeModifierEnded = FindTag("SimpleGAS.Events.AttributeModifer.ModifierEnded");
+
+	AttributeModifierApplied = FindTag("SimpleGAS.Events.AttributeModifer.States.ModifierApplied");
 	
 	// Domains
 	LocalDomain = FindTag("SimpleGAS.Domains.Ability.Local");

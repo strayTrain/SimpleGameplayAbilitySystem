@@ -27,7 +27,11 @@ bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 		OwningAbilityComponent->AddGameplayTag(PermTag, ActivationContext);
 	}
 
-	OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
+	if (ActivationPolicy == EAbilityActivationPolicy::ClientPredicted || ActivationPolicy == EAbilityActivationPolicy::ServerInitiated)
+	{
+		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
+	}
+
 	OnActivate(ActivationContext);
 	
 	return true;
@@ -42,7 +46,7 @@ void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct
 		OwningAbilityComponent->RemoveGameplayTag(TempTag, EndingContext);
 	}
 	
-	if (ActivationPolicy == EAbilityActivationPolicy::LocalPredicted || ActivationPolicy == EAbilityActivationPolicy::ServerInitiated)
+	if (ActivationPolicy == EAbilityActivationPolicy::ClientPredicted || ActivationPolicy == EAbilityActivationPolicy::ServerInitiated)
 	{
 		if (EndStatus == FDefaultTags::AbilityEndedSuccessfully)
 		{

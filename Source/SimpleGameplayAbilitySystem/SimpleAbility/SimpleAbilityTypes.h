@@ -32,7 +32,7 @@ enum class EAbilityActivationPolicy :uint8
 	LocalOnly,
 	/* The ability is activated on the client immediately and then activated on the server through a reliable RPC.
 	If called from the server e.g. listen server scenario, it behaves the same as ServerInitiated. */
-	LocalPredicted,
+	ClientPredicted,
 	/* The ability is activated on the server first and then activated on all connected clients through a reliable multicast RPC.
 	If called from the client this will send a reliable RPC to the server which then reliably multicasts activation to all connected clients. */
 	ServerInitiated,
