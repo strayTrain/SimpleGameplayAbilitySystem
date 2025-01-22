@@ -217,8 +217,6 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 					ModifiedStructAttributes.Add(Modifier.ModifiedAttribute);
 				}
 				break;
-			default:
-				break;
 		}
 		
 		if (!WasModifierApplied && Modifier.CancelIfAttributeNotFound)
@@ -230,7 +228,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 	// If all the modifiers were applied successfully, we update the target ability component's attributes
 	if (InstigatorAbilityComponent->HasAuthority())
 	{
-		for (FFloatAttribute Attribute : TempFloatAttributes)
+		for (const FFloatAttribute& Attribute : TempFloatAttributes)
 		{
 			if (ModifiedFloatAttributes.Contains(Attribute.AttributeTag))
 			{
@@ -238,7 +236,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 			}
 		}
 
-		for (FStructAttribute Attribute : TempStructAttributes)
+		for (const FStructAttribute& Attribute : TempStructAttributes)
 		{
 			if (ModifiedStructAttributes.Contains(Attribute.AttributeTag))
 			{
@@ -346,6 +344,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 		case EAttributeModificationValueSource::Manual:
 			ModificationInputValue = Modifier.ManualInputValue;
 			break;
+		
 		case EAttributeModificationValueSource::FromOverflow:
 			ModificationInputValue = CurrentOverflow;
 
@@ -355,6 +354,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			}
 		
 			break;
+		
 		case EAttributeModificationValueSource::FromInstigatorAttribute:
 			if (!InstigatorAbilityComponent)
 			{
@@ -371,6 +371,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			}
 
 			break;
+		
 		case EAttributeModificationValueSource::FromTargetAttribute:
 			if (!TargetAbilityComponent)
 			{
@@ -387,6 +388,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			}
 			
 			break;
+		
 		case EAttributeModificationValueSource::FromMetaAttribute:
 			GetFloatMetaAttributeValue(Modifier.MetaAttributeTag, ModificationInputValue, WasMetaAttributeHandled);
 
@@ -396,8 +398,6 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 				return false;
 			}
 		
-			break;
-		default:
 			break;
 	}
 
@@ -410,13 +410,13 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 				case EFloatAttributeModificationOperation::Add:
 					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue + ModificationInputValue, CurrentOverflow);
 					break;
+				
 				case EFloatAttributeModificationOperation::Multiply:
 					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue * ModificationInputValue, CurrentOverflow);
 					break;
+				
 				case EFloatAttributeModificationOperation::Override:
 					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, ModificationInputValue, CurrentOverflow);
-					break;
-				default:
 					break;
 			}
 			break;
@@ -426,14 +426,14 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 			{
 				case EFloatAttributeModificationOperation::Add:
 					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue + ModificationInputValue, CurrentOverflow);
-						break;
+					break;
+				
 				case EFloatAttributeModificationOperation::Multiply:
 					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue * ModificationInputValue, CurrentOverflow);
-						break;
+					break;
+				
 				case EFloatAttributeModificationOperation::Override:
 					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, ModificationInputValue, CurrentOverflow);
-						break;
-				default:
 					break;
 			}
 			break;
@@ -452,9 +452,6 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 		
 		case EAttributeValueType::MinCurrentValue:
 			AttributeToModify->ValueLimits.MinCurrentValue = ModificationInputValue;
-			break;
-		
-		default:
 			break;
 	}
 	
@@ -609,7 +606,7 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 	{
 		if (ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnly)
 		{
-			SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplySideEffects]: ModifierApplicationPolicy is ApplyServerOnly. Clearing modifier result."));
+			SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplySideEffects]: ModifierApplicationPolicy is ApplyServerOnly. Skipping side effect replication."));
 			ModifierResult = FAttributeModifierResult();
 		}
 	} 
