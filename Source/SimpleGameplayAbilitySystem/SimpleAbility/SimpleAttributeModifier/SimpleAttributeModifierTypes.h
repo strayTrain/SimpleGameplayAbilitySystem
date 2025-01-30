@@ -186,7 +186,7 @@ struct FAbilitySideEffect
 	FGameplayTag AbilityContextTag;
 
 	UPROPERTY(BlueprintInternalUseOnly)
-	FInstancedStruct AbilityContext;
+	FInstancedStruct AbilityContext = FInstancedStruct();
 };
 
 USTRUCT(BlueprintType)

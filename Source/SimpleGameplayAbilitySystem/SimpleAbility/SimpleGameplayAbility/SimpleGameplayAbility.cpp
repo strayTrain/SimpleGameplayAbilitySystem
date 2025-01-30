@@ -169,3 +169,8 @@ bool USimpleGameplayAbility::MeetsTagRequirements() const
 
 	return true;
 }
+
+void USimpleGameplayAbility::ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState)
+{
+	OnClientReceivedAuthorityState(StateTag, AuthorityState, PredictedState);
+}

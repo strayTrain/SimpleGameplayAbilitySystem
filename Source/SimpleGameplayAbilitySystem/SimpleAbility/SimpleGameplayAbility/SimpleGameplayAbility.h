@@ -101,6 +101,10 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnEnd(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnClientReceivedAuthorityState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState);
+	virtual void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState) override;
 
 	/* Utility functions */
 	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))

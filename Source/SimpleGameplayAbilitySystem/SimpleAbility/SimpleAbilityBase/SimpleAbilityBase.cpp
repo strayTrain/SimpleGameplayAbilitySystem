@@ -9,7 +9,7 @@ void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOw
 	AbilityInstanceID = InAbilityInstanceID;
 }
 
-void USimpleAbilityBase::TakeStateSnapshot(FSimpleAbilitySnapshot State)
+void USimpleAbilityBase::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData)
 {
 	if (!OwningAbilityComponent)
 	{
@@ -17,7 +17,13 @@ void USimpleAbilityBase::TakeStateSnapshot(FSimpleAbilitySnapshot State)
 		return;
 	}
 
-	OwningAbilityComponent->AddAbilityStateSnapshot(AbilityInstanceID, State);
+	FSimpleAbilitySnapshot NewSnapshot;
+	NewSnapshot.AbilityID = AbilityInstanceID;
+	NewSnapshot.StateTag = SnapshotTag;
+	NewSnapshot.StateData = SnapshotData;
+	NewSnapshot.TimeStamp = OwningAbilityComponent->GetServerTime();
+
+	OwningAbilityComponent->AddAbilityStateSnapshot(AbilityInstanceID, NewSnapshot);
 }
 
 void USimpleAbilityBase::ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState)

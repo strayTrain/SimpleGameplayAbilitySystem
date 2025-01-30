@@ -105,10 +105,10 @@ public:
 	void RemoveStructAttribute(FGameplayTag AttributeTag);
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	bool ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* ModifierTarget, TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext);
+	bool ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* ModifierTarget, TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext, FGuid& ModifierID);
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	bool ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext);
+	bool ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext, FGuid& ModifierID);
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	void AddAttributeStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);

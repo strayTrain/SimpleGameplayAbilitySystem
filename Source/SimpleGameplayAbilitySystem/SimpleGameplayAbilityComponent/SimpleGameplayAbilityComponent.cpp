@@ -262,7 +262,6 @@ void USimpleGameplayAbilityComponent::AddNewAbilityState(const TSubclassOf<USimp
 		
 		AuthorityAbilityStates.AbilityStates.Add(NewAbilityStateItem);
 		AuthorityAbilityStates.MarkArrayDirty();
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddNewAbilityState]: Added new ability state with ID %s to AuthorityAbilityStates array."), *AbilityInstanceID.ToString()));
 	}
 	else
 	{
@@ -276,7 +275,6 @@ void USimpleGameplayAbilityComponent::AddNewAbilityState(const TSubclassOf<USimp
 		}
 		
 		LocalAbilityStates.Add(NewAbilityState);
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddNewAbilityState]: Added new ability state with ID %s to LocalAbilityStates array."), *AbilityInstanceID.ToString()));
 	}
 }
 
@@ -427,7 +425,7 @@ void USimpleGameplayAbilityComponent::RemoveStructAttribute(FGameplayTag Attribu
 }
 
 bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* ModifierTarget,
-	TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext)
+	TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext, FGuid& ModifierID)
 {
 	if (!ModifierClass)
 	{
@@ -437,6 +435,7 @@ bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGame
 	
 	const FGuid ModifierInstanceID = FGuid::NewGuid();
 	USimpleAttributeModifier* Modifier = nullptr;
+	ModifierID = ModifierInstanceID;
 
 	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributes)
 	{
@@ -471,9 +470,9 @@ bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGame
 }
 
 bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass,
-	FInstancedStruct ModifierContext)
+	FInstancedStruct ModifierContext, FGuid& ModifierID)
 {
-	return ApplyAttributeModifierToTarget(this, ModifierClass, ModifierContext);
+	return ApplyAttributeModifierToTarget(this, ModifierClass, ModifierContext, ModifierID);
 }
 
 void USimpleGameplayAbilityComponent::AddAttributeStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State)
@@ -832,6 +831,12 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 				}
 
 				Modifier->InitializeAbility(this, NewAbilityState.AbilityID);
+
+				if (Modifier->ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyClientPredicted)
+				{
+					return;
+				}
+				
 				Modifier->ClientFastForwardState(NewAbilityState.SnapshotHistory.Last().StateTag, NewAbilityState.SnapshotHistory.Last());
 			}
 		}
@@ -843,7 +848,6 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 {
 	if (HasAuthority())
 	{
-		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Called on the server, this should only be called on clients."));
 		return;
 	}
 	
@@ -852,7 +856,7 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Changed ability state with ID %s has an invalid class upon replication."), *ChangedAbilityState.AbilityID.ToString()));
 		return;
 	}
-
+	
 	// Changed an ability state
 	if (ChangedAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))
 	{
@@ -882,21 +886,21 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Change
 		if (ChangedAbilityState.SnapshotHistory.Num() > 0)
 		{
 			const FSimpleAbilitySnapshot& LatestAuthoritySnapshot = ChangedAbilityState.SnapshotHistory.Last();
-
-			for (int32 i = LocalAbilityState->SnapshotHistory.Num(); i >= 0; i--)
+			
+			for (int32 i = LocalAbilityState->SnapshotHistory.Num() - 1; i >= 0; i--)
 			{
 				if (LocalAbilityState->SnapshotHistory[i].StateTag == LatestAuthoritySnapshot.StateTag)
 				{
 					if (LocalAbilityState->SnapshotHistory[i].WasClientSnapshotResolved)
 					{
-						break;
+						return;
 					}
-
+					
 					if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(ChangedAbilityState.AbilityID))
 					{
 						AbilityInstance->ClientResolvePastState(LatestAuthoritySnapshot.StateTag, LatestAuthoritySnapshot, LocalAbilityState->SnapshotHistory[i]);
 						LocalAbilityState->SnapshotHistory[i].WasClientSnapshotResolved = true;
-						break;	
+						return;	
 					}
 				}
 			}
