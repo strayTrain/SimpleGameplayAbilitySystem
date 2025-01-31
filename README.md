@@ -20,7 +20,7 @@ This system is designed with multiplayer in mind. It supports replication, clien
 
 ## Getting Started
 
-[The docs are can be found here](https://straytrain.github.io/SimpleGameplayAbilitySystem/)
+[The docs can be found here](https://straytrain.github.io/SimpleGameplayAbilitySystem/)
 
 ## Contributing
 
