@@ -7,8 +7,8 @@ nav_order: 3
 # Installing the plugin
 
 This plugin requires Unreal Engine 5.2 and later to work.  
-If you are starting with a Blueprint only project follow steps 1 and 2 first.  
-Otherwise you can go straight to [Step 3](#step-3-installing-the-plugin-in-a-c-project)
+* If you are starting with a Blueprint only project follow steps 1 and 2 first.  
+* Otherwise you can go straight to [Step 3](#step-3-installing-the-plugin-in-a-c-project)
 
 ### **Step 1: Convert Your Blueprint Project into a C++ Project**
 Since Blueprint projects do not have a Visual Studio solution (`.sln`) or C++ support enabled by default, you need to add a C++ class to generate these files.  

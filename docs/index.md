@@ -16,8 +16,6 @@ The built-in **Gameplay Ability System (GAS)** is powerful but comes with a stee
 
 - **Simplified API:** Less boilerplate, more gameplay.
 - **Blueprint-Friendly:** Can be used without writing any c++
-- **Modular Design:** Components, attributes, and abilities are cleanly separated.
+- **Modular Design:** Components, attributes, and abilities are cleanly separated and easy to extend.
 - **Replicated & Multiplayer-Ready:** Designed with networking in mind but also useful for single player games.
 - **Lightweight & Customizable:** Adaptable to various game genres and mechanics.
-
-[gifs go here]
