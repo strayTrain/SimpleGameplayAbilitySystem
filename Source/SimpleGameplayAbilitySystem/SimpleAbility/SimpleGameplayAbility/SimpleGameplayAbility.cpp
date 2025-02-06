@@ -32,6 +32,7 @@ bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
 	}
 
+	bIsAbilityActive = true;
 	OnActivate(ActivationContext);
 	
 	return true;
@@ -66,6 +67,8 @@ void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct
 	{
 		OwningAbilityComponent->RemoveInstancedAbility(this);
 	}
+
+	bIsAbilityActive = false;
 }
 
 void USimpleGameplayAbility::EndSuccess(FInstancedStruct EndingContext)
@@ -91,16 +94,7 @@ AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass
 
 bool USimpleGameplayAbility::IsAbilityActive() const
 {
-	bool WasStateFound;
-	const FAbilityState AbilityState = OwningAbilityComponent->GetAbilityState(AbilityInstanceID, WasStateFound);
-
-	if (WasStateFound)
-	{
-		return AbilityState.AbilityStatus == EAbilityStatus::ActivationSuccess;
-	}
-
-	//UE_LOG(LogSimpleGAS, Warning, TEXT("Ability with ID %s not found in AbilityState array"), *AbilityInstanceID.ToString());
-	return false;
+	return bIsAbilityActive;
 }
 
 double USimpleGameplayAbility::GetActivationTime() const

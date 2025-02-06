@@ -8,6 +8,8 @@
 
 /* Enums */
 
+class USimpleStructAttributeHandler;
+
 UENUM(BlueprintType)
 enum class ESimpleEventReplicationPolicy : uint8
 {
@@ -210,8 +212,17 @@ struct FStructAttribute : public FFastArraySerializerItem
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag AttributeTag;
 	
+	/**
+	 * The struct type that this attribute will hold. If you try to set a value that is not of this type, it will be ignored.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UScriptStruct* AttributeType;
+
+	/**
+	 * Optional handler class that can be used to check which individual members of the struct changed when the attribute is updated.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<USimpleStructAttributeHandler> AttributeHandler;
 
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct AttributeValue;

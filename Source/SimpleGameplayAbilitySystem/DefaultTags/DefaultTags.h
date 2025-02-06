@@ -9,6 +9,9 @@ class FDefaultTags
 		static void InitializeDefaultTags();
 
 		// Events
+		static FGameplayTag GameplayTagAdded;
+		static FGameplayTag GameplayTagRemoved;
+	
 		static FGameplayTag AbilityAdded;
 		static FGameplayTag AbilityRemoved;
 		static FGameplayTag AbilityActivated;
@@ -18,24 +21,24 @@ class FDefaultTags
 
 		static FGameplayTag AbilityStateSnapshotTaken;
 
-		static FGameplayTag AttributeAdded;
-		static FGameplayTag AttributeRemoved;
-
-		static FGameplayTag AttributeModifierInitiallyApplied;
+		static FGameplayTag AttributeModifierApplied;
+		static FGameplayTag AttributeModifierInitiallyApplied; // For duration modifiers
 		static FGameplayTag AttributeModifierTicked;
 		static FGameplayTag AttributeModifierEnded;
-
-		static FGameplayTag AttributeModifierApplied;
-
-		static FGameplayTag GameplayTagAdded;
-		static FGameplayTag GameplayTagRemoved;
-
+	
+		static FGameplayTag FloatAttributeAdded;
+		static FGameplayTag FloatAttributeRemoved;
+		
 		static FGameplayTag FloatAttributeBaseValueChanged;
 		static FGameplayTag FloatAttributeMinBaseValueChanged;
 		static FGameplayTag FloatAttributeMaxBaseValueChanged;
 		static FGameplayTag FloatAttributeCurrentValueChanged;
 		static FGameplayTag FloatAttributeMinCurrentValueChanged;
 		static FGameplayTag FloatAttributeMaxCurrentValueChanged;
+
+		static FGameplayTag StructAttributeAdded;
+		static FGameplayTag StructAttributeValueChanged;
+		static FGameplayTag StructAttributeRemoved;
 		
 		// Domains
 		static FGameplayTag LocalDomain;

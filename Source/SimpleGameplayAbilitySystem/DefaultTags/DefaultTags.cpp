@@ -3,6 +3,9 @@
 #include "GameplayTagsManager.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 
+FGameplayTag FDefaultTags::GameplayTagAdded;
+FGameplayTag FDefaultTags::GameplayTagRemoved;
+
 FGameplayTag FDefaultTags::AbilityAdded;
 FGameplayTag FDefaultTags::AbilityRemoved;
 FGameplayTag FDefaultTags::AbilityActivated;
@@ -11,17 +14,13 @@ FGameplayTag FDefaultTags::AbilityEndedSuccessfully;
 FGameplayTag FDefaultTags::AbilityCancelled;
 FGameplayTag FDefaultTags::AbilityStateSnapshotTaken;
 
-FGameplayTag FDefaultTags::AttributeAdded;
-FGameplayTag FDefaultTags::AttributeRemoved;
-
+FGameplayTag FDefaultTags::AttributeModifierApplied;
 FGameplayTag FDefaultTags::AttributeModifierInitiallyApplied;
 FGameplayTag FDefaultTags::AttributeModifierTicked;
 FGameplayTag FDefaultTags::AttributeModifierEnded;
 
-FGameplayTag FDefaultTags::AttributeModifierApplied;
-
-FGameplayTag FDefaultTags::GameplayTagAdded;
-FGameplayTag FDefaultTags::GameplayTagRemoved;
+FGameplayTag FDefaultTags::FloatAttributeAdded;
+FGameplayTag FDefaultTags::FloatAttributeRemoved;
 
 FGameplayTag FDefaultTags::FloatAttributeBaseValueChanged;
 FGameplayTag FDefaultTags::FloatAttributeMinBaseValueChanged;
@@ -30,6 +29,10 @@ FGameplayTag FDefaultTags::FloatAttributeCurrentValueChanged;
 FGameplayTag FDefaultTags::FloatAttributeMinCurrentValueChanged;
 FGameplayTag FDefaultTags::FloatAttributeMaxCurrentValueChanged;
 
+FGameplayTag FDefaultTags::StructAttributeAdded;
+FGameplayTag FDefaultTags::StructAttributeValueChanged;
+FGameplayTag FDefaultTags::StructAttributeRemoved;
+
 FGameplayTag FDefaultTags::LocalDomain;
 FGameplayTag FDefaultTags::AuthorityDomain;
 FGameplayTag FDefaultTags::AbilityDomain;
@@ -37,6 +40,10 @@ FGameplayTag FDefaultTags::AttributeDomain;
 
 void FDefaultTags::InitializeDefaultTags()
 {
+	// Ability Component Events
+	GameplayTagAdded = FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagAdded");
+	GameplayTagRemoved = FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagRemoved");
+	
 	// Ability Events
 	AbilityAdded = FindTag("SimpleGAS.Events.Ability.AbilityAdded");
 	AbilityRemoved = FindTag("SimpleGAS.Events.Ability.AbilityRemoved");
@@ -45,21 +52,22 @@ void FDefaultTags::InitializeDefaultTags()
 	AbilityEndedSuccessfully = FindTag("SimpleGAS.Events.Ability.AbilityEndedSuccessfully");
 	AbilityCancelled = FindTag("SimpleGAS.Events.Ability.AbilityCancelled");
 	AbilityStateSnapshotTaken = FindTag("SimpleGAS.Events.Ability.AbilityStateSnapshotTaken");
-
-	// Ability Component Events
-	GameplayTagAdded = FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagAdded");
-	GameplayTagRemoved = FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagRemoved");
 	
-	// Attributes
-	AttributeAdded = FindTag("SimpleGAS.Events.Attributes.AttributeAdded");
-	AttributeRemoved = FindTag("SimpleGAS.Events.Attributes.AttributeRemoved");
-
+	// Float Attributes
+	FloatAttributeAdded = FindTag("SimpleGAS.Events.Attributes.FloatAttributeAdded");
+	FloatAttributeRemoved = FindTag("SimpleGAS.Events.Attributes.FloatAttributeRemoved");
+	
 	FloatAttributeBaseValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.BaseValue");
 	FloatAttributeMinBaseValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MinBaseValue");
 	FloatAttributeMaxBaseValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MaxBaseValue");
 	FloatAttributeCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.CurrentValue");
 	FloatAttributeMinCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MinCurrentValue");
 	FloatAttributeMaxCurrentValueChanged = FindTag("SimpleGAS.Events.Attributes.AttributeChanged.MaxCurrentValue");
+
+	// Struct Attributes
+	StructAttributeAdded = FindTag("SimpleGAS.Events.Attributes.StructAttributeAdded");
+	StructAttributeValueChanged = FindTag("SimpleGAS.Events.Attributes.StructAttributeValueChanged");
+	StructAttributeRemoved = FindTag("SimpleGAS.Events.Attributes.StructAttributeRemoved");
 
 	// Attribute Modifiers
 	AttributeModifierInitiallyApplied = FindTag("SimpleGAS.Events.AttributeModifer.ModifierInitiallyApplied");

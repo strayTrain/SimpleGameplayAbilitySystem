@@ -5,3 +5,14 @@ theme: just-the-docs
 url: https://straytrain.github.io/SimpleGAS/
 
 color_scheme: dark
+
+callouts:
+  warning:
+    title: Warning
+    color: red
+  note:
+    title: Note
+    color: yellow
+  tip:
+    title: Tip
+    color: blue

@@ -7,7 +7,6 @@
 #include "SimpleAbilityTypes.generated.h"
 
 class USimpleAbilityBase;
-class USimpleAbilityComponent;
 class USimpleAttributeModifier;
 class UAbilityStateResolver;
 

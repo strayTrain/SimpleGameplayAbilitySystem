@@ -24,41 +24,26 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	static bool HasStructAttribute(USimpleGameplayAbilityComponent* AbilityComponent, const FGameplayTag AttributeTag);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	static FFloatAttribute GetFloatAttributeCopy(USimpleGameplayAbilityComponent* AbilityComponent, const FGameplayTag AttributeTag, bool& WasFound);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
 	static float GetFloatAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, EAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
+	UFUNCTION(BlueprintCallable)
 	static bool SetFloatAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	static bool OverrideFloatAttribute(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, FFloatAttribute NewAttribute);
 	
-	UFUNCTION(BlueprintCallable)
-	static FStructAttribute GetStructAttributeCopy(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, bool& WasFound);
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	static FInstancedStruct GetStructAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, bool& WasFound);
 	
 	UFUNCTION(BlueprintCallable)
-	static FInstancedStruct GetStructAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, bool& WasFound);
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	static bool SetStructAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, FInstancedStruct NewValue);
 
-	UFUNCTION(BlueprintCallable)
-	static bool HasModifierWithTags(const USimpleGameplayAbilityComponent* AbilityComponent, const FGameplayTagContainer& Tags);
-
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION()
 	static float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EAttributeValueType ValueType, float NewValue, float& Overflow);
 
-	UFUNCTION(BlueprintCallable)
-	static int32 GetFloatAttributeIndex(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag);
-
-	UFUNCTION(BlueprintCallable)
-	static int32 GetStructAttributeIndex(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag);
-
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION()
 	static void CompareFloatAttributesAndSendEvents(const USimpleGameplayAbilityComponent* AbilityComponent, const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute);
 
 	UFUNCTION()
@@ -66,4 +51,7 @@ public:
 
 	UFUNCTION()
 	static void ApplyAbilitySideEffects(USimpleGameplayAbilityComponent* Instigator, const TArray<FAbilitySideEffect>& AbilitySideEffects);
+
+	static FFloatAttribute* GetFloatAttribute(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag);
+	static FStructAttribute* GetStructAttribute(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag);
 };

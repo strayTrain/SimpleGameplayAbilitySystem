@@ -92,11 +92,11 @@ struct FAttributeModifier
 	GENERATED_BODY()
 
 	/**
-	 * The name of the modifier. This is cosmetic only and used to change the title of the modifier in the editor UI.
+	 * The description of what the modifier does. This is cosmetic only and used to change the title of the modifier in the editor UI.
 	 * Can be left blank if desired. 
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString ModifierName = "Modifier";
+	FString ModifierDescription = "Modifier";
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EAttributeType AttributeType;
@@ -164,6 +164,9 @@ struct FAbilitySideEffect
 {
 	GENERATED_BODY()
 
+	UPROPERTY(BlueprintReadWrite)
+	FGuid AbilityInstanceID;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
 
@@ -221,6 +224,9 @@ struct FAttributeModifierSideEffect
 {
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGuid AttributeID;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
 

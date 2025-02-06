@@ -124,4 +124,5 @@ protected:
 	
 private:
 	bool MeetsTagRequirements() const;
+	bool bIsAbilityActive = false;
 };

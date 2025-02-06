@@ -114,7 +114,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
 	FGameplayTagContainer RemoveGameplayTags;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierName"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierDescription"))
 	TArray<FAttributeModifier> AttributeModifications;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")

@@ -35,11 +35,11 @@ bool USimpleAttributeModifier::CanApplyModifierInternal(FInstancedStruct Modifie
 		return false;
 	}
 
-	if (USimpleAttributeFunctionLibrary::HasModifierWithTags(TargetAbilityComponent, TargetBlockingModifierTags))
-	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("Target has blocking modifier tags in USimpleAttributeModifier::CanApplyModifierInternal"));
-		return false;
-	}
+	// if (USimpleAttributeFunctionLibrary::HasModifierWithTags(TargetAbilityComponent, TargetBlockingModifierTags))
+	// {
+	// 	UE_LOG(LogSimpleGAS, Warning, TEXT("Target has blocking modifier tags in USimpleAttributeModifier::CanApplyModifierInternal"));
+	// 	return false;
+	// }
 
 	return true;
 }
@@ -588,11 +588,12 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 				Payload = GetAttributeModifierSideEffectContext(AttributeSideEffect.ModifierContextTag, IsPayloadValid);
 			}
 
-			AttributeSideEffect.ModifierContext = Payload;
-			ModifierResult.AppliedAttributeModifierSideEffects.Add(AttributeSideEffect);
-
-			FGuid AttributeID;
+			FGuid AttributeID = FGuid::NewGuid();
 			InstigatingAbilityComponent->ApplyAttributeModifierToTarget(TargetedAbilityComponent, AttributeSideEffect.AttributeModifierClass, Payload, AttributeID);
+			
+			AttributeSideEffect.ModifierContext = Payload;
+			AttributeSideEffect.AttributeID = AttributeID;
+			ModifierResult.AppliedAttributeModifierSideEffects.Add(AttributeSideEffect);
 		}
 	}
 	

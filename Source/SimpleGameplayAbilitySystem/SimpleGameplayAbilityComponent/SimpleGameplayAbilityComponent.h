@@ -10,6 +10,7 @@
 class UAbilitySet;
 class UAttributeSet;
 class USimpleGameplayAbility;
+class USimpleStructAttributeHandler;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public UActorComponent
@@ -27,36 +28,38 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = "AbilityComponent|Tags")
 	FGameplayTagContainer GameplayTags;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Attributes")
-	TArray<UAttributeSet*> AttributeSets;
-
-	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
-	TArray<FFloatAttribute> DirectlyGrantedFloatAttributes;
-	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
-	TArray<FStructAttribute> DirectlyGrantedStructAttributes;
-	
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
-	FFloatAttributeContainer AuthorityFloatAttributes;
-	TArray<FFloatAttribute> PreviousFloatAttributes;
-	
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
-	FStructAttributeContainer AuthorityStructAttributes;
-	TArray<FStructAttribute> PreviousStructAttributes;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
 	TArray<UAbilitySet*> AbilitySets;
 	
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
 	TArray<TSubclassOf<USimpleGameplayAbility>> GrantedAbilities;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Attributes")
+	TArray<UAttributeSet*> AttributeSets;
 	
-	UPROPERTY(Replicated, VisibleAnywhere, Category = "AbilityComponent|State")
+	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
+	TArray<FFloatAttribute> FloatAttributes;
+	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
+	TArray<FStructAttribute> StructAttributes;
+	
+	UPROPERTY(VisibleAnywhere, Replicated)
+	FFloatAttributeContainer AuthorityFloatAttributes;
+	UPROPERTY(VisibleAnywhere, Replicated)
+	TArray<FFloatAttribute> LocalFloatAttributes;
+	
+	UPROPERTY(VisibleAnywhere, Replicated)
+	FStructAttributeContainer AuthorityStructAttributes;
+	UPROPERTY(VisibleAnywhere)
+	TArray<FStructAttribute> LocalStructAttributes;
+	
+	UPROPERTY(Replicated)
 	FAbilityStateContainer AuthorityAbilityStates;
-	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
+	UPROPERTY()
 	TArray<FAbilityState> LocalAbilityStates;
 	
-	UPROPERTY(Replicated, VisibleAnywhere, Category = "AbilityComponent|State")
+	UPROPERTY(Replicated)
 	FAbilityStateContainer AuthorityAttributeStates;
-	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
+	UPROPERTY()
 	TArray<FAbilityState> LocalAttributeStates;
 
 	/* Avatar Actor Functions */
@@ -76,7 +79,8 @@ public:
 	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 
 	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
-	bool ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy);
+	FGuid ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext,
+	                      bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy);
 
 	UFUNCTION(Server, Reliable)
 	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
@@ -112,6 +116,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	void AddAttributeStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
+
+	/**
+	 * Cancels a modifier.
+	 * If it is an active duration modifier, it is cancelled.
+	 * If it is an instant modifier or ended duration modifier, any running ability or modifier side effects it created are cancelled.
+	 * @param ModifierID The ID of the modifier to cancel
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	void CancelAttributeModifier(FGuid ModifierID);
 	
 	/* Gameplay Tag Functions */
 	
@@ -150,6 +163,13 @@ public:
 	
 	/* Utility Functions */
 	
+	/**
+	 * Returns the server time if called on the server.
+	 * Returns the clients estimation of the server time if called on the client.
+	 * By default, uses GetWorld()->GetGameState()->GetServerWorldTimeSeconds() to get the server time.
+	 * Override this function to provide a custom network time synchronisation implementation.
+	 * @return The current server time in seconds
+	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
 	double GetServerTime();
 	virtual double GetServerTime_Implementation();
@@ -163,6 +183,8 @@ public:
 	/* Called by multiple instance abilities to set themselves up for deletion once the ability is over */
 	void RemoveInstancedAbility(USimpleGameplayAbility* AbilityToRemove);
 
+	/* Gets an existing instance or creates a new instance of an attribute handler class */
+	USimpleStructAttributeHandler* GetStructAttributeHandler(const TSubclassOf<USimpleStructAttributeHandler>& HandlerClass);
 protected:
 	UPROPERTY()
 	TArray<USimpleGameplayAbility*> InstancedAbilities;
@@ -171,6 +193,7 @@ protected:
 	
 	// Used to keep track of which events have been handled locally to avoid double event sending with multicast
 	TArray<FGuid> HandledEventIDs;
+	TArray<USimpleStructAttributeHandler*> StructAttributeHandlers;
 	
 	virtual void BeginPlay() override;
 	bool ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
@@ -192,6 +215,8 @@ protected:
 	void OnStructAttributeAdded(const FStructAttribute& NewStructAttribute);
 	void OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute);
 	void OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute);
+
+	FInstancedStruct GetDefaultValueForStructAttribute(FStructAttribute Attribute);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };
