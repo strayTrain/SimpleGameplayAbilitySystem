@@ -109,12 +109,12 @@ struct FAttributeModifier
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool CancelIfAttributeNotFound = true;
-
+	
 	/**
-	 * If the attribute modifier is a duration type, this modifier will only trigger during these phases.
+	 * Only apply this modifier during these phases. If left empty, the modifier will always apply.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<EAttributeModifierSideEffectTrigger> DurationApplicationTriggers;
+	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
 	EFloatAttributeModificationOperation ModificationOperation;
@@ -138,7 +138,7 @@ struct FAttributeModifier
 	EAttributeValueType SourceAttributeValueType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::StructAttribute", EditConditionHides))
-	FGameplayTag StructModifierTag;
+	FGameplayTag StructOperationTag;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::FromMetaAttribute && AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
 	FGameplayTag MetaAttributeTag;
@@ -224,7 +224,7 @@ struct FAttributeModifierSideEffect
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	FGuid AttributeID;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

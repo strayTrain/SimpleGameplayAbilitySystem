@@ -538,6 +538,18 @@ void USimpleGameplayAbilityComponent::CancelAttributeModifier(FGuid ModifierID)
 	}
 }
 
+void USimpleGameplayAbilityComponent::CancelAttributeModifiersWithTags(FGameplayTagContainer Tags)
+{
+	// We go through all active modifiers and cancel them if any of their tags match the provided tags
+	for (USimpleAttributeModifier* ModifierInstance : InstancedAttributes)
+	{
+		if (ModifierInstance->IsModifierActive() && ModifierInstance->ModifierTags.HasAnyExact(Tags))
+		{
+			CancelAttributeModifier(ModifierInstance->AbilityInstanceID);
+		}
+	}
+}
+
 void USimpleGameplayAbilityComponent::AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass,
                                                            const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID)
 {

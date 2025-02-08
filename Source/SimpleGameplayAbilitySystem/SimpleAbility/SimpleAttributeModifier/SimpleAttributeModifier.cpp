@@ -193,7 +193,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 	
 	for (const FAttributeModifier& Modifier : AttributeModifications )
 	{
-		if (ModifierType == EAttributeModifierType::Duration && !Modifier.DurationApplicationTriggers.Contains(TriggerPhase))
+		if (ModifierType == EAttributeModifierType::Duration && !Modifier.ApplicationTriggers.Contains(TriggerPhase))
 		{
 			continue;
 		}
@@ -467,14 +467,12 @@ bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FAttributeModi
 		return false;
 	}
 
-	FInstancedStruct NewValue = AttributeToModify->AttributeValue;
 	bool WasHandled = false;
-	
-	GetModifiedStructAttributeValue(Modifier.MetaAttributeTag, NewValue, WasHandled);
+	const FInstancedStruct NewValue = GetModifiedStructAttributeValue(Modifier.StructOperationTag, AttributeToModify->AttributeValue, WasHandled);
 
 	if (!WasHandled)
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyStructAttributeModifier: Struct modifier %s not handled."), *Modifier.StructModifierTag.ToString());
+		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyStructAttributeModifier: Struct modifier %s not handled."), *Modifier.StructOperationTag.ToString());
 		return false;
 	}
 
@@ -624,10 +622,10 @@ void USimpleAttributeModifier::GetFloatMetaAttributeValue_Implementation(FGamepl
 	WasHandled = false;
 }
 
-void USimpleAttributeModifier::GetModifiedStructAttributeValue_Implementation(FGameplayTag MetaAttributeTag, FInstancedStruct& OutValue, bool& WasHandled) const
+FInstancedStruct USimpleAttributeModifier::GetModifiedStructAttributeValue_Implementation(FGameplayTag OperationTag, FInstancedStruct StructToModify, bool& WasHandled) const
 {
-	OutValue = FInstancedStruct();
 	WasHandled = false;
+	return StructToModify;
 }
 
 FInstancedStruct USimpleAttributeModifier::GetAbilitySideEffectContext_Implementation(FGameplayTag MetaTag, bool& WasHandled) const

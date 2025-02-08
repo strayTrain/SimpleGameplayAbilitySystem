@@ -165,7 +165,7 @@ public:
 	void GetFloatMetaAttributeValue(FGameplayTag MetaAttributeTag, float& OutValue, bool& WasHandled) const;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Attribute Modifier|Meta Values")
-	void GetModifiedStructAttributeValue(FGameplayTag MetaAttributeTag, FInstancedStruct& OutValue, bool& WasHandled) const;
+	FInstancedStruct GetModifiedStructAttributeValue(FGameplayTag OperationTag, FInstancedStruct StructToModify, bool& WasHandled) const;
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
 	FInstancedStruct GetAbilitySideEffectContext(FGameplayTag MetaTag, bool& WasHandled) const;

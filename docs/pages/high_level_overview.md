@@ -8,39 +8,59 @@ nav_order: 2
   
 At its core, SimpleGAS consists of four main parts:
 
-### 1. Simple Event Subsystem
-- [A bundled subsystem](https://github.com/strayTrain/SimpleEventSubsystemPlugin) that allows events to be passed by gameplay tags
-    - e.g. You can send an event that a player walked through a door with a payload consisting of a reference to the player. A listener (like a widget, player controller etc) can then react to this event
-- Event payloads aren't hardcoded to a type and can be any arbitrary struct
-- This is used to send and receive messages from abilities  
+<details markdown="1">
+  <summary>Simple Event Subsystem</summary>
+
+* [A bundled subsystem](https://github.com/strayTrain/SimpleEventSubsystemPlugin) that allows events to be passed by gameplay tags
+    * e.g. You can send an event that a player walked through a door with a payload consisting of a reference to the player. A listener (like a widget, player controller etc) can then react to this event
+* Event payloads aren't hardcoded to a type and can be any arbitrary struct
+* This is used to send and receive messages from abilities  
     ![screenshot of event setup](../images/HLO_SimpleEvent.png)
 
-### 2. Ability Component
-- Each actor that can perform abilities has an **Ability Component**.
-- Manages replicated **attributes** of which there are two types:
-    - **Float Attributes** e.g. Health, Stamina, Speed 
-    - **Struct Attributes** e.g Vector3 or a custom struct
-- Handles **ability activation** and **attribute modifiers** (special abilities that can change attributes over time)
-- Maintains a replicated list of **gameplay tags** which can be used to control activation of abilities and modifiers  
-    - e.g. You can't activate an attack ability if the ability component has a `PlayerState.Stunned` tag
-- Allows for replicated events to be sent e.g. It allows the client to tell the server that an ability target was selected
+</details>
 
-### 3. Gameplay Abilities
-- Defines what happens when an ability is activated (e.g. a player attacking or a door opening)
-- Abilities can apply **attribute modifiers** and activate other abilities
-- Abilities can be client predicted i.e. The client assumes the server will execute what it executes and activate immediately for the client, reducing perceived lag
-- Client predicted abilities can be corrected when they mispredict using a **State Snapshot**
-    - Snapshots allow you to compare what the server and the client did at predetermined points in the ability
+<details markdown="1">
+  <summary>Ability Component</summary>
 
-### 4. Attribute Modifiers
-- A subtype of abilities that modify attributes
-- Can be **instant changes** or **apply over time**.
-- Attribute Modifiers can additionally trigger **side effects** e.g. On successfull application: Play a hit reaction animation, send an event and then apply a different modifier
-- Modifiers can be client predicted (with some caveats we'll get into later) 
+* Each actor that can perform abilities has an **Ability Component**.
+* Manages replicated **attributes** of which there are two types:
+    * **Float Attributes** e.g. Health, Stamina, Speed 
+    * **Struct Attributes** e.g Vector3 or a custom struct
+* Handles **ability activation** and **attribute modifiers** (special abilities that can change attributes over time)
+* Maintains a replicated list of **gameplay tags** which can be used to control activation of abilities and modifiers  
+    * e.g. You can't activate an attack ability if the ability component has a `PlayerState.Stunned` tag
+* Allows for replicated events to be sent e.g. It allows the client to tell the server that an ability target was selected
+
+</details>
+
+<details markdown="1">
+  <summary>Gameplay Abilities</summary>
+
+* Defines what happens when an ability is activated (e.g. a player attacking or a door opening)
+* Abilities can apply **attribute modifiers** and activate other abilities
+* Abilities can be client predicted i.e. The client assumes the server will execute what it executes and activate immediately for the client, reducing perceived lag
+* Client predicted abilities can be corrected when they mispredict using a **State Snapshot**
+    * Snapshots allow you to compare what the server and the client did at predetermined points in the ability
+
+</details>
+
+<details markdown="1">
+  <summary>Attribute Modifiers</summary>
+
+* A subtype of abilities that modify attributes
+* Can be **instant changes** or **apply over time**.
+* Attribute Modifiers can additionally trigger **side effects** e.g. On successful application: Play a hit reaction animation, send an event and then apply a different modifier
+* Modifiers can be client predicted (with some caveats we'll get into later) 
+
+</details>
 
 ---
 
-### Typical Workflow
+# What using SimpleGAS typically looks like
+
+<details markdown="1">
+  <summary>Typical Workflow</summary>
+
 1. **Define attributes that the AbilityComponent has**
     * ![screenshot of attribute setup](../images/HLO_AttributeSetup.png)
 2. **Create an ability** that defines what happens when the ability is activated. 
@@ -63,9 +83,16 @@ We deal 20 damage to the target. The damage first removes armor and then health.
     Your browser does not support the video tag.
     </video>
 
+</details>
+
 ---
 
-### How does replication and prediction work?
+# Replication and Prediction
+
+Gameplay Abilities in SimpleGAS can be replicated and client predicted. Here's how it works:
+
+<details markdown="1">
+  <summary>Lock In</summary>
 
 The lifecycle of an ability is managed by the **AbilityComponent** through a struct called **AbilityState**.
 
@@ -107,3 +134,5 @@ Fix misprediction
 
 {: .note }
 State Snapshots are only supported in client predicted abilities.
+
+</details>

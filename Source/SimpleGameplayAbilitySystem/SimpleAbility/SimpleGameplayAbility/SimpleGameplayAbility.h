@@ -39,13 +39,6 @@ public:
 	/* These tags are applied when this ability is activated and not automatically removed when it ends. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
 	FGameplayTagContainer PermanentlyAppliedTags;
-
-	/**
-	 * A list of events that can trigger this ability to activate.
-	 * The ability must be granted to the owning ability component for it to activate.
-	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation Events")
-	TArray<FAbilityEventActivationConfig> ActivationEvents;
 	
 	/**
 	 * Use this function to add custom rules for when this ability can activate.

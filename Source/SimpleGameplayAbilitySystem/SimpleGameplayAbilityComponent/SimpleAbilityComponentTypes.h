@@ -8,6 +8,7 @@
 
 /* Enums */
 
+struct FFloatAttribute;
 class USimpleStructAttributeHandler;
 
 UENUM(BlueprintType)

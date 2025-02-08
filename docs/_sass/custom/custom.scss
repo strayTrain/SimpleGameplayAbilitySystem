@@ -1,0 +1,47 @@
+/* Style the summary to look like a clickable button or header (harmonized with #27262b) */
+summary {
+  font-weight: bold;
+  cursor: pointer;
+  padding: 10px;
+  background-color: #34313a;
+  border: 1px solid #4a4652;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  color: #e0dfe6;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+/* Add a hover effect to the summary */
+summary:hover {
+  background-color: #3e3b46;
+  transform: scale(1.02);
+}
+
+/* Add a smooth opening animation */
+details {
+  transition: all 0.3s ease-in-out;
+}
+
+details[open] > summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+details > div {
+  padding: 10px;
+  border: 1px solid #4a4652;
+  border-top: none;
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+  margin-bottom: 10px;
+  background-color: #2f2c36;
+  color: #d1cdd9;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+details[open] > div {
+  opacity: 1;
+  transform: translateY(0);
+}

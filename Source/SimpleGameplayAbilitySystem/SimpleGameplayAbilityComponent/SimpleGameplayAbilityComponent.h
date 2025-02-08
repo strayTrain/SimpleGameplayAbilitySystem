@@ -37,19 +37,19 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Attributes")
 	TArray<UAttributeSet*> AttributeSets;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
+	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FFloatAttribute> FloatAttributes;
-	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes")
+	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FStructAttribute> StructAttributes;
 	
 	UPROPERTY(VisibleAnywhere, Replicated)
 	FFloatAttributeContainer AuthorityFloatAttributes;
-	UPROPERTY(VisibleAnywhere, Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, meta = (TitleProperty = "AttributeName"))
 	TArray<FFloatAttribute> LocalFloatAttributes;
 	
 	UPROPERTY(VisibleAnywhere, Replicated)
 	FStructAttributeContainer AuthorityStructAttributes;
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"))
 	TArray<FStructAttribute> LocalStructAttributes;
 	
 	UPROPERTY(Replicated)
@@ -125,6 +125,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	void CancelAttributeModifier(FGuid ModifierID);
+
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	void CancelAttributeModifiersWithTags(FGameplayTagContainer Tags);
 	
 	/* Gameplay Tag Functions */
 	

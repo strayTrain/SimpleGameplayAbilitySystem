@@ -1,0 +1,31 @@
+/* Style the summary to look like a clickable button or header */
+summary {
+    font-weight: bold;
+    cursor: pointer;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-bottom: 5px;
+  }
+  
+  /* Add a hover effect to the summary */
+  summary:hover {
+    background-color: #e0e0e0;
+  }
+  
+  /* Style the details content */
+  details[open] > summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  
+  details > div {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    margin-bottom: 10px;
+  }
+  
