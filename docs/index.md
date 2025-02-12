@@ -4,6 +4,9 @@ layout: home
 nav_order: 1
 ---
 
+{: .warning }
+These docs are a work in progress. If you have any questions or need help, please reach out on the repository's [Discussions](https://github.com/strayTrain/SimpleGameplayAbilitySystem/discussions) page.
+
 # Simple Gameplay Ability System (SimpleGAS)
 
 [SimpleGAS](https://github.com/strayTrain/SimpleGameplayAbilitySystem) provides an alternative to Unreal Engine's built-in [**Gameplay Ability System (GAS)**](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-ability-system-for-unreal-engine), focusing on developer experience and flexibility.
