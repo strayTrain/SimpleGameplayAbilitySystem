@@ -48,7 +48,16 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	bool CanActivate(FInstancedStruct ActivationContext);
+	virtual bool CanActivate_Implementation(FInstancedStruct ActivationContext);
 
+	/**
+	 * If we try to cancel the ability, this function is called to check if it can be cancelled.
+	 * @return True if the ability can be cancelled, false otherwise
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	bool CanCancel();
+	virtual bool CanCancel_Implementation();
+	
 	UFUNCTION()
 	bool ActivateAbility(FInstancedStruct ActivationContext);
 	
@@ -81,8 +90,9 @@ public:
 	 * Use this function to prepare the ability for activation, consume resources, etc.
 	 * @param ActivationContext The context passed to this ability when it was activated. Can be empty.
 	 */
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintNativeEvent)
 	void PreActivate(FInstancedStruct ActivationContext);
+	virtual void PreActivate_Implementation(FInstancedStruct ActivationContext);
 	
 	/**
 	 * Called after CanActivate returns true and PreActivate has been called.

@@ -80,7 +80,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
 	FGuid ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext,
-	                      bool OverrideActivationPolicy, EAbilityActivationPolicy ActivationPolicy);
+	                      bool OverrideActivationPolicy = false, EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly);
 
 	UFUNCTION(Server, Reliable)
 	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
@@ -128,6 +128,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	void CancelAttributeModifiersWithTags(FGameplayTagContainer Tags);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "HandlerClass", HideSelfPin))
+	const USimpleStructAttributeHandler* GetStructAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleStructAttributeHandler> HandlerClass, bool& WasFound);
 	
 	/* Gameplay Tag Functions */
 	
@@ -188,7 +191,15 @@ public:
 
 	/* Gets an existing instance or creates a new instance of an attribute handler class */
 	USimpleStructAttributeHandler* GetStructAttributeHandler(const TSubclassOf<USimpleStructAttributeHandler>& HandlerClass);
+
+	template <typename T>
+	T* GetStructAttributeHandlerAs()
+	{
+		return Cast<T>(GetStructAttributeHandler(T::StaticClass()));
+	}
+	
 protected:
+	
 	UPROPERTY()
 	TArray<USimpleGameplayAbility*> InstancedAbilities;
 	UPROPERTY()
@@ -218,8 +229,6 @@ protected:
 	void OnStructAttributeAdded(const FStructAttribute& NewStructAttribute);
 	void OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute);
 	void OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute);
-
-	FInstancedStruct GetDefaultValueForStructAttribute(FStructAttribute Attribute);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

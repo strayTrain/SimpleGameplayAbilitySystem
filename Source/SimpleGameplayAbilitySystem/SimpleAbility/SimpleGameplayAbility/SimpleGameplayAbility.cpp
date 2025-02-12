@@ -9,9 +9,18 @@ bool USimpleGameplayAbility::CanActivate_Implementation(FInstancedStruct Activat
 	return true;
 }
 
+void USimpleGameplayAbility::PreActivate_Implementation(FInstancedStruct ActivationContext)
+{
+}
+
+bool USimpleGameplayAbility::CanCancel_Implementation()
+{
+	return true;
+}
+
 bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 {
-	if (!MeetsTagRequirements() && CanActivate(ActivationContext))
+	if (!MeetsTagRequirements() || !CanActivate(ActivationContext))
 	{
 		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedActivationFailed);
 		return false;	
@@ -27,11 +36,13 @@ bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 		OwningAbilityComponent->AddGameplayTag(PermTag, ActivationContext);
 	}
 
+	// Local Only and Server Only abilities don't create an AbilityState
 	if (ActivationPolicy == EAbilityActivationPolicy::ClientPredicted || ActivationPolicy == EAbilityActivationPolicy::ServerInitiated)
 	{
 		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
 	}
 
+	PreActivate(ActivationContext);
 	bIsAbilityActive = true;
 	OnActivate(ActivationContext);
 	

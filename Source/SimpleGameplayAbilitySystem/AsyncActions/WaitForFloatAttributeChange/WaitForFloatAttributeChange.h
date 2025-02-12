@@ -9,7 +9,7 @@
 
 class USimpleGameplayAbilityComponent;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
-	FSimpleAttributeChangedDelegate,
+	FSimpleFloatAttributeChangedDelegate,
 	EAttributeValueType, ChangedValueType,
 	float, NewValue
 );
@@ -34,7 +34,7 @@ public:
 		bool ListenForMinCurrentValueChange = true);
 
 	UPROPERTY(BlueprintAssignable)
-	FSimpleAttributeChangedDelegate OnAttributeChanged;
+	FSimpleFloatAttributeChangedDelegate OnFloatAttributeChanged;
 	
 	virtual void Activate() override;
 

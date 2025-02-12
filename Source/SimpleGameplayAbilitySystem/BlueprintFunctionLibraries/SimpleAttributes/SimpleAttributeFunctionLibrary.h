@@ -6,6 +6,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SimpleAttributeFunctionLibrary.generated.h"
 
+enum class EFlowControl : uint8;
+struct FEventContextCollection;
 struct FAbilitySideEffect;
 enum class EAttributeValueType : uint8;
 class USimpleGameplayAbilityComponent;
@@ -31,6 +33,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	static bool SetFloatAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
 
+	static bool IncrementFloatAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent, EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow);
+	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	static bool OverrideFloatAttribute(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, FFloatAttribute NewAttribute);
 	

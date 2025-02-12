@@ -106,6 +106,20 @@ bool USimpleAttributeFunctionLibrary::SetFloatAttributeValue(USimpleGameplayAbil
 	return true;
 }
 
+bool USimpleAttributeFunctionLibrary::IncrementFloatAttributeValue(USimpleGameplayAbilityComponent* AbilityComponent,
+	EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow)
+{
+	bool WasFound = false;
+	float CurrentValue = GetFloatAttributeValue(AbilityComponent, ValueType, AttributeTag, WasFound);
+
+	if (!WasFound)
+	{
+		return false;
+	}
+
+	return SetFloatAttributeValue(AbilityComponent, ValueType, AttributeTag, CurrentValue + Increment, Overflow);
+}
+
 bool USimpleAttributeFunctionLibrary::OverrideFloatAttribute(USimpleGameplayAbilityComponent* AbilityComponent, FGameplayTag AttributeTag, FFloatAttribute NewAttribute)
 {
 	for (FFloatAttribute& Attribute : AbilityComponent->AuthorityFloatAttributes.Attributes)
@@ -137,7 +151,8 @@ FInstancedStruct USimpleAttributeFunctionLibrary::GetStructAttributeValue(USimpl
 		WasFound = true;
 		return Attribute->AttributeValue;
 	}
-	
+
+	SIMPLE_LOG(AbilityComponent, FString::Printf(TEXT("[USimpleAttributeFunctionLibrary::GetStructAttributeValue]: Attribute %s not found."), *AttributeTag.ToString()));
 	WasFound = false;
 	return FInstancedStruct();
 }
@@ -151,21 +166,8 @@ bool USimpleAttributeFunctionLibrary::SetStructAttributeValue(USimpleGameplayAbi
 		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeFunctionLibrary::SetStructAttributeValue]: Attribute %s not found."), *AttributeTag.ToString());
 		return false;
 	}
-
-	const FInstancedStruct OldValue = Attribute->AttributeValue;
-	Attribute->AttributeValue = NewValue;
 	
-	if (USimpleStructAttributeHandler* Handler = AbilityComponent->GetStructAttributeHandler(Attribute->AttributeHandler))
-	{
-		Handler->OnStructChanged(OldValue, NewValue);
-	}
-	else
-	{
-		if (USimpleEventSubsystem* EventSubsystem = AbilityComponent->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
-		{
-			EventSubsystem->SendEvent(FDefaultTags::StructAttributeValueChanged, AttributeTag, FInstancedStruct(), AbilityComponent->GetOwner());
-		}
-	}
+	Attribute->AttributeValue = NewValue;
 	
 	if (AbilityComponent->HasAuthority())
 	{
@@ -339,3 +341,4 @@ FStructAttribute* USimpleAttributeFunctionLibrary::GetStructAttribute(USimpleGam
 
 	return nullptr;
 }
+

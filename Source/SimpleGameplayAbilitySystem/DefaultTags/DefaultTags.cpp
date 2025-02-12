@@ -66,7 +66,7 @@ void FDefaultTags::InitializeDefaultTags()
 
 	// Struct Attributes
 	StructAttributeAdded = FindTag("SimpleGAS.Events.Attributes.StructAttributeAdded");
-	StructAttributeValueChanged = FindTag("SimpleGAS.Events.Attributes.StructAttributeValueChanged");
+	StructAttributeValueChanged = FindTag("SimpleGAS.Events.Attributes.StructAttributeChanged");
 	StructAttributeRemoved = FindTag("SimpleGAS.Events.Attributes.StructAttributeRemoved");
 
 	// Attribute Modifiers

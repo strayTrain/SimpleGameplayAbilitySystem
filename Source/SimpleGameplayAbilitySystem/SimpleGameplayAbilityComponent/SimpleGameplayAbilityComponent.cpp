@@ -12,6 +12,7 @@
 #include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
 #include "StructAttributeHandler/SimpleStructAttributeHandler.h"
+#include "StructUtils/InstancedStruct.h"
 
 class USimpleEventSubsystem;
 
@@ -167,6 +168,12 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(const TSubclassOf<
 			{
 				if (InstancedAbility->IsAbilityActive())
 				{
+					if (!InstancedAbility->CanCancel())
+					{
+						SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbilityInternal]: Cancellable single instance ability %s is already active and cannot be cancelled!"), *AbilityClass->GetName()));
+						return false;
+					}
+					
 					InstancedAbility->EndCancel(FInstancedStruct());
 				}
 				
@@ -211,6 +218,12 @@ bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceI
 {
 	if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilityInstanceID))
 	{
+		if (!AbilityInstance->CanCancel())
+		{
+			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CancelAbility]: Ability %s CanCancel() returned false"), *AbilityInstance->GetName()));
+			return false;
+		}
+		
 		AbilityInstance->EndCancel(CancellationContext);
 		return true;
 	}
@@ -227,6 +240,12 @@ TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithTags(const FGa
 	{
 		if (AbilityInstance->AbilityTags.HasAnyExact(Tags))
 		{
+			if (!AbilityInstance->CanCancel())
+			{
+				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CancelAbilitiesWithTags]: Ability %s CanCancel() returned false"), *AbilityInstance->GetName()));
+				continue;
+			}
+			
 			AbilityInstance->EndCancel(CancellationContext);
 			CancelledAbilities.Add(AbilityInstance->AbilityInstanceID);
 		}
@@ -379,17 +398,26 @@ void USimpleGameplayAbilityComponent::RemoveFloatAttribute(FGameplayTag Attribut
 
 void USimpleGameplayAbilityComponent::AddStructAttribute(FStructAttribute AttributeToAdd, bool OverrideValuesIfExists)
 {
+	if (!AttributeToAdd.AttributeHandler)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddStructAttribute]: AttributeHandler is null for attribute %s! Can't add new attribute"), *AttributeToAdd.AttributeTag.ToString()));
+		return;
+	}
+	
 	const int32 AttributeIndex = AuthorityStructAttributes.Attributes.Find(AttributeToAdd);
+	USimpleStructAttributeHandler* AttributeHandler = GetStructAttributeHandler(AttributeToAdd.AttributeHandler);
 
+	if (!AttributeHandler->StructType)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddStructAttribute]: StructType is null for attribute %s! Can't add new attribute"), *AttributeToAdd.AttributeTag.ToString()));
+		return;
+	}
+	
 	// This is a new attribute
 	if (AttributeIndex == INDEX_NONE)
 	{
-		if (AttributeToAdd.AttributeHandler)
-		{
-			AttributeToAdd.AttributeValue = GetDefaultValueForStructAttribute(AttributeToAdd);
-		}
-		
 		AuthorityStructAttributes.Attributes.AddUnique(AttributeToAdd);
+		AttributeHandler->InitializeStruct(AttributeToAdd.AttributeTag);
 		AuthorityStructAttributes.MarkArrayDirty();
 		
 		return;
@@ -548,6 +576,44 @@ void USimpleGameplayAbilityComponent::CancelAttributeModifiersWithTags(FGameplay
 			CancelAttributeModifier(ModifierInstance->AbilityInstanceID);
 		}
 	}
+}
+
+const USimpleStructAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHandlerAs(FGameplayTag AttributeTag,
+	TSubclassOf<USimpleStructAttributeHandler> HandlerClass, bool& WasFound)
+{
+	const FStructAttribute* Attribute = nullptr;
+
+	if (HasAuthority())
+	{
+		for (const FStructAttribute& AuthorityAttribute : AuthorityStructAttributes.Attributes)
+		{
+			if (AuthorityAttribute.AttributeTag.MatchesTagExact(AttributeTag))
+			{
+				Attribute = &AuthorityAttribute;
+				break;
+			}
+		}
+	}
+	else
+	{
+		for (const FStructAttribute& LocalAttribute : LocalStructAttributes)
+		{
+			if (LocalAttribute.AttributeTag.MatchesTagExact(AttributeTag))
+			{
+				Attribute = &LocalAttribute;
+				break;
+			}
+		}
+	}
+
+	if (Attribute && Attribute->AttributeHandler)
+	{
+		WasFound = true;
+		return GetStructAttributeHandler(HandlerClass);
+	}
+
+	WasFound = false;
+	return nullptr;
 }
 
 void USimpleGameplayAbilityComponent::AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass,
@@ -830,7 +896,7 @@ USimpleStructAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttribu
 	}
 
 	USimpleStructAttributeHandler* NewHandler = NewObject<USimpleStructAttributeHandler>(this, HandlerClass);
-	NewHandler->Initialize(this);
+	NewHandler->SetOwningAbilityComponent(this);
 	StructAttributeHandlers.Add(NewHandler);
 	return NewHandler;
 }
@@ -1045,19 +1111,6 @@ void USimpleGameplayAbilityComponent::OnFloatAttributeRemoved(const FFloatAttrib
 	SendEvent(FDefaultTags::FloatAttributeRemoved, RemovedFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), ESimpleEventReplicationPolicy::NoReplication);
 }
 
-FInstancedStruct USimpleGameplayAbilityComponent::GetDefaultValueForStructAttribute(FStructAttribute Attribute)
-{
-	if (Attribute.AttributeType)
-	{
-		if (USimpleStructAttributeHandler* AttributeHandler = GetStructAttributeHandler(Attribute.AttributeHandler))
-		{
-			return AttributeHandler->OnInitializeStruct();
-		}
-	}
-	
-	return FInstancedStruct();
-}
-
 void USimpleGameplayAbilityComponent::OnStructAttributeAdded(const FStructAttribute& NewStructAttribute)
 {
 	if (!LocalStructAttributes.Contains(NewStructAttribute))
@@ -1075,11 +1128,7 @@ void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttr
 		{
 			if (USimpleStructAttributeHandler* Handler = GetStructAttributeHandler(ChangedStructAttribute.AttributeHandler))
 			{
-				Handler->OnStructChanged(LocalStructAttribute.AttributeValue, ChangedStructAttribute.AttributeValue);
-			}
-			else
-			{
-				SendEvent(FDefaultTags::StructAttributeValueChanged, ChangedStructAttribute.AttributeTag, ChangedStructAttribute.AttributeValue, GetOwner(), ESimpleEventReplicationPolicy::NoReplication);
+				Handler->OnStructChanged(LocalStructAttribute.AttributeTag, LocalStructAttribute.AttributeValue, ChangedStructAttribute.AttributeValue);
 			}
 			
 			LocalStructAttribute = ChangedStructAttribute;

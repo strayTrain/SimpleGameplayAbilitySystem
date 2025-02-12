@@ -212,15 +212,9 @@ struct FStructAttribute : public FFastArraySerializerItem
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag AttributeTag;
-	
-	/**
-	 * The struct type that this attribute will hold. If you try to set a value that is not of this type, it will be ignored.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UScriptStruct* AttributeType;
 
 	/**
-	 * Optional handler class that can be used to check which individual members of the struct changed when the attribute is updated.
+	 * Required handler class that acts as an interface to the struct attribute.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<USimpleStructAttributeHandler> AttributeHandler;
@@ -301,4 +295,32 @@ struct TStructOpsTypeTraits<FStructAttributeContainer> : public TStructOpsTypeTr
 	{
 		WithNetDeltaSerializer = true,
 	};
+};
+
+UENUM(BlueprintType)
+enum class EFlowControl : uint8
+{
+	Found,
+	NotFound
+};
+
+USTRUCT(BlueprintType)
+struct FEventContext
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag ContextTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct ContextData;
+};
+
+USTRUCT(BlueprintType)
+struct FEventContextCollection
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FEventContext> EventContexts;
 };

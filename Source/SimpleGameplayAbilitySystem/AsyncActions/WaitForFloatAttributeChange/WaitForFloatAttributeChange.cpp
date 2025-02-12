@@ -111,7 +111,7 @@ void UWaitForFloatAttributeChange::OnSimpleEventReceived(FGameplayTag AbilityTag
 		return;
 	}
 	
-	OnAttributeChanged.Broadcast(AttributeModification.ValueType, AttributeModification.NewValue);
+	OnFloatAttributeChanged.Broadcast(AttributeModification.ValueType, AttributeModification.NewValue);
 	
 	if (ShouldOnlyTriggerOnce)
 	{

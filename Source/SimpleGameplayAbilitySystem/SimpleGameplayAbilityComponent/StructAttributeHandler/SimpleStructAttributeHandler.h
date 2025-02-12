@@ -1,9 +1,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "UObject/Object.h"
 #include "SimpleStructAttributeHandler.generated.h"
 
+struct FCyberSlotGroup;
+struct FStructAttribute;
 enum class ESimpleEventReplicationPolicy : uint8;
 struct FGameplayTag;
 class USimpleGameplayAbilityComponent;
@@ -15,30 +18,32 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleStructAttributeHandler : public UOb
 	GENERATED_BODY()
 
 public:
-	void Initialize(USimpleGameplayAbilityComponent* InAbilityComponent);
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleGAS|StructAttributeHandler")
+	UScriptStruct* StructType;
 	
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes|AttributeHandler")
+	void SetOwningAbilityComponent(USimpleGameplayAbilityComponent* InAbilityComponent) { AbilityComponent = InAbilityComponent; }
+	USimpleGameplayAbilityComponent* GetOwningAbilityComponent() const { return AbilityComponent; }
+	
+	void InitializeStruct(FGameplayTag AttributeTag);
+	
+	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|StructAttributeHandler")
 	USimpleGameplayAbilityComponent* GetAbilityComponent() const { return AbilityComponent; }
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Struct Attribute Handler")
-	FInstancedStruct OnInitializeStruct();
-	virtual FInstancedStruct OnInitializeStruct_Implementation();
 	
-	/**
-	 * This function is called when the struct attribute changes. You can override this function in a blueprint subclass
-	 * to handle changes of individual struct members e.g. sending an event
-	 * @param OldStruct The previous value of the struct
-	 * @param NewStruct The new value of the struct
-	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Struct Attribute Handler")
-	void OnStructChanged(FInstancedStruct OldStruct, FInstancedStruct NewStruct);
-	virtual void OnStructChanged_Implementation(FInstancedStruct OldStruct, FInstancedStruct NewStruct);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "SimpleGAS|StructAttributeHandler")
+	FInstancedStruct GetStruct(FGameplayTag AttributeTag, bool& WasFound) const;
+
+	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|StructAttributeHandler")
+	bool SetStruct(FGameplayTag AttributeTag, FInstancedStruct NewStruct);
+
+	UFUNCTION(BlueprintNativeEvent, Category = "SimpleGAS|StructAttributeHandler")
+	void OnStructChanged(FGameplayTag AttributeTag, FInstancedStruct OldStruct, FInstancedStruct NewStruct) const;
+	virtual void OnStructChanged_Implementation(FGameplayTag AttributeTag, FInstancedStruct OldStruct, FInstancedStruct NewStruct) const;
 
 	/**
- * Sends an event to the event system through the owning ability component. The sender of the event is the AvatarActor of the owning ability component.
- */
+	 * Sends an event to the event system through the owning ability component. The sender of the event is the AvatarActor of the owning ability component.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes|AttributeHandler")
-	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy) const;
+	void SendStructEvent(FGameplayTag EventTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy = ESimpleEventReplicationPolicy::NoReplication) const;
 	
 private:
 	UPROPERTY()
