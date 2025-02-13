@@ -19,36 +19,63 @@ These docs are a work in progress. If you have any questions or need help, pleas
 ## Some problems that SimpleGAS can help you solve:
 
 <details markdown="1">
-  <summary>As you add more game mechanics, you find yourself with giant blueprints that do too much</summary>
+  <summary>As you add more game mechanics, you find yourself with giant blueprints that do too much stuff</summary>
 
-As you add more things that your player can do, your blueprint complexity goes up. This makes it trickier to refactor and and  causes headaches in teams where multiple people are trying to add new functionality in the Player blueprint at the same time.
+You can use a `SimpleAbility` to  break down your game mechanics into smaller, more manageable pieces.  
+  * Abilities are reusable and can be combined to create more complex mechanics.
+  * Abilities can take any struct as an input
 
-You can create a `SimpleAbility` to add new functionality to your player. Each ability is it's own blueprint and has straightforward methods of activation and extension.
-
-Abilities also support arbitrary structs as inputs. e.g. If you have a `LaunchPlayer` ability, you can pass in a struct containing info about the direction and force to launch the player with
-
-![a screenshot of activating an ability with input parameters](images/HLO_ActivatingAbility.png)
+Example: Activating an ability which launches the player using a custom struct called LaunchParams
+![a screenshot of activating an ability with input parameters](images/index_ability_activation_example.png)
+Inside the ability
+![an example of a launch player ability](images/index_launch_player_example.png)
 </details>
 
 <details markdown="1">
-  <summary>You wish there was a unified way of managing gameplay stats like Health or Stamina</summary>
+  <summary>You want to create status effects (like burning or stunned) that effect stats like health</summary>
 
-- You have some stats on your Player like Health or Stamina and the same stats on enemy characters. To change the Health value on a player or enemy you must either have them inherit from the same class or do some work figuring out which type of class you're dealing with in order to change the correct variable. 
-  - SimpleGAS supports **Attributes** that can help you simplify this interaction. Add an AbilityComponent to an Actor, define some attributes for it and you're ready to go. 
-  - **Attributes** support numerical values for common stats like Health, Stamina, Energy etc and also arbitrary structs for more complex stats
-  - Attributes send events that you can easily listen for, simplifying your UI code 
-  - **Attribute Sets** allow you to define several attributes at once in a reusable file. Player and Enemy actors both have Health and Stamina? Create one attribute set, assign it on their ability components and you're ready to go.
+`SimpleGameplayAbilityComponent` supports **Attributes**. 
+- An Attribute represents a stat like health, strength, stamina etc.
+- Attributes are easy to define using [gameplay tags](https://www.tomlooman.com/unreal-engine-gameplaytags-data-driven-design).  
+  ![a screenshot of a float attribute](images/index_float_attribute_example.png)
+- There are two types of Attribute that you can create:
+  - Float attributes to represent numerical stats  
+  - Struct attributes to represent more complex stats  
+- When attributes change they automatically send events which are easy to listen for.  
+  - e.g. Here is how you would set up a widget to update the player's health when it changes  
+    ![a screenshot of a widget listening for a float attribute changed event](images/HLO_WaitingForAttributeChange.png)
+- You can collect attributes into [data assets](https://dev.epicgames.com/documentation/en-us/unreal-engine/data-assets-in-unreal-engine) called **Attribute Sets** to reuse them between different `AbilityComponents`.
+
+`SimpleGameplayAbilityComponent` also supports **AttributeModifiers**.
+- AttributeModifiers can change multiple attributes at once.
+- They can apply over time or instantly.
+- They can also trigger side effects like activating abilities or applying more status effects. 
+
+Examples where AttributeModifiers are useful:
+- You want to apply a buff that increases the player's health and damage permanently.
+- You want to deal damage to a target
+  - If they have an attribute called `Armor`, reduce that value and if it drops below 0 reduce the leftover damage from `Health`.
+  - If they don't have an `Armor` attribute, deal damage directly to `Health`.
+- You want to deal damage to a target player
+  - If they are blocking, reduce the incoming damage by a percentage.
+  - If they are parrying, cancel the damage and apply a stun effect to the attacker instead.
+- A burning status effect that deals damage over 5 seconds.
+  - When it is first applied it does 10 damage and then 2 damage every second for 5 seconds.
+  - It adds fire particles to the target on application
+  - When removed, the fire explodes, causing nearby targets to also burn.
 
 </details>
 
 <details markdown="1">
-  <summary>Chain reactions like attacking -> getting parried -> play animation are annoying to set up</summary>
+  <summary>You want to make a multiplayer game but aren't sure how to structure your game for it</summary>
 
-
-</details>
-
-<details markdown="1">
-  <summary>You want to make a multiplayer game but it's confusing to structure your game for it</summary>
-
+- Abilities, Attributes and Attribute Modifiers all support replication out of the box.  
+- Abilities and Attribute Modifiers can be client [predicted](https://en.wikipedia.org/wiki/Client-side_prediction) allowing for a smooth experience even with high latency.
+  - Abilities can take snapshots of their state (using arbitrary structs) which you can use to detect and fix differences between the client and server simulation.
+    - This allows the client version of the ability to react immediately to player input while having a flexible way to correct any differences with the server.
+  - Attribute Modifiers can apply immediately on the client and then get automatically corrected if the server doesn't successfully apply them. Example:
+    - The client predicts a hit and applies a damage attribute modifier which changes the targets health and triggers a hit reaction ability.
+    - The server decides the hit was blocked
+    - As soon as the client receives the server's decision, it undoes the damage, sending an event for the corrected value, and cancels the hit reaction ability.
 
 </details>
