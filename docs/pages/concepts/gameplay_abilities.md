@@ -1,16 +1,15 @@
 ---
-title: Gameplay Ability Explanation
+title: Simple Ability
 layout: home
-parent: Detailed Walkthrough
-nav_order: 4
+parent: Concepts
+nav_order: 2
 ---
 
-# Gameplay Ability Explanation
+# Simple Gameplay Ability
 
 ## SimpleGameplayAbility variables
 
-Open the `GA_Kick` blueprint and take a look at the class default variables:
-![a screenshot of the class default variables for GA_Kick](images/BS_GA_KickClassDefaultVariables.png)
+![a screenshot of the class default variables for GA_Kick](../../images/BS_GA_KickClassDefaultVariables.png)
 
 <details markdown="1">
   <summary>Activation</summary>
@@ -46,7 +45,7 @@ Open the `GA_Kick` blueprint and take a look at the class default variables:
 1. `Ability Tags` are used to categorize this ability. These don't have an effect on the ability directly but can be used to filter abilities in the ability component.
     * Examples of Ability Tags are `AbilityType.Melee`, `AbilityType.Ranged`, `DamageType.Magic` etc.
     * You can cancel abilities with matching tags using the `CancelAbilitiesWithTags` function in `SimpleGameplayAbilityComponent`.  
-        ![a screenshot of the CancelAbilitiesWithTags function of the ability component](images/BS_AC_CancelAbilitiesWithTags.png)
+        ![a screenshot of the CancelAbilitiesWithTags function of the ability component](../../images/BS_AC_CancelAbilitiesWithTags.png)
 2. **Temporarily Applied Tags** are tags that are added to the activating ability component when the ability is activated and removed when the ability ends.
     * e.g. Adding a `PlayerState.Attacking` tag when the player activates an attack ability.
 3. **Permanently Applied Tags** are tags that are added to the activating ability component when the ability is activated and are not removed when the ability ends.
@@ -57,7 +56,7 @@ Open the `GA_Kick` blueprint and take a look at the class default variables:
 
 ## SimpleGameplayAbility Functions
 Next, let's take a look at the functions available to override in the order they are called in:
-![a screenshot of the functions we can override in SimpleGameplayAbility](images/BS_OverridableGAFunctions.png)  
+![a screenshot of the functions we can override in SimpleGameplayAbility](../../images/BS_OverridableGAFunctions.png)  
 
 
 <details markdown="1">
@@ -81,8 +80,8 @@ Next, let's take a look at the functions available to override in the order they
 * This function is called after `PreActivate` and is where the ability's logic is implemented.
     * This is where you would play animations, apply attribute modifiers etc.
     * You must call `EndAbility` or one of the shortcut functions to officially end the ability.
-        ![a screenshot of the EndAbility function and it's two convenience functions](images/BS_EndShortcuts.png)
-        ![a screenshot of an example of ending an ability](images/BS_AbilityEnding.png)
+        ![a screenshot of the EndAbility function and it's two convenience functions](../../images/BS_EndShortcuts.png)
+        ![a screenshot of an example of ending an ability](../../images/BS_AbilityEnding.png)
 
 </details>
 
@@ -91,7 +90,7 @@ Next, let's take a look at the functions available to override in the order they
 
 * This function is called when the client version of the ability receives a new `StateSnapshot` from the server.
     * This is where you would correct any mispredictions that the client made.
-        ![snapshot example 2](../../images/HLO_Snapshot2.png) 
+        ![snapshot example 2](../../../../images/HLO_Snapshot2.png) 
 
 </details>
 

@@ -1,15 +1,15 @@
 ---
-title: Attribute Modifier Explanation
+title: Attribute Modifiers
 layout: home
-parent: Detailed Walkthrough
-nav_order: 6
+parent: Concepts
+nav_order: 5
 ---
 
 # Attribute Modifiers
 
 Let's take a look at the `SimpleAttributeModifier` class. 
 
-![a screenshot of the SimpleAttributeModifier class variables](images/BS_AM_Variables.png)
+![a screenshot of the SimpleAttributeModifier class variables](../../images/BS_AM_Variables.png)
 
 <details markdown="1">
   <summary>Config</summary>
@@ -39,7 +39,7 @@ Let's take a look at the `SimpleAttributeModifier` class.
     * These are useful for checking if a modifier is already applied to an attribute.
     * They behave similarly to the `AbilityTags` in the `SimpleGameplayAbility` class.
     * Similarly, there is a function on the `AbilityComponent` to cancel modifiers with matching tags
-        ![a screenshot of the CancelModifiersWithTag function](images/BS_CancelModifiersWithTag.png)
+        ![a screenshot of the CancelModifiersWithTag function](../../images/BS_CancelModifiersWithTag.png)
 
 </details>
 
@@ -136,7 +136,7 @@ There are two types of modifiers:
 <details markdown="1">
 <summary>Float Modifiers</summary>
 
-![a screenshot of a float modifier](images/BS_ManualInputValue.png)
+![a screenshot of a float modifier](../../images/BS_ManualInputValue.png)
 
 The idea behind float modifiers is that they take an attribute and say: `Attribute = Attribute Operation InputValue`  
 Where `Operation` is an enum that determines how the attribute will be changed and `Value` is the value that will be used in the operation.  
@@ -178,7 +178,7 @@ e.g `Health` = `Health` `Multiply` `0.5`
     * `Manual`
         * A hardcoded value. 
         * e.g. Health = `Health Add -20` to reduce health by 20
-            ![a screenshot of a manual input value for a modifier](images/BS_ManualInputValue.png)
+            ![a screenshot of a manual input value for a modifier](../../images/BS_ManualInputValue.png)
     * `FromOverflow`
         * If the previous modifier reduced an attribute beyond its minimum/maximum value, the overflow value is used.
         * e.g If you have 20 Armour with a min current value of 0 and you reduce it by 30, Armour get's clamped to 0 and the overflow value is set to -10.
@@ -187,26 +187,26 @@ e.g `Health` = `Health` `Multiply` `0.5`
         * Using `FromOverflow` adds an extra option called `ConsumeOverflow`
             * Setting this to true will set the overflow to 0 after using it, even if there is overflow left over
             * e.g. `Shield = 10, Armour = 10, Health = 100`. You apply 50 damage to shield and the overflow if 40. You apply 40 damage to Armour and the overflow is 30 but because Armour has `ConsumeOverflow` set to true, the overflow is set to 0 afterwards and health is untouched.
-        ![a screenshot of an overflow input value for a modifier](images/BS_OverflowInputValue.png)
+        ![a screenshot of an overflow input value for a modifier](../../images/BS_OverflowInputValue.png)
     * `FromInstigatorAttribute`
         * The input value is a `Float Attribute` from the instigator ability component. If the attribute doesn't exist a value of 0 is used and a warning will get printed to the log.
     * `FromTargetAttribute`
         * The input value is a `Float Attribute` from the target ability component. If the attribute doesn't exist a value of 0 is used and a warning will get printed to the log.
     * `FromMetaAttribute`
         * You supply a gameplay tag and a function on the Modifier class is called to get the value. You can use this if you have complex calculations that need to be done to get the input value.
-            ![a screenshot of a meta input variable](images/BS_MetaInputVariable.png)
-            ![a screenshot of the meta input function](images/BS_MetaInputFunction.png)
+            ![a screenshot of a meta input variable](../../images/BS_MetaInputVariable.png)
+            ![a screenshot of the meta input function](../../images/BS_MetaInputFunction.png)
 </details>
 
 <details markdown="1">
 <summary>Struct Modifiers</summary>
 
 Struct modifiers are simpler than Float modifiers but require blueprint code to work.
-![a screenshot of a struct modifier](images/BS_StructModifierExample.png)
+![a screenshot of a struct modifier](../../images/BS_StructModifierExample.png)
 
 I'll skip the fields it shares with the Float modifier and focus on the unique one:
 * `StructOperationTag` is a gameplay tag that represents what we want to do with the struct. e.g. `Attributes.Speed.AddBonus`
-    * ![a screenshot of the struct operation tag](images/BS_StructOperationTag.png)
+    * ![a screenshot of the struct operation tag](../../images/BS_StructOperationTag.png)
 
 </details>
 
@@ -227,7 +227,6 @@ Like the `Modifiers` section from earlier we can choose what "phase" of the modi
 So it's possible to have a modifier that, upon failing to apply to the target, can apply a different modifier to the instigator.  
 e.g. A failed stun attempt by the instigator on the target applies a slow modifier to the instigator instead.
 
-![a screenshot of the side effects section](images/BS_SideEffects.png)
+![a screenshot of the side effects section](../../images/BS_SideEffects.png)
 
 </details>
-
