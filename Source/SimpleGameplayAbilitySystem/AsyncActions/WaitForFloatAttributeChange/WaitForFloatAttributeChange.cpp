@@ -1,21 +1,19 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "WaitForFloatAttributeChange.h"
+﻿#include "WaitForFloatAttributeChange.h"
 
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
-UWaitForFloatAttributeChange* UWaitForFloatAttributeChange::WaitForFloatAttributeChange(UObject* WorldContextObject,
-                                                                                        USimpleGameplayAbilityComponent* AttributeOwner, FGameplayTag AttributeTag,
-                                                                                        bool OnlyTriggerOnce,
-                                                                                        bool ListenForBaseValueChange,
-                                                                                        bool ListenForCurrentValueChange,
-                                                                                        bool ListenForMaxBaseValueChange,
-                                                                                        bool ListenForMinBaseValueChange,
-                                                                                        bool ListenForMaxCurrentValueChange,
-                                                                                        bool ListenForMinCurrentValueChange)
+UWaitForFloatAttributeChange* UWaitForFloatAttributeChange::WaitForFloatAttributeChange(
+	UObject* WorldContextObject,
+	USimpleGameplayAbilityComponent* AttributeOwner, FGameplayTag AttributeTag,
+	const bool OnlyTriggerOnce,
+	const bool ListenForBaseValueChange,
+	const bool ListenForCurrentValueChange,
+	const bool ListenForMaxBaseValueChange,
+	const bool ListenForMinBaseValueChange,
+	const bool ListenForMaxCurrentValueChange,
+	const bool ListenForMinCurrentValueChange)
 {
 	UWaitForFloatAttributeChange* Task = NewObject<UWaitForFloatAttributeChange>();
 
@@ -102,7 +100,7 @@ void UWaitForFloatAttributeChange::Activate()
 	}
 }
 
-void UWaitForFloatAttributeChange::OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload)
+void UWaitForFloatAttributeChange::OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender)
 {
 	const FFloatAttributeModification AttributeModification = Payload.Get<FFloatAttributeModification>();
 

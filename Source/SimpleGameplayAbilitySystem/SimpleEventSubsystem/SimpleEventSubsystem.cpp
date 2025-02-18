@@ -3,20 +3,25 @@
 
 void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender)
 {
-	// If we come across an invalid listener on a subscription (e.g the listener was garbage collected and forgot to unsubscribe)
+	// If we come across an invalid listener on a subscription (e.g. the listener was garbage collected and forgot to unsubscribe)
 	// we'll remove that subscription. We store the indexes of the invalid listeners here.
-	TArray<int32> InvalidListenerIndexes;
+	TArray<FEventSubscription> InvalidSubscriptions = TArray<FEventSubscription>();
 
 	// We check subscriptions from the most recently added to the oldest
 	for (int32 i = EventSubscriptions.Num() - 1; i >= 0; --i)
 	{
-		FEventSubscription& Subscription = EventSubscriptions[i];
+		if (!EventSubscriptions.IsValidIndex(i))
+		{
+			continue;
+		}
+		
+		FEventSubscription Subscription = EventSubscriptions[i];
 
 		const UObject* Listener = Subscription.ListenerObject.Get();
 		
 		if (!Listener)
 		{
-			InvalidListenerIndexes.Add(i);
+			InvalidSubscriptions.Add(Subscription);
 			continue;
 		}
 
@@ -90,23 +95,23 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 			}
 		}
 		
-		bool WasCalled = Subscription.CallbackDelegate.ExecuteIfBound(EventTag, DomainTag, Payload);
+		bool WasCalled = Subscription.CallbackDelegate.ExecuteIfBound(EventTag, DomainTag, Payload, Sender);
 
 		if (!WasCalled)
 		{
-			UE_LOG(LogSimpleGAS, Warning, TEXT("Event %s passed filters but failed to call the delegate for Listener %s"),
-				*EventTag.GetTagName().ToString(), *Listener->GetName());
+			UE_LOG(LogSimpleGAS, Warning, TEXT("Event %s passed filters but failed to call the delegate for Listener %s"), *EventTag.GetTagName().ToString(), *Listener->GetName());
+			continue;
 		}
-		else if (Subscription.OnlyTriggerOnce)
+
+		if (Subscription.OnlyTriggerOnce)
 		{
-			InvalidListenerIndexes.Add(i);
+			InvalidSubscriptions.Add(Subscription);
 		}
 	}
 
-	for (const int32 i : InvalidListenerIndexes)
-	{
-		EventSubscriptions.RemoveAt(i);
-	}
+	EventSubscriptions.RemoveAll([&InvalidSubscriptions](const FEventSubscription& Subscription) {
+		return InvalidSubscriptions.Contains(Subscription);
+	});
 }
 
 FGuid USimpleEventSubsystem::ListenForEvent(UObject* Listener, bool OnlyTriggerOnce, FGameplayTagContainer EventFilter,
@@ -155,7 +160,6 @@ void USimpleEventSubsystem::StopListeningForEventSubscriptionByID(FGuid EventSub
 		return false;
 	});
 }
-
 
 void USimpleEventSubsystem::StopListeningForEventsByFilter(UObject* Listener, FGameplayTagContainer EventTagFilter, FGameplayTagContainer DomainTagFilter)
 {

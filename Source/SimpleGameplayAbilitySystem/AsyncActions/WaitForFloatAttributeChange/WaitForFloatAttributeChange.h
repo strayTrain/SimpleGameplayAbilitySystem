@@ -3,16 +3,11 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
+#include "SimpleGameplayAbilitySystem/AsyncActions/AsyncActionTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventTypes.h"
 #include "WaitForFloatAttributeChange.generated.h"
 
 class USimpleGameplayAbilityComponent;
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
-	FSimpleFloatAttributeChangedDelegate,
-	EAttributeValueType, ChangedValueType,
-	float, NewValue
-);
 
 UCLASS()
 class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForFloatAttributeChange : public UBlueprintAsyncActionBase
@@ -20,6 +15,9 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForFloatAttributeChange : public UBlu
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(BlueprintAssignable)
+	FSimpleFloatAttributeChangedDelegate OnFloatAttributeChanged;
+	
 	UFUNCTION(BlueprintCallable, meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true, AdvancedDisplay=4))
 	static UWaitForFloatAttributeChange* WaitForFloatAttributeChange(
 		UObject* WorldContextObject,
@@ -32,15 +30,12 @@ public:
 		bool ListenForMinBaseValueChange = true,
 		bool ListenForMaxCurrentValueChange = true,
 		bool ListenForMinCurrentValueChange = true);
-
-	UPROPERTY(BlueprintAssignable)
-	FSimpleFloatAttributeChangedDelegate OnFloatAttributeChanged;
 	
 	virtual void Activate() override;
 
 protected:
 	UFUNCTION()
-	void OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload);
+	void OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender = nullptr);
 
 	UFUNCTION()
 	void OnEventSubscriptionRemoved(FGuid SubscriptionID);

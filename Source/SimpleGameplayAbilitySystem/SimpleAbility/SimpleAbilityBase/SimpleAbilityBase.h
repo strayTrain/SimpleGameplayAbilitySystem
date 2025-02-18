@@ -20,8 +20,11 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	USimpleGameplayAbilityComponent* OwningAbilityComponent;
 
+	UPROPERTY(BlueprintReadOnly)
+	bool IsProxyAbility = false;
+
 	UFUNCTION(BlueprintCallable)
-	void InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID);
+	void InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, bool IsProxyActivation);
 
 	UFUNCTION(BlueprintCallable, Category = "Ability|Snapshot")
 	void TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData);

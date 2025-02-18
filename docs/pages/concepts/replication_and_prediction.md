@@ -5,47 +5,146 @@ parent: Concepts
 nav_order: 7
 ---
 
-# Replication and Prediction in SimpleGAS
+# Replication and Prediction
 
-Gameplay Abilities in SimpleGAS can be replicated and client predicted. Here's how it works:
+SimpleGAS provides built-in replication and optional client prediction for abilities, attributes, and attribute modifiers. This allows for responsive gameplay on clients while ensuring the server remains authoritative.
 
-The lifecycle of an ability is managed by the **AbilityComponent** through a struct called **AbilityState**.
+---
 
-An **AbilityState** is a struct that contains:
-* Information about the ability that was activated (it's class, unique identifier, context etc)
-* A status enum representing if the ability is active, ended or cancelled
-* An array of **StateSnapshots** representing the state of the ability at different times
+## Ability Replication
 
-The **AbilityComponent** maintains a 2 arrays of **AbilityState**: 
-* An authoritative replicated array only written to by the server
-* A predicted non replicated array used by clients when activating predicted abilities  
+### Overview
 
-When we activate an ability we create an **AbilityState** for it and add it to the appropriate state array (authoritative for the server and predicted for the client)  
+When a **SimpleGameplayAbility** is activated on the server, it creates an **AbilityState** struct to track the ability’s status and any snapshots. This **AbilityState** is added to an authoritative array on the server and replicated to all clients. Upon receiving the new state, each client activates the corresponding ability instance (if needed) to stay in sync with the server.
 
-### When an ability is activated on the server:
-1. An instance of the ability is created on the server and a matching state is added to the authoritative **AbilityState** list
-2. The authoritative state is replicated to all clients
-3. Upon receiving the new state, the client activates the ability with the same unique identifier and context it received from the authoritative state 
+### Server-Initiated Ability Example
 
-### When an predicted ability is activated on the client:
-1. An instance of the ability is created on the client and a matching state is added to the predicted **AbilityState** list. The client activates the ability immediately assuming it got permission from the server
-2. The client sends a request to the server to activate the same ability passing along the ability's unique identifier and context
-3. The server tries to activate the ability and creates a matching state in the authoritative list
-4. The authoritative state is replicated to all clients. If the client that activated the ability receives the new state and it matches the predicted state, the client continues as normal.  If the states don't match, the client triggers a callback where you can implement logic to fix the misprediction
-5. For more specific prediction both the client and server can take a **StateSnapshot** of the ability at any time and compare them to fix mispredictions
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+sequenceDiagram
+    participant Client
+    participant Server
+    Client->>Server: Request ability activation
+    Server->>Server: Validate request, create AbilityState & ability instance
+    Server->>Client: Replicate authoritative AbilityState
+    Client->>Client: Activate ability from replicated state
+```
 
-### What is a **StateSnapshot**?
+- **Server** is always authoritative; it creates and manages the definitive state.
+- **Client** simply reacts to the replicated state.
 
-* A **StateSnapshot** is an arbitrary struct representing the state of the ability when it was taken. e.g. A struct containing references to other actors hit by an ability after an overlap check
-    * If an ability is **client predicted** then both the client and server can take a snapshot using a custom struct. The client saves its snapshot to the predicted **Ability State** and the server saves its snapshot to the authoritative **Ability State**
-    * When the server replicates the authoritative **Ability State** to the client, the client compares the server's snapshot to its own. If they match, the client continues as normal. If they don't match, the client triggers a callback where you can implement logic to fix the misprediction
+---
 
-Take snapshot
-    ![snapshot example 1](../../../images/HLO_Snapshot1.png)  
-Decide how to fix misprediction using the identifying snapshot tag  
-    ![snapshot example 2](../../../images/HLO_Snapshot2.png)  
-Fix misprediction  
-    ![snapshot example 3](../../../images/HLO_Snapshot3.png)
+## Ability Prediction
 
-{: .note }
-State Snapshots are only supported in client predicted abilities.
+### Overview
+
+For a more responsive experience, you can enable **client-predicted** abilities. The client immediately activates the ability, assuming the server will confirm it. Internally, the client maintains a **predicted AbilityState**, while the server holds the authoritative one.
+
+### Client-Predicted Ability Example
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+sequenceDiagram
+    participant Client
+    participant Server
+    Client->>Client: Activate predicted ability (local AbilityState)
+    Client->>Server: Send activation request + unique ID/context
+    Server->>Server: Validate & create authoritative AbilityState
+    Server->>Client: Replicate authoritative AbilityState
+    Client->>Client: Compare predicted & authoritative states
+    alt States match
+        Client->>Client: Continue as normal
+    else States differ
+        Client->>Client: Trigger correction (rollback/fix)
+    end
+```
+
+### State Snapshots
+
+A **StateSnapshot** is a custom struct that captures the ability’s internal data at a given moment.  
+- Both client and server can record snapshots during the ability’s lifecycle.  
+- When the server replicates its snapshot, the client compares it to the predicted snapshot and corrects any differences if needed.
+
+**Example workflow**:  
+1. **Client** does an overlap check and stores a list of hit actors in a snapshot.  
+2. **Server** does the same check and replicates its snapshot to the client.  
+3. **Client** compares snapshots; if they differ, the client corrects its local state.
+
+---
+
+## Attribute Replication
+
+### Overview
+
+Attributes (like Health or Stamina) are maintained by the **AbilityComponent**. Whenever the server changes an attribute, it replicates the updated value(s) to clients.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+flowchart TD
+    A[Server updates attribute] --> B[Server replicates new value]
+    B --> C[Client receives updated attribute]
+    C --> D[UI/logic react to updated attribute]
+```
+
+- **Server** ensures all attributes remain authoritative.  
+- **Clients** display or use the replicated attribute data for UI and gameplay logic.
+
+---
+
+## Attribute Modifier Replication
+
+### Overview
+
+An **AttributeModifier** can change one or more attributes on the target’s AbilityComponent, either instantly or over time (e.g., DoT or HoT). By default, modifiers run on the server, and their effects are replicated to clients.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+sequenceDiagram
+    participant Server
+    participant TargetComponent
+    participant AllClients
+    Server->>TargetComponent: Apply or remove attribute modifier
+    TargetComponent->>TargetComponent: Update attribute(s)
+    TargetComponent->>Server: Confirm updated attribute state
+    Server->>AllClients: Replicate new attribute values
+```
+
+---
+
+## Attribute Modifier Prediction
+
+### Overview
+
+Attribute modifiers can also be **client predicted**, reducing perceived latency for immediate effects (e.g., showing damage feedback right away). The client applies the modifier optimistically, then corrects if the server disagrees.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+sequenceDiagram
+    participant Client
+    participant Server
+    Client->>Client: Apply modifier (predicted)
+    Client->>Server: Send modifier request
+    Server->>Server: Validate & apply modifier & update attribute
+    Server->>Client: Replicate authoritative attribute update
+    Client->>Client: Compare predicted vs. authoritative
+    alt Matches
+        Client->>Client: Continue as is
+    else Differs
+        Client->>Client: Rollback or adjust attribute
+    end
+```
+
+- **Predicted Modifiers** can be rolled back or corrected when the authoritative server data arrives.  
+- **Side effects** (e.g., visuals, sounds) can also be started immediately on the client, then canceled if the server rejects the modifier.
+
+---
+
+## Key Takeaways
+
+1. **Server Authority:** All final states (abilities, attributes, modifiers) are owned by the server.  
+2. **Prediction:** Enhances responsiveness by letting the client assume success. Mismatches trigger correction.  
+3. **Snapshots & Mispredictions:** Use snapshots to pinpoint differences and fix them cleanly.  
+4. **Design Trade-offs:** Decide where to predict carefully—too much prediction can lead to frequent rollbacks; too little can feel laggy.
+
+With these systems, you can build responsive multiplayer gameplay while maintaining consistent, authoritative server control.

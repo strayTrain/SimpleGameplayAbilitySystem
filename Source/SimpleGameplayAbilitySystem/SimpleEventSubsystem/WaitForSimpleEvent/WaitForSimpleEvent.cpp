@@ -3,8 +3,8 @@
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
 
 UWaitForSimpleEvent* UWaitForSimpleEvent::WaitForSimpleEvent(UObject* WorldContextObject, UObject* Listener, bool OnlyTriggerOnce,
-                                                             FGameplayTagContainer EventFilter, FGameplayTagContainer DomainFilter, TArray<UScriptStruct*> PayloadFilter,
-                                                             TArray<AActor*> SenderFilter, bool OnlyMatchExactEvent, bool OnlyMatchExactDomain)
+	FGameplayTagContainer EventFilter, FGameplayTagContainer DomainFilter, TArray<UScriptStruct*> PayloadFilter,
+	TArray<AActor*> SenderFilter, bool OnlyMatchExactEvent, bool OnlyMatchExactDomain)
 {
 	//Create the task instance via NewObject
 	UWaitForSimpleEvent* Task = NewObject<UWaitForSimpleEvent>();
@@ -30,21 +30,22 @@ UWaitForSimpleEvent* UWaitForSimpleEvent::WaitForSimpleEvent(UObject* WorldConte
 
 void UWaitForSimpleEvent::Activate()
 {
-	if (USimpleEventSubsystem* EventSubsystem = WorldContext->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
-	{
-		EventCallbackDelegate.BindDynamic(this, &UWaitForSimpleEvent::OnSimpleEventReceived);
-		EventID = EventSubsystem->ListenForEvent(Listener, OnlyTriggerOnce, EventFilter, DomainFilter, EventCallbackDelegate, PayloadFilter, SenderFilter);
-		EventSubsystem->OnEventSubscriptionRemoved.AddDynamic(this, &UWaitForSimpleEvent::OnEventSubscriptionRemoved);
-	}
-	else
+	USimpleEventSubsystem* EventSubsystem = WorldContext->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>();
+
+	if (!EventSubsystem)
 	{
 		SetReadyToDestroy();
+		return;
 	}
+
+	EventCallbackDelegate.BindDynamic(this, &UWaitForSimpleEvent::OnSimpleEventReceived);
+	EventID = EventSubsystem->ListenForEvent(Listener, OnlyTriggerOnce, EventFilter, DomainFilter, EventCallbackDelegate, PayloadFilter, SenderFilter);
+	EventSubsystem->OnEventSubscriptionRemoved.AddDynamic(this, &UWaitForSimpleEvent::OnEventSubscriptionRemoved);
 }
 
-void UWaitForSimpleEvent::OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload)
+void UWaitForSimpleEvent::OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender)
 {
-	OnEventReceived.Broadcast(AbilityTag, DomainTag, Payload, EventID);
+	OnEventReceived.Broadcast(AbilityTag, DomainTag, Payload, Sender, EventID);
 
 	if (OnlyTriggerOnce)
 	{

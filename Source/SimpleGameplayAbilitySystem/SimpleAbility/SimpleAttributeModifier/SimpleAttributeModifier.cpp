@@ -680,7 +680,7 @@ FStructAttribute* USimpleAttributeModifier::GetTempStructAttribute(const FGamepl
 	return nullptr;
 }
 
-void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload)
+void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, AActor* Sender)
 {
 	if (ModifierType == EAttributeModifierType::Duration && bIsModifierActive)
 	{

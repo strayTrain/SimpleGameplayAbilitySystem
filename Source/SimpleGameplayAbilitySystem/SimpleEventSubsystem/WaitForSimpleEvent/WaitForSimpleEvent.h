@@ -5,11 +5,12 @@
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventTypes.h"
 #include "WaitForSimpleEvent.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(
 	FSimpleEventReceivedDelegate,
 	FGameplayTag, EventTag,
 	FGameplayTag, Domain,
 	FInstancedStruct, Payload,
+	AActor*, Sender,
 	FGuid, EventSubscriptionID
 );
 
@@ -38,7 +39,7 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload);
+	void OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender = nullptr);
 
 	UFUNCTION()
 	void OnEventSubscriptionRemoved(FGuid SubscriptionID);

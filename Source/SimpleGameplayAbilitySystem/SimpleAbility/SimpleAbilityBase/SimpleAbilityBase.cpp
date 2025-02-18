@@ -3,10 +3,11 @@
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
-void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID)
+void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, bool IsProxyActivation)
 {
 	OwningAbilityComponent = InOwningAbilityComponent;
 	AbilityInstanceID = InAbilityInstanceID;
+	IsProxyAbility = IsProxyActivation;
 }
 
 void USimpleAbilityBase::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData)

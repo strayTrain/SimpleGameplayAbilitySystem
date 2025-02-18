@@ -5,11 +5,12 @@
 #include "InstancedStruct.h"
 #include "SimpleEventTypes.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(
+DECLARE_DYNAMIC_DELEGATE_FourParams(
 	FSimpleEventDelegate,
 	FGameplayTag, EventTag,
 	FGameplayTag, Domain,
-	FInstancedStruct, Payload);
+	FInstancedStruct, Payload,
+	AActor*, Sender);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEventSubscriptionRemoved, FGuid, EventSubscriptionID);
 
@@ -80,4 +81,9 @@ struct FEventSubscription
 	 */
 	UPROPERTY()
 	bool OnlyMatchExactDomain = true;
+
+	bool operator==(const FEventSubscription& Other) const
+	{
+		return EventSubscriptionID == Other.EventSubscriptionID;
+	}
 };

@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "InstancedStruct.h"
 #include "Net/Serialization/FastArraySerializer.h"
 #include "SimpleAbilityTypes.generated.h"
 
@@ -42,14 +41,13 @@ enum class EAbilityActivationPolicy :uint8
 UENUM(BlueprintType)
 enum class EAbilityInstancingPolicy : uint8
 {
-	/* Only one instance of this ability can be active at a time.
-	If we activate it again, the previous instance will be cancelled */
-	SingleInstanceCancellable,
-	
-	/* Same as SingleInstanceCancellable except instead of cancelling the currently running instance,
-	the ability will fail to activate again until the instance ability has ended */
-	SingleInstanceNonCancellable,
-	
+	/*
+	 * Only one instance of this ability is created. \
+	 * If we try to activate it again and the ability is currently running,the previous instance will call
+	 * USimpleGameplayAbility::CanCancel() and if it returns true, it will be cancelled.
+	 * If CanCancel() returns false, the new instance will fail to activate to the ability.
+	 */
+	SingleInstance,
 	/* Multiple instances of this ability can be active at the same time.
 	Activating the ability again will create a new instance and they both run in parallel */
 	MultipleInstances
@@ -134,6 +132,9 @@ struct FAbilityState : public FFastArraySerializerItem
 	FInstancedStruct ActivationContext;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FInstancedStruct EndingContext;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EAbilityStatus AbilityStatus = EAbilityStatus::PreActivation;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -202,4 +203,20 @@ struct TStructOpsTypeTraits<FAbilityStateContainer> : public TStructOpsTypeTrait
 	{
 		WithNetDeltaSerializer = true,
 	};
+};
+
+
+USTRUCT(BlueprintType)
+struct FSimpleAbilityEndedEvent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FGuid AbilityID;
+	
+	UPROPERTY(BlueprintReadWrite)
+	FGameplayTag EndStatus;
+
+	UPROPERTY(BlueprintReadWrite)
+	FInstancedStruct EndingContext;
 };

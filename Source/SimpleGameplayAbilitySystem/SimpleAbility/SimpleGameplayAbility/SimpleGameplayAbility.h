@@ -14,7 +14,7 @@ public:
 	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
-	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstanceCancellable;
+	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstance;
 
 	/* These tags must be present on the owning ability component for this ability to activate. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Activation")
@@ -60,6 +60,15 @@ public:
 	
 	UFUNCTION()
 	bool ActivateAbility(FInstancedStruct ActivationContext);
+
+	UFUNCTION(BlueprintCallable)
+	FGuid ActivateSubAbility(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FInstancedStruct ActivationContext,
+		bool ShouldOverrideActivationPolicy = false,
+		EAbilityActivationPolicy OverridePolicy = EAbilityActivationPolicy::LocalOnly,
+		bool EndIfParentEnds = true,
+		bool EndIfParentCancels = true); 
 	
 	/**
 	 * A generic function to end the ability. This function should be called by the ability itself when it's done.
@@ -122,10 +131,21 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FInstancedStruct GetActivationContext() const;
 
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool WasActivatedOnServer() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool WasActivatedOnClient() const;
 protected:
 	virtual UWorld* GetWorld() const override;
 	
 private:
+	// Used to keep track of sub abilities which this ability has created which need to be ended when this ability ends
+	TArray<FGuid> EndOnEndedSubAbilities;
+	// Used to keep track of sub abilities which this ability has created which need to be ended when this ability cancels
+	TArray<FGuid> EndOnCancelledSubAbilities;
+	
 	bool MeetsTagRequirements() const;
 	bool bIsAbilityActive = false;
+	FInstancedStruct CachedActivationContext;
 };

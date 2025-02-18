@@ -6,7 +6,6 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/StructAttributeHandler/SimpleStructAttributeHandler.h"
 
 bool USimpleAttributeFunctionLibrary::HasFloatAttribute(USimpleGameplayAbilityComponent* AbilityComponent, const FGameplayTag AttributeTag)
 {

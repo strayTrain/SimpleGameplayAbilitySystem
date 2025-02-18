@@ -13,6 +13,7 @@ FGameplayTag FDefaultTags::AbilityEnded;
 FGameplayTag FDefaultTags::AbilityEndedSuccessfully;
 FGameplayTag FDefaultTags::AbilityCancelled;
 FGameplayTag FDefaultTags::AbilityStateSnapshotTaken;
+FGameplayTag FDefaultTags::WaitForAbilityEnded;
 
 FGameplayTag FDefaultTags::AttributeModifierApplied;
 FGameplayTag FDefaultTags::AttributeModifierInitiallyApplied;
@@ -49,9 +50,10 @@ void FDefaultTags::InitializeDefaultTags()
 	AbilityRemoved = FindTag("SimpleGAS.Events.Ability.AbilityRemoved");
 	AbilityActivated = FindTag("SimpleGAS.Events.Ability.AbilityActivated");
 	AbilityEnded = FindTag("SimpleGAS.Events.Ability.AbilityEnded");
-	AbilityEndedSuccessfully = FindTag("SimpleGAS.Events.Ability.AbilityEndedSuccessfully");
-	AbilityCancelled = FindTag("SimpleGAS.Events.Ability.AbilityCancelled");
+	AbilityEndedSuccessfully = FindTag("SimpleGAS.Events.Ability.AbilityEnded.Success");
+	AbilityCancelled = FindTag("SimpleGAS.Events.Ability.AbilityEnded.Cancelled");
 	AbilityStateSnapshotTaken = FindTag("SimpleGAS.Events.Ability.AbilityStateSnapshotTaken");
+	WaitForAbilityEnded = FindTag("SimpleGAS.Events.Ability.WaitForAbilityEnded");
 	
 	// Float Attributes
 	FloatAttributeAdded = FindTag("SimpleGAS.Events.Attributes.FloatAttributeAdded");

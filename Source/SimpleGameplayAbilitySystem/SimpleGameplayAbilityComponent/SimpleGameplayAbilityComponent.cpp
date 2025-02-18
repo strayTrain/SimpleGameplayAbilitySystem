@@ -18,7 +18,6 @@ class USimpleEventSubsystem;
 
 USimpleGameplayAbilityComponent::USimpleGameplayAbilityComponent()
 {
-	SetIsReplicated(true);
 	PrimaryComponentTick.bCanEverTick = false;
 	AvatarActor = nullptr;
 }
@@ -26,6 +25,8 @@ USimpleGameplayAbilityComponent::USimpleGameplayAbilityComponent()
 void USimpleGameplayAbilityComponent::BeginPlay()
 {
 	UActorComponent::BeginPlay();
+
+	SetIsReplicated(true);
 	
 	if (HasAuthority())
 	{
@@ -106,19 +107,18 @@ FGuid USimpleGameplayAbilityComponent::ActivateAbility(const TSubclassOf<USimple
 		return NewAbilityInstanceID;
 	}
 	
-	
 	const EAbilityActivationPolicy Policy = OverrideActivationPolicy ? ActivationPolicy : AbilityClass.GetDefaultObject()->ActivationPolicy;
-	bool WasAbilityActivated = false;
 	
 	switch (Policy)
 	{
 		case EAbilityActivationPolicy::LocalOnly:
-			WasAbilityActivated = ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID);
+			AddNewAbilityState(AbilityClass, AbilityContext, NewAbilityInstanceID);
+			ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID, false);
 			break;
 			
 		case EAbilityActivationPolicy::ClientPredicted:
 			AddNewAbilityState(AbilityClass, AbilityContext, NewAbilityInstanceID);
-			WasAbilityActivated = ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID);
+			ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID, false);
 		
 			if (!GetOwner()->HasAuthority())
 			{
@@ -138,7 +138,7 @@ FGuid USimpleGameplayAbilityComponent::ActivateAbility(const TSubclassOf<USimple
 
 			// If we're a listen server we can activate the ability directly
 			AddNewAbilityState(AbilityClass, AbilityContext, NewAbilityInstanceID);
-			WasAbilityActivated = ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID);
+			ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID, false);
 				
 			break;
 			
@@ -148,19 +148,21 @@ FGuid USimpleGameplayAbilityComponent::ActivateAbility(const TSubclassOf<USimple
 				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Client cannot activate server only abilities!")));
 				return NewAbilityInstanceID;
 			}
-			
-			WasAbilityActivated = ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID);
+
+			AddNewAbilityState(AbilityClass, AbilityContext, NewAbilityInstanceID);
+			ActivateAbilityInternal(AbilityClass, AbilityContext, NewAbilityInstanceID, false);
 			break;
 	}
 	
 	return NewAbilityInstanceID;
 }
 
-bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, const FGuid AbilityInstanceID)
+bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, const FGuid AbilityInstanceID, const
+                                                              bool IsProxyActivation)
 {
 	const EAbilityInstancingPolicy InstancingPolicy = AbilityClass.GetDefaultObject()->InstancingPolicy;
 
-	if (InstancingPolicy == EAbilityInstancingPolicy::SingleInstanceCancellable)
+	if (InstancingPolicy == EAbilityInstancingPolicy::SingleInstance)
 	{
 		for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
 		{
@@ -177,32 +179,14 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(const TSubclassOf<
 					InstancedAbility->EndCancel(FInstancedStruct());
 				}
 				
-				InstancedAbility->InitializeAbility(this, AbilityInstanceID);
-				return InstancedAbility->ActivateAbility(AbilityContext);
-			}
-		}
-	}
-
-	if (InstancingPolicy == EAbilityInstancingPolicy::SingleInstanceNonCancellable)
-	{
-		for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
-		{
-			if (InstancedAbility->GetClass() == AbilityClass)
-			{
-				if (InstancedAbility->IsAbilityActive())
-				{
-					SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbilityInternal]: Non cancellable single instance ability %s is already active!"), *AbilityClass->GetName()));
-					return false;
-				}
-				
-				InstancedAbility->InitializeAbility(this, AbilityInstanceID);
+				InstancedAbility->InitializeAbility(this, AbilityInstanceID, IsProxyActivation);
 				return InstancedAbility->ActivateAbility(AbilityContext);
 			}
 		}
 	}
 	
 	USimpleGameplayAbility* AbilityToActivate = NewObject<USimpleGameplayAbility>(this, AbilityClass);
-	AbilityToActivate->InitializeAbility(this, AbilityInstanceID);
+	AbilityToActivate->InitializeAbility(this, AbilityInstanceID, IsProxyActivation);
 	InstancedAbilities.Add(AbilityToActivate);
 
 	return AbilityToActivate->ActivateAbility(AbilityContext);
@@ -211,7 +195,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(const TSubclassOf<
 void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID)
 {
 	AddNewAbilityState(AbilityClass, AbilityContext, AbilityInstanceID);
-	ActivateAbilityInternal(AbilityClass, AbilityContext, AbilityInstanceID);
+	ActivateAbilityInternal(AbilityClass, AbilityContext, AbilityInstanceID, true);
 }
 
 bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, FInstancedStruct CancellationContext)
@@ -365,6 +349,46 @@ void USimpleGameplayAbilityComponent::ChangeAbilityStatus(FGuid AbilityInstanceI
 	}
 }
 
+void USimpleGameplayAbilityComponent::SetAbilityStateEndingContext(FGuid AbilityInstanceID, FGameplayTag EndTag, FInstancedStruct EndContext)
+{
+	FSimpleAbilityEndedEvent EndEvent;
+	EndEvent.AbilityID = AbilityInstanceID;
+	EndEvent.EndStatus = EndTag;
+	EndEvent.EndingContext = EndContext;
+	
+	if (HasAuthority())
+	{
+		for (FAbilityState& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
+		{
+			if (AuthorityAbilityState.AbilityID == AbilityInstanceID)
+			{
+				AuthorityAbilityState.EndingContext = EndContext;
+				AuthorityAbilityStates.MarkItemDirty(AuthorityAbilityState);
+				SendEvent(FDefaultTags::AbilityEnded, EndTag, FInstancedStruct::Make(EndEvent), GetAvatarActor(), ESimpleEventReplicationPolicy::NoReplication);
+
+				return;
+			}
+		}
+
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ChangeAbilityStatus]: Ability with ID %s not found in AuthorityAbilityStates array"), *AbilityInstanceID.ToString()));
+	}
+	else
+	{
+		for (FAbilityState& ActiveAbility : LocalAbilityStates)
+		{
+			if (ActiveAbility.AbilityID == AbilityInstanceID)
+			{
+				ActiveAbility.EndingContext = EndContext;
+				SendEvent(FDefaultTags::AbilityEnded, EndTag, FInstancedStruct::Make(EndEvent), GetAvatarActor(), ESimpleEventReplicationPolicy::NoReplication);
+
+				return;
+			}
+		}
+
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ChangeAbilityStatus]: Ability with ID %s not found in LocalAbilityStates array"), *AbilityInstanceID.ToString()));
+	}
+}
+
 /* Attribute Functions */
 
 void USimpleGameplayAbilityComponent::AddFloatAttribute(FFloatAttribute AttributeToAdd, bool OverrideValuesIfExists)
@@ -479,7 +503,7 @@ bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGame
 		InstancedAttributes.Add(Modifier);
 	}
 	
-	Modifier->InitializeAbility(this, ModifierInstanceID);
+	Modifier->InitializeAbility(this, ModifierInstanceID, false);
 	AddNewAttributeState(ModifierClass, ModifierContext, ModifierInstanceID);
 	
 	return Modifier->ApplyModifier(this, ModifierTarget, ModifierContext);
@@ -699,6 +723,12 @@ void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplay
 
 		case ESimpleEventReplicationPolicy::ServerAndOwningClientPredicted:
 			SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
+
+			if (HasAuthority())
+			{
+				ClientSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
+			}
+		
 			if (!HasAuthority() && GetOwner()->HasLocalNetOwner())
 			{
 				ServerSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
@@ -716,7 +746,15 @@ void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplay
 			break;
 
 		case ESimpleEventReplicationPolicy::AllConnectedClientsPredicted:
+
+			if (HasAuthority())
+			{
+				MulticastSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
+				break;
+			}
+
 			SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
+		
 			if (!HasAuthority() && GetOwner()->HasLocalNetOwner())
 			{
 				ServerSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy);
@@ -738,7 +776,7 @@ void USimpleGameplayAbilityComponent::SendEventInternal(FGuid EventID, FGameplay
 	
 	if (HandledEventIDs.Contains(EventID))
 	{
-		//HandledEventIDs.Remove(EventID);
+		HandledEventIDs.Remove(EventID);
 		return;
 	}
 	
@@ -885,6 +923,19 @@ FAbilityState USimpleGameplayAbilityComponent::GetAbilityState(const FGuid Abili
 	return FAbilityState();
 }
 
+bool USimpleGameplayAbilityComponent::IsAnyAbilityActive() const
+{
+	for (const USimpleGameplayAbility* AbilityInstance : InstancedAbilities)
+	{
+		if (AbilityInstance->IsAbilityActive())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 USimpleStructAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHandler(const TSubclassOf<USimpleStructAttributeHandler>& HandlerClass)
 {
 	for (USimpleStructAttributeHandler* Handler : StructAttributeHandlers)
@@ -925,11 +976,11 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 		// If the NewAbilityState doesn't exist locally, we activate it
 		if (!LocalStateArrayIndexMap.Contains(NewAbilityState.AbilityID))
 		{
-			UClass* ParentClassPtr = NewAbilityState.AbilityClass.Get();
-			const TSubclassOf<USimpleGameplayAbility> AbilityClass = Cast<UClass>(ParentClassPtr);
+			UClass* AbilityClassPtr = NewAbilityState.AbilityClass.Get();
+			const TSubclassOf<USimpleGameplayAbility> AbilityClass = Cast<UClass>(AbilityClassPtr);
 
 			LocalAbilityStates.Add(NewAbilityState);
-			ActivateAbilityInternal(AbilityClass, NewAbilityState.ActivationContext, NewAbilityState.AbilityID);
+			ActivateAbilityInternal(AbilityClass, NewAbilityState.ActivationContext, NewAbilityState.AbilityID, true);
 		}
 	}
 
@@ -958,7 +1009,7 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 					InstancedAttributes.Add(Modifier);
 				}
 
-				Modifier->InitializeAbility(this, NewAbilityState.AbilityID);
+				Modifier->InitializeAbility(this, NewAbilityState.AbilityID, true);
 
 				if (Modifier->ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyClientPredicted)
 				{

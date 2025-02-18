@@ -79,8 +79,11 @@ public:
 	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 
 	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
-	FGuid ActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext,
-	                      bool OverrideActivationPolicy = false, EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly);
+	FGuid ActivateAbility(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FInstancedStruct AbilityContext,
+		bool OverrideActivationPolicy = false,
+		EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly);
 
 	UFUNCTION(Server, Reliable)
 	void ServerActivateAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid AbilityInstanceID);
@@ -93,6 +96,7 @@ public:
 	
 	void AddAbilityStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
 	void ChangeAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus);
+	void SetAbilityStateEndingContext(FGuid AbilityInstanceID, FGameplayTag EndTag, FInstancedStruct EndContext);
 	
 	/* Attribute Functions */
 	
@@ -182,6 +186,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
 	FAbilityState GetAbilityState(FGuid AbilityInstanceID, bool& WasFound) const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
+	bool IsAnyAbilityActive() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Utility")
 	bool HasAuthority() const { return GetOwner()->HasAuthority(); }
@@ -210,7 +217,8 @@ protected:
 	TArray<USimpleStructAttributeHandler*> StructAttributeHandlers;
 	
 	virtual void BeginPlay() override;
-	bool ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
+	bool ActivateAbilityInternal(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID, bool
+	                             IsProxyActivation);
 	void AddNewAbilityState(const TSubclassOf<USimpleGameplayAbility>& AbilityClass, const FInstancedStruct& AbilityContext, FGuid AbilityInstanceID);
 	void AddNewAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass, const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID);
 	USimpleGameplayAbility* GetGameplayAbilityInstance(FGuid AbilityInstanceID);

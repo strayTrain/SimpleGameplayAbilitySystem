@@ -4,6 +4,11 @@ theme: just-the-docs
 
 url: https://straytrain.github.io/SimpleGAS/
 
+mermaid:
+  # Version of mermaid library
+  # Pick an available version from https://cdn.jsdelivr.net/npm/mermaid/
+  version: "11.4.1"
+
 aux_links:
   SimpleGAS on GitHub:
     - https://github.com/strayTrain/SimpleGameplayAbilitySystem

@@ -36,11 +36,8 @@ bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 		OwningAbilityComponent->AddGameplayTag(PermTag, ActivationContext);
 	}
 
-	// Local Only and Server Only abilities don't create an AbilityState
-	if (ActivationPolicy == EAbilityActivationPolicy::ClientPredicted || ActivationPolicy == EAbilityActivationPolicy::ServerInitiated)
-	{
-		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
-	}
+	OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::ActivationSuccess);
+	CachedActivationContext = ActivationContext;
 
 	PreActivate(ActivationContext);
 	bIsAbilityActive = true;
@@ -49,28 +46,59 @@ bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 	return true;
 }
 
+FGuid USimpleGameplayAbility::ActivateSubAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass,
+	const FInstancedStruct ActivationContext, const bool ShouldOverrideActivationPolicy, const EAbilityActivationPolicy OverridePolicy,
+	const bool EndIfParentEnds, const bool EndIfParentCancels)
+{
+	FGuid SubAbilityID = OwningAbilityComponent->ActivateAbility(AbilityClass, ActivationContext, ShouldOverrideActivationPolicy, OverridePolicy);
+
+	if (EndIfParentEnds)
+	{
+		EndOnEndedSubAbilities.Add(SubAbilityID);
+	}
+
+	if (EndIfParentCancels)
+	{
+		EndOnCancelledSubAbilities.Add(SubAbilityID);
+	}
+
+	return SubAbilityID;
+}
+
 void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct EndingContext)
 {
 	OnEnd(EndStatus, EndingContext);
-
+	
 	for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
 	{
 		OwningAbilityComponent->RemoveGameplayTag(TempTag, EndingContext);
 	}
 	
-	if (ActivationPolicy == EAbilityActivationPolicy::ClientPredicted || ActivationPolicy == EAbilityActivationPolicy::ServerInitiated)
+	if (EndStatus == FDefaultTags::AbilityEndedSuccessfully)
 	{
-		if (EndStatus == FDefaultTags::AbilityEndedSuccessfully)
+		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedSuccessfully);
+
+		for (const FGuid& SubAbilityID : EndOnEndedSubAbilities)
 		{
-			OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedSuccessfully);
+			OwningAbilityComponent->CancelAbility(SubAbilityID, EndingContext);
 		}
-		else if (EndStatus == FDefaultTags::AbilityCancelled)
+	}
+	else if (EndStatus == FDefaultTags::AbilityCancelled)
+	{
+		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCancelled);
+
+		for (const FGuid& SubAbilityID : EndOnCancelledSubAbilities)
 		{
-			OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCancelled);
+			OwningAbilityComponent->CancelAbility(SubAbilityID, EndingContext);
 		}
-		else
+	}
+	else
+	{
+		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCustomStatus);
+
+		for (const FGuid& SubAbilityID : EndOnEndedSubAbilities)
 		{
-			OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCustomStatus);
+			OwningAbilityComponent->CancelAbility(SubAbilityID, EndingContext);
 		}
 	}
 	
@@ -80,6 +108,13 @@ void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct
 	}
 
 	bIsAbilityActive = false;
+
+	if (IsProxyAbility && !OwningAbilityComponent->HasAuthority())
+	{
+		return;
+	}
+	
+	OwningAbilityComponent->SetAbilityStateEndingContext(AbilityInstanceID, EndStatus, EndingContext);
 }
 
 void USimpleGameplayAbility::EndSuccess(FInstancedStruct EndingContext)
@@ -124,16 +159,17 @@ double USimpleGameplayAbility::GetActivationTime() const
 
 FInstancedStruct USimpleGameplayAbility::GetActivationContext() const
 {
-	bool WasStateFound;
-	FAbilityState AbilityState = OwningAbilityComponent->GetAbilityState(AbilityInstanceID, WasStateFound);
+	return CachedActivationContext;
+}
 
-	if (WasStateFound)
-	{
-		return AbilityState.ActivationContext;
-	}
+bool USimpleGameplayAbility::WasActivatedOnServer() const
+{
+	return OwningAbilityComponent->HasAuthority() && !IsProxyAbility;
+}
 
-	UE_LOG(LogSimpleGAS, Warning, TEXT("Ability with ID %s not found in AbilityState array"), *AbilityInstanceID.ToString());
-	return FInstancedStruct();
+bool USimpleGameplayAbility::WasActivatedOnClient() const
+{
+	return (!OwningAbilityComponent->HasAuthority() || OwningAbilityComponent->GetNetMode() == NM_ListenServer) && !IsProxyAbility;
 }
 
 UWorld* USimpleGameplayAbility::GetWorld() const

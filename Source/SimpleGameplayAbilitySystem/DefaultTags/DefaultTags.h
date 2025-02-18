@@ -19,6 +19,8 @@ class FDefaultTags
 		static FGameplayTag AbilityEndedSuccessfully;
 		static FGameplayTag AbilityCancelled;
 
+		static FGameplayTag WaitForAbilityEnded;
+	
 		static FGameplayTag AbilityStateSnapshotTaken;
 
 		static FGameplayTag AttributeModifierApplied;
