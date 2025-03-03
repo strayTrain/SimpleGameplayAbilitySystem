@@ -18,7 +18,7 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FSimpleFloatAttributeChangedDelegate OnFloatAttributeChanged;
 	
-	UFUNCTION(BlueprintCallable, meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true, AdvancedDisplay=4))
+	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Async Functions", meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true, AdvancedDisplay=4))
 	static UWaitForFloatAttributeChange* WaitForFloatAttributeChange(
 		UObject* WorldContextObject,
 		USimpleGameplayAbilityComponent* AttributeOwner,

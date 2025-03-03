@@ -1,8 +1,8 @@
 ---
-title: Replication and Prediction
+title: Utility Nodes
 layout: home
 parent: Concepts
-nav_order: 9
+nav_order: 8
 ---
 
 # Replication and Prediction

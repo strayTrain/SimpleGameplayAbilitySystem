@@ -2,7 +2,7 @@
 title: Simple Ability
 layout: home
 parent: Concepts
-nav_order: 2
+nav_order: 4
 ---
 
 # Simple Gameplay Ability

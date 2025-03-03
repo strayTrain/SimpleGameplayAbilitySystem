@@ -18,9 +18,11 @@ bool USimpleGameplayAbility::CanCancel_Implementation()
 	return true;
 }
 
-bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
+bool USimpleGameplayAbility::ActivateAbility(const FGuid AbilityID, FInstancedStruct ActivationContext)
 {
-	if (!MeetsTagRequirements() || !CanActivate(ActivationContext))
+	AbilityInstanceID = AbilityID;
+	
+	if (!MeetsDefaultRequirements(ActivationContext) || !CanActivate(ActivationContext))
 	{
 		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedActivationFailed);
 		return false;	
@@ -47,84 +49,66 @@ bool USimpleGameplayAbility::ActivateAbility(FInstancedStruct ActivationContext)
 }
 
 FGuid USimpleGameplayAbility::ActivateSubAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	const FInstancedStruct ActivationContext, const bool ShouldOverrideActivationPolicy, const EAbilityActivationPolicy OverridePolicy,
-	const bool EndIfParentEnds, const bool EndIfParentCancels)
+	const FInstancedStruct ActivationContext, const bool CancelIfParentEnds, const bool CancelIfParentCancels)
 {
-	FGuid SubAbilityID = OwningAbilityComponent->ActivateAbility(AbilityClass, ActivationContext, ShouldOverrideActivationPolicy, OverridePolicy);
+	const FGuid SubAbilityID = FGuid::NewGuid();
 
-	if (EndIfParentEnds)
+	if (CancelIfParentEnds)
 	{
 		EndOnEndedSubAbilities.Add(SubAbilityID);
 	}
 
-	if (EndIfParentCancels)
+	if (CancelIfParentCancels)
 	{
 		EndOnCancelledSubAbilities.Add(SubAbilityID);
 	}
-
+	
+	OwningAbilityComponent->ActivateAbilityWithID(SubAbilityID, AbilityClass, ActivationContext, false, true, EAbilityActivationPolicy::LocalOnly);
+	
 	return SubAbilityID;
 }
 
-void USimpleGameplayAbility::EndAbility(FGameplayTag EndStatus, FInstancedStruct EndingContext)
+void USimpleGameplayAbility::EndAbility(const FGameplayTag EndStatus, const FInstancedStruct EndingContext)
 {
-	OnEnd(EndStatus, EndingContext);
-	
+	OnEnd(EndStatus, EndingContext, false);
+	EndAbilityInternal(EndStatus, EndingContext, false);
+}
+
+void USimpleGameplayAbility::CancelAbility(const FGameplayTag CancelStatus, const FInstancedStruct CancelContext)
+{
+	OnEnd(CancelStatus, CancelContext, true);
+	EndAbilityInternal(CancelStatus, CancelContext, true);
+}
+
+void USimpleGameplayAbility::EndAbilityInternal(FGameplayTag Status, FInstancedStruct Context, bool WasCancelled)
+{
 	for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
 	{
-		OwningAbilityComponent->RemoveGameplayTag(TempTag, EndingContext);
+		OwningAbilityComponent->RemoveGameplayTag(TempTag, Context);
+	}
+
+	const EAbilityStatus StatusToSet = WasCancelled ? EAbilityStatus::EndedCancelled : EAbilityStatus::EndedSuccessfully;
+	const TArray<FGuid>& AbilitiesToCancel = WasCancelled ? EndOnCancelledSubAbilities : EndOnEndedSubAbilities;
+	
+	for (const FGuid& SubAbilityID : AbilitiesToCancel)
+	{
+		OwningAbilityComponent->CancelAbility(SubAbilityID, Context);
 	}
 	
-	if (EndStatus == FDefaultTags::AbilityEndedSuccessfully)
-	{
-		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedSuccessfully);
-
-		for (const FGuid& SubAbilityID : EndOnEndedSubAbilities)
-		{
-			OwningAbilityComponent->CancelAbility(SubAbilityID, EndingContext);
-		}
-	}
-	else if (EndStatus == FDefaultTags::AbilityCancelled)
-	{
-		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCancelled);
-
-		for (const FGuid& SubAbilityID : EndOnCancelledSubAbilities)
-		{
-			OwningAbilityComponent->CancelAbility(SubAbilityID, EndingContext);
-		}
-	}
-	else
-	{
-		OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, EAbilityStatus::EndedCustomStatus);
-
-		for (const FGuid& SubAbilityID : EndOnEndedSubAbilities)
-		{
-			OwningAbilityComponent->CancelAbility(SubAbilityID, EndingContext);
-		}
-	}
+	OwningAbilityComponent->ChangeAbilityStatus(AbilityInstanceID, StatusToSet);
+	bIsAbilityActive = false;
 	
 	if (InstancingPolicy == EAbilityInstancingPolicy::MultipleInstances)
 	{
 		OwningAbilityComponent->RemoveInstancedAbility(this);
 	}
-
-	bIsAbilityActive = false;
-
+	
 	if (IsProxyAbility && !OwningAbilityComponent->HasAuthority())
 	{
 		return;
 	}
 	
-	OwningAbilityComponent->SetAbilityStateEndingContext(AbilityInstanceID, EndStatus, EndingContext);
-}
-
-void USimpleGameplayAbility::EndSuccess(FInstancedStruct EndingContext)
-{
-	EndAbility(FDefaultTags::AbilityEndedSuccessfully, EndingContext);
-}
-
-void USimpleGameplayAbility::EndCancel(FInstancedStruct EndingContext)
-{
-	EndAbility(FDefaultTags::AbilityCancelled, EndingContext);
+	OwningAbilityComponent->SetAbilityStateEndingContext(AbilityInstanceID, Status, Context);
 }
 
 AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const
@@ -138,6 +122,12 @@ AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass
 	return nullptr;
 }
 
+void USimpleGameplayAbility::ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* TargetComponent,
+	TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct Context, FGuid& ModifierID)
+{
+	OwningAbilityComponent->ApplyAttributeModifierToTarget(TargetComponent, ModifierClass, Context, ModifierID);
+}
+
 bool USimpleGameplayAbility::IsAbilityActive() const
 {
 	return bIsAbilityActive;
@@ -146,7 +136,7 @@ bool USimpleGameplayAbility::IsAbilityActive() const
 double USimpleGameplayAbility::GetActivationTime() const
 {
 	bool WasStateFound;
-	const FAbilityState AbilityState = OwningAbilityComponent->GetAbilityState(AbilityInstanceID, WasStateFound);
+	const FAbilityState AbilityState = OwningAbilityComponent->FindAbilityState(AbilityInstanceID, WasStateFound);
 
 	if (WasStateFound)
 	{
@@ -155,6 +145,11 @@ double USimpleGameplayAbility::GetActivationTime() const
 
 	UE_LOG(LogSimpleGAS, Warning, TEXT("Ability with ID %s not found in AbilityState array"), *AbilityInstanceID.ToString());
 	return 0;
+}
+
+double USimpleGameplayAbility::GetActivationDelay() const
+{
+	return OwningAbilityComponent->GetServerTime() - GetActivationTime();
 }
 
 FInstancedStruct USimpleGameplayAbility::GetActivationContext() const
@@ -182,7 +177,9 @@ UWorld* USimpleGameplayAbility::GetWorld() const
 	return nullptr;
 }
 
-bool USimpleGameplayAbility::MeetsTagRequirements() const
+
+
+bool USimpleGameplayAbility::MeetsDefaultRequirements(FInstancedStruct& ActivationContext) const
 {
 	if (ActivationBlockingTags.Num() > 0)
 	{
@@ -208,10 +205,58 @@ bool USimpleGameplayAbility::MeetsTagRequirements() const
 		}
 	}
 
+	if (RequiredContextType)
+	{
+		if (!ActivationContext.IsValid())
+		{
+			SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("Ability %s requires ActivationContext that contains struct type %s. No ActivationContext was provided."), *GetName(), *RequiredContextType->GetName()));
+			return false;
+		}
+
+		if (ActivationContext.IsValid() && RequiredContextType != ActivationContext.GetScriptStruct())
+		{
+			SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("Ability %s requires ActivationContext that contains struct type %s. The struct that was passed in is type %s"), *GetName(), *RequiredContextType->GetName(), *ActivationContext.GetScriptStruct()->GetName()));
+			return false;
+		}
+	}
+	
+	if (AvatarTypeFilter.Num() > 0)
+	{
+		const AActor* AvatarActor = OwningAbilityComponent->GetAvatarActor();
+
+		if (!AvatarActor)
+		{
+			SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("Ability %s requires an avatar actor to activate"), *GetName()));
+			return false;
+		}
+
+		if (!AvatarTypeFilter.Contains(AvatarActor->GetClass()))
+		{
+			SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("Ability %s requires an avatar actor of type %s"), *GetName(), *AvatarTypeFilter[0]->GetName()));
+			return false;
+		}	
+	}
+	
 	return true;
 }
 
 void USimpleGameplayAbility::ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState)
 {
-	OnClientReceivedAuthorityState(StateTag, AuthorityState, PredictedState);
+	// First we do a deep comparison of the underlying FInstancedStructs representing the snapshot data. If they're the same, we don't need to do anything.
+	if (AuthorityState.StateData == PredictedState.StateData)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::ClientResolvePastState]: No diverging state detected for ability snapshot %s. No action taken."), *StateTag.ToString()));
+		return;
+	}
+	
+	// Invoke any registered callbacks for this state
+	if (SnapshotResolveCallbacks.Contains(PredictedState.SequenceNumber))
+	{
+		FOnSnapshotResolved& Callback = SnapshotResolveCallbacks[PredictedState.SequenceNumber];
+		if (Callback.IsBound())
+		{
+			Callback.Execute(StateTag, AuthorityState, PredictedState);
+			SnapshotResolveCallbacks.Remove(PredictedState.SequenceNumber);
+		}
+	}
 }

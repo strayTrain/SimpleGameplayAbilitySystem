@@ -3,53 +3,67 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Net/Serialization/FastArraySerializer.h"
+#include "InstancedStruct.h"
 #include "SimpleAbilityTypes.generated.h"
 
 class USimpleAbilityBase;
+class USimpleGameplayAbility;
 class USimpleAttributeModifier;
 class UAbilityStateResolver;
 
-/* Delegates */
-
-DECLARE_DYNAMIC_DELEGATE_FourParams(
-	FResolveStateMispredictionDelegate,
-	FInstancedStruct, AuthorityStateData,
-	double, AuthorityTimeStamp,
-	FInstancedStruct, PredictedStateData,
-	double, PredictedTimeStamp);
-
 /* Enums */
 
-/**
+/**	
  * The different ways an ability can be activated.
  */
 UENUM(BlueprintType)
 enum class EAbilityActivationPolicy :uint8
 {
-	/* The ability is activated only on the local client. Use this for single player games or non gameplay critical/cosmetic abilities in multiplayer games. */
+	/**
+	 * The ability can be activated on the server or the client but won't be replicated. Use this for single player
+	 * games or for cosmetic abilities in listen server scenarios.
+	 */
 	LocalOnly,
-	/* The ability is activated on the client immediately and then activated on the server through a reliable RPC.
-	If called from the server e.g. listen server scenario, it behaves the same as ServerInitiated. */
+	/**
+	 * The ability can only be activated on clients and will not replicate.
+	 * Use this for cosmetic effects in dedicated server scenarios (listen servers will be ignored as clients in this policy)
+	 */
+	ClientOnly,
+	/**
+	 * The ability can only be activated on the server/listen server and will not replicate to clients.
+	 */
+	ServerOnly,
+	/**
+	 * The ability can immediately be activated on a client and then the server will be notified of the activation.
+	 * If the server fails to activate the same ability, the client will cancel the ability on next replication from the server.
+	 * This is the only activation policy that supports StateSnapshots.
+	 */
 	ClientPredicted,
-	/* The ability is activated on the server first and then activated on all connected clients through a reliable multicast RPC.
-	If called from the client this will send a reliable RPC to the server which then reliably multicasts activation to all connected clients. */
-	ServerInitiated,
-	/* The ability is only activated on the server. If called from the client the ability will fail to activate. */
-	ServerOnly
+	/**
+	 * The ability can be requested to be activated by a client, but it will always run on the server first.
+	 * i.e. Request activate on client -> reliable RPC sent to server -> Activates on server -> replicate AbilityState to client -> Activate on client
+	 * If called from the server (e.g. a listen server), it behaves the same as ServerAuthority
+	 */
+	ServerInitiatedFromClient,
+	/**
+	 * The ability can only be activated on the server/listen server but will replicate to clients.
+	 */
+	ServerAuthority,
 };
 
 UENUM(BlueprintType)
 enum class EAbilityInstancingPolicy : uint8
 {
-	/*
-	 * Only one instance of this ability is created. \
-	 * If we try to activate it again and the ability is currently running,the previous instance will call
-	 * USimpleGameplayAbility::CanCancel() and if it returns true, it will be cancelled.
+	/**
+	 * Only one instance of this ability is created.
+	 * If we try to activate it again, and the ability is already active, the previous instance will call
+	 * USimpleGameplayAbility::CanCancel() and if it returns true it will be cancelled.
 	 * If CanCancel() returns false, the new instance will fail to activate to the ability.
 	 */
 	SingleInstance,
-	/* Multiple instances of this ability can be active at the same time.
-	Activating the ability again will create a new instance and they both run in parallel */
+	/**
+	 * Multiple instances of this ability can be active at the same time. Activating the ability again will
+	 * create a new instance and they will both run in parallel */
 	MultipleInstances
 };
 
@@ -60,11 +74,11 @@ enum class EAbilityStatus :uint8
 	PreActivation,
 	/* The ability passed all activation requirements and is running */
 	ActivationSuccess,
-	/* The ability failed to activate because of missing requirements (tags, etc.) */
+	/* The ability failed to activate because of missing requirements (tags, USimpleGameplayAbility::CanActivate etc.) */
 	EndedActivationFailed,
 	/* The ability ran to completion and ended successfully */
 	EndedSuccessfully,
-	/* The ability was cancelled for some reason */
+	/* The ability was cancelled */
 	EndedCancelled,
 	/* The ability was ended with a custom status */
 	EndedCustomStatus,
@@ -76,6 +90,12 @@ USTRUCT(BlueprintType)
 struct FAbilityEventActivationConfig
 {
 	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<USimpleGameplayAbility> AbilityClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTag EventTag;
@@ -95,11 +115,15 @@ struct FSimpleAbilitySnapshot
 {
 	GENERATED_BODY()
 
+	// Used to keep track of the order of snapshots so we can select the correct one when resolving mispredictions
+	UPROPERTY()
+	int32 SequenceNumber = 0;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid AbilityID;
 	
 	UPROPERTY(BlueprintReadWrite)
-	FGameplayTag StateTag;
+	FGameplayTag SnapshotTag;
 
 	UPROPERTY(BlueprintReadWrite)
 	double TimeStamp;
@@ -123,8 +147,8 @@ struct FAbilityState : public FFastArraySerializerItem
 	TSubclassOf<USimpleAbilityBase> AbilityClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	FGameplayTagContainer AbilityTags;
-
+	EAbilityActivationPolicy ActivationPolicy;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	double ActivationTimeStamp;
 
@@ -139,6 +163,11 @@ struct FAbilityState : public FFastArraySerializerItem
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<FSimpleAbilitySnapshot> SnapshotHistory;
+
+	bool operator==(const FAbilityState& Other) const
+	{
+		return AbilityID == Other.AbilityID;
+	}
 };
 
 DECLARE_DELEGATE_OneParam(FOnAbilityStateAdded, const FAbilityState&);
@@ -205,7 +234,6 @@ struct TStructOpsTypeTraits<FAbilityStateContainer> : public TStructOpsTypeTrait
 	};
 };
 
-
 USTRUCT(BlueprintType)
 struct FSimpleAbilityEndedEvent
 {
@@ -220,3 +248,18 @@ struct FSimpleAbilityEndedEvent
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct EndingContext;
 };
+
+/* Delegates */
+
+DECLARE_DYNAMIC_DELEGATE_FourParams(
+	FResolveStateMispredictionDelegate,
+	FInstancedStruct, AuthorityStateData,
+	double, AuthorityTimeStamp,
+	FInstancedStruct, PredictedStateData,
+	double, PredictedTimeStamp);
+
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(
+	FOnSnapshotResolved,
+	FGameplayTag, StateTag,
+	FSimpleAbilitySnapshot, AuthoritySnapshot,
+	FSimpleAbilitySnapshot, ClientSnapshot);

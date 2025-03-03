@@ -2,7 +2,7 @@
 title: Simple Event Subsystem
 layout: home
 parent: Concepts
-nav_order: 6
+nav_order: 3
 ---
 
 # Simple Event Subsystem

@@ -45,3 +45,25 @@ details[open] > div {
   opacity: 1;
   transform: translateY(0);
 }
+
+.content iframe {
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-width: 0px;
+  border-style: none;
+  border-color: initial;
+  border-image: initial;
+}
+
+iframe {
+  width: 100%; 
+  height: 500px; 
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-width: 0px !important;
+  border-style: none !important;
+  border-color: initial;
+  border-image: initial;
+}

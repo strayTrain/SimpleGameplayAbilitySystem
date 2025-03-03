@@ -17,19 +17,28 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForAbility : public UBlueprintAsyncAc
 public:
 	UPROPERTY(BlueprintAssignable)
 	FEventAbilitySenderDelegate OnAbilityEnded;
-
-	UFUNCTION(BlueprintCallable,  meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true))
-	static UWaitForAbility* WaitForClientAbility(
+	
+	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Async Functions", meta=(DefaultToSelf="ActivatingAbility", WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true))
+	static UWaitForAbility* WaitForClientSubAbilityEnd(
 		UObject* WorldContextObject,
 		USimpleGameplayAbility* ActivatingAbility,
-		TSubclassOf<USimpleGameplayAbility> AbilityToActivate, FInstancedStruct Payload);
-
-	UFUNCTION(BlueprintCallable,  meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true))
-	static UWaitForAbility* WaitForServerAbility(
+		TSubclassOf<USimpleGameplayAbility> AbilityToActivate,
+		FInstancedStruct Payload);
+	
+	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Async Functions", meta=(DefaultToSelf="ActivatingAbility", WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true))
+	static UWaitForAbility* WaitForServerSubAbilityEnd(
 		UObject* WorldContextObject,
 		USimpleGameplayAbility* ActivatingAbility,
-		TSubclassOf<USimpleGameplayAbility> AbilityToActivate, FInstancedStruct Payload);
+		TSubclassOf<USimpleGameplayAbility> AbilityToActivate,
+		FInstancedStruct Payload);
 
+	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Async Functions", meta=(DefaultToSelf="ActivatingAbility", WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true))
+	static UWaitForAbility* WaitForLocalSubAbilityEnd(
+		UObject* WorldContextObject,
+		USimpleGameplayAbility* ActivatingAbility,
+		TSubclassOf<USimpleGameplayAbility> AbilityToActivate,
+		FInstancedStruct Payload);
+	
 	virtual void Activate() override;
 
 protected:

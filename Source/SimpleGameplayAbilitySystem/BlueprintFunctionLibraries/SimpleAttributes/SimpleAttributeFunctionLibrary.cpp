@@ -261,7 +261,7 @@ void USimpleAttributeFunctionLibrary::SendFloatAttributeChangedEvent(const USimp
 		const FInstancedStruct EventPayload = FInstancedStruct::Make(Payload);
 		const FGameplayTag DomainTag = AbilityComponent->HasAuthority() ? FDefaultTags::AuthorityDomain : FDefaultTags::LocalDomain;
 		
-		EventSubsystem->SendEvent(EventTag, DomainTag, EventPayload, AbilityComponent->GetOwner());
+		EventSubsystem->SendEvent(EventTag, DomainTag, EventPayload, AbilityComponent->GetOwner(), {});
 	}
 	else
 	{
@@ -273,6 +273,7 @@ void USimpleAttributeFunctionLibrary::ApplyAbilitySideEffects(USimpleGameplayAbi
 {
 	for (const FAbilitySideEffect& SideEffect : AbilitySideEffects)
 	{
+		FGuid ModifierID;
 		Instigator->ActivateAbility(SideEffect.AbilityClass, SideEffect.AbilityContext, true, SideEffect.ActivationPolicy);
 	}
 }

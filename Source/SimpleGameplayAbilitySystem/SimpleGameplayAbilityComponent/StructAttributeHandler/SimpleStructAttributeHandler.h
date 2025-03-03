@@ -24,8 +24,6 @@ public:
 	void SetOwningAbilityComponent(USimpleGameplayAbilityComponent* InAbilityComponent) { AbilityComponent = InAbilityComponent; }
 	USimpleGameplayAbilityComponent* GetOwningAbilityComponent() const { return AbilityComponent; }
 	
-	void InitializeStruct(FGameplayTag AttributeTag);
-	
 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|StructAttributeHandler")
 	USimpleGameplayAbilityComponent* GetAbilityComponent() const { return AbilityComponent; }
 	

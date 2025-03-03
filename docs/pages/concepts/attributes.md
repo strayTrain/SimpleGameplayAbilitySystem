@@ -2,7 +2,7 @@
 title: Attributes
 layout: home
 parent: Concepts
-nav_order: 4
+nav_order: 6
 ---
 
 # Attributes

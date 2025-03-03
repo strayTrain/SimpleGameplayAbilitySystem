@@ -18,9 +18,10 @@ public:
 	 * @param DomainTag The domain tag categorizing the event. (optional)
 	 * @param Payload The payload of the event as an instanced struct (optional).
 	 * @param Sender The actor that sent the event. (optional)
+	 * @param ListenerFilter Only send the event to listeners in this list. If not set, the event will be sent to all listeners.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "SimpleEventSubsystem")
-	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender = nullptr);
+	UFUNCTION(BlueprintCallable, Category = "SimpleEventSubsystem", meta=(AdvancedDisplay=4, AutoCreateRefTerm = "ListenerFilter"))
+	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, TArray<UObject*> ListenerFilter);
 
 	/**
 	 * Register a listener to receive events. The listener will be notified when an event is sent that matches the provided filters.

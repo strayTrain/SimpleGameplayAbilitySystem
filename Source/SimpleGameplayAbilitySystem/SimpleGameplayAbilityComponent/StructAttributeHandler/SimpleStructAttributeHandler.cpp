@@ -7,25 +7,6 @@
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
-void USimpleStructAttributeHandler::InitializeStruct(FGameplayTag AttributeTag)
-{
-	if (!AbilityComponent)
-	{
-		SIMPLE_LOG(this, TEXT("[USimpleStructAttributeHandler::InitializeStruct]: AbilityComponent is nullptr. Cannot initialize struct."));
-		return;
-	}
-
-	if (!StructType)
-	{
-		SIMPLE_LOG(this, TEXT("[USimpleStructAttributeHandler::InitializeStruct]: StructType is nullptr. Cannot initialize struct."));
-		return;
-	}
-	
-	FInstancedStruct NewStruct;
-	NewStruct.InitializeAs(StructType);
-	SetStruct(AttributeTag, NewStruct);
-}
-
 FInstancedStruct USimpleStructAttributeHandler::GetStruct(const FGameplayTag AttributeTag, bool& WasFound) const
 {
 	return USimpleAttributeFunctionLibrary::GetStructAttributeValue(AbilityComponent, AttributeTag, WasFound);
@@ -57,5 +38,5 @@ void USimpleStructAttributeHandler::OnStructChanged_Implementation(FGameplayTag 
 
 void USimpleStructAttributeHandler::SendStructEvent(FGameplayTag EventTag, FInstancedStruct Payload, ESimpleEventReplicationPolicy ReplicationPolicy) const
 {
-	AbilityComponent->SendEvent(FDefaultTags::StructAttributeValueChanged, EventTag, Payload, AbilityComponent->GetOwner(), ReplicationPolicy);
+	AbilityComponent->SendEvent(FDefaultTags::StructAttributeValueChanged, EventTag, Payload, AbilityComponent->GetOwner(), {}, ReplicationPolicy);
 }

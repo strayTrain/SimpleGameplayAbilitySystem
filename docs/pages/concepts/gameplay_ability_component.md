@@ -2,7 +2,7 @@
 title: Simple Ability Component
 layout: home
 parent: Concepts
-nav_order: 3
+nav_order: 5
 ---
 
 # Simple Ability Component

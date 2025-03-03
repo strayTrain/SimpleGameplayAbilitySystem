@@ -10,7 +10,7 @@ void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOw
 	IsProxyAbility = IsProxyActivation;
 }
 
-void USimpleAbilityBase::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData)
+void USimpleAbilityBase::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved)
 {
 	if (!OwningAbilityComponent)
 	{
@@ -19,10 +19,17 @@ void USimpleAbilityBase::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedS
 	}
 
 	FSimpleAbilitySnapshot NewSnapshot;
+	NewSnapshot.SequenceNumber = SnapshotSequenceCounter++;
 	NewSnapshot.AbilityID = AbilityInstanceID;
-	NewSnapshot.StateTag = SnapshotTag;
+	NewSnapshot.SnapshotTag = SnapshotTag;
 	NewSnapshot.StateData = SnapshotData;
 	NewSnapshot.TimeStamp = OwningAbilityComponent->GetServerTime();
+
+	// Store the delegate in a map
+	if (OnResolved.IsBound())
+	{
+		SnapshotResolveCallbacks.Add(NewSnapshot.SequenceNumber, OnResolved);
+	}
 
 	OwningAbilityComponent->AddAbilityStateSnapshot(AbilityInstanceID, NewSnapshot);
 }
