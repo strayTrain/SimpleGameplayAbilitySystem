@@ -1,5 +1,7 @@
 # Simple Gameplay Ability System Plugin
 
+Note from the dev: This plugin is still WIP. Hoping to ship soon™
+
 A streamlined, flexible, and network‐friendly alternative to Unreal Engine’s Gameplay Ability System. Designed for both single-player and multiplayer projects, this plugin gives you a modular framework for handling abilities, attributes, and events in a way that’s accessible to both Blueprints and C++. You can use this plugin without needing to write any C++ code.
 
 ## Getting Started
