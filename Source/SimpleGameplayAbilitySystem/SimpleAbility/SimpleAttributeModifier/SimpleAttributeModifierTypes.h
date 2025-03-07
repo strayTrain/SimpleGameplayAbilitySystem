@@ -27,6 +27,13 @@ enum class EAttributeModifierType : uint8
 };
 
 UENUM(BlueprintType)
+enum class EAttributeModiferNotFoundBehaviour : uint8
+{
+	CancelModifier,
+	SkipAttributeModification,
+};
+
+UENUM(BlueprintType)
 enum class EAttributeModifierApplicationPolicy : uint8
 {
 	/**
@@ -87,7 +94,7 @@ enum class EDurationTickTagRequirementBehaviour : uint8
 /* Structs */
 
 USTRUCT(BlueprintType)
-struct FAttributeModifier
+struct FFloatAttributeModifier
 {
 	GENERATED_BODY()
 
@@ -96,67 +103,77 @@ struct FAttributeModifier
 	 * Can be left blank if desired. 
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString ModifierDescription = "Modifier";
+	FString ModifierDescription = "Attribute Modifier";
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAttributeType AttributeType;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag ModifiedAttribute;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	EAttributeValueType ModifiedAttributeValueType;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool CancelIfAttributeNotFound = true;
-	
 	/**
 	 * Only apply this modifier during these phases. If left empty, the modifier will always apply.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
+	TArray<EAttributeModifierSideEffectTrigger> ApplicationRequirements;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	EFloatAttributeModificationOperation ModificationOperation;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag AttributeToModify;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EAttributeModiferNotFoundBehaviour IfAttributeNotFound = EAttributeModiferNotFoundBehaviour::CancelModifier;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EAttributeValueType ModifiedAttributeValueType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EAttributeModificationValueSource ModificationInputValueSource;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::Manual", EditConditionHides))
+	float ManualInputValue;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "((ModificationInputValueSource == EAttributeModificationValueSource::FromInstigatorAttribute) || (ModificationInputValueSource == EAttributeModificationValueSource::FromTargetAttribute))", EditConditionHides))
+	FGameplayTag SourceAttribute;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "((ModificationInputValueSource == EAttributeModificationValueSource::FromInstigatorAttribute) || (ModificationInputValueSource == EAttributeModificationValueSource::FromTargetAttribute))", EditConditionHides))
+	EAttributeValueType SourceAttributeValueType;
+	
+	UPROPERTY(EditAnywhere, meta=(EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::CustomInputValue", EditConditionHides, FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetCustomFloatInputValue", DefaultBindingName="GetCustomInputValue"))
+	FMemberReference CustomInputFunction;
 
 	/**
 	 * If true, the modifier set the overflow to 0 after using it even if there is overflow left. Use this when you want to reset the overflow between modifiers.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute && ModificationInputValueSource == EAttributeModificationValueSource::FromOverflow", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::FromOverflow", EditConditionHides))
 	bool ConsumeOverflow = false;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::Manual && AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	float ManualInputValue;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EFloatAttributeModificationOperation ModificationOperation;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute && (ModificationInputValueSource == EAttributeModificationValueSource::FromInstigatorAttribute || ModificationInputValueSource == EAttributeModificationValueSource::FromTargetAttribute)", EditConditionHides))
-	FGameplayTag SourceAttribute;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::FloatAttribute && (ModificationInputValueSource == EAttributeModificationValueSource::FromInstigatorAttribute || ModificationInputValueSource == EAttributeModificationValueSource::FromTargetAttribute)", EditConditionHides))
-	EAttributeValueType SourceAttributeValueType;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttributeType == EAttributeType::StructAttribute", EditConditionHides))
-	FGameplayTag StructOperationTag;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::FromMetaAttribute && AttributeType == EAttributeType::FloatAttribute", EditConditionHides))
-	FGameplayTag MetaAttributeTag;
+	UPROPERTY(EditAnywhere, meta=(EditCondition = "ModificationOperation == EFloatAttributeModificationOperation::Custom", EditConditionHides, FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_ApplyFloatAttributeOperation", DefaultBindingName="CustomFloatOperation"))
+	FMemberReference FloatOperationFunction;
 };
 
 USTRUCT(BlueprintType)
-struct FPendingAttributeModifier
+struct FStructAttributeModifier
 {
 	GENERATED_BODY()
 
+	/**
+	 * The description of what the modifier does. This is cosmetic only and used to change the title of the modifier in the editor UI.
+	 * Can be left blank if desired. 
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USimpleGameplayAbilityComponent* Instigator;
+	FString ModifierDescription = "Attribute Modifier";
+
+	/**
+	 * Only apply this modifier during these phases. If left empty, the modifier will always apply.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<EAttributeModifierSideEffectTrigger> ApplicationRequirements;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<USimpleAttributeModifier> AttributeModifierClass;
-	
+	FGameplayTag AttributeToModify;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct AttributeModifierContext;
+	EAttributeModiferNotFoundBehaviour IfAttributeNotFound = EAttributeModiferNotFoundBehaviour::CancelModifier;
+
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_ModifyStructAttributeValue", DefaultBindingName="GetModifiedStructAttribute"))
+	FMemberReference StructModificationFunction;
 };
 
 USTRUCT(BlueprintType)
@@ -164,6 +181,13 @@ struct FAbilitySideEffect
 {
 	GENERATED_BODY()
 
+	/**
+	 * The description of what the side effect does. This is cosmetic only and used to change the title of the modifier in the editor UI.
+	 * Can be left blank if desired. 
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString SideEffectDescription = "Ability Side Effect";
+	
 	UPROPERTY(BlueprintReadWrite)
 	FGuid AbilityInstanceID;
 	
@@ -184,9 +208,9 @@ struct FAbilitySideEffect
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool CancelIfDurationModifierCancels = true;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag AbilityContextTag;
+
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetStructContext", DefaultBindingName="GetAbilitySideEffectContext"))
+	FMemberReference ContextFunction;
 
 	UPROPERTY(BlueprintInternalUseOnly)
 	FInstancedStruct AbilityContext = FInstancedStruct();
@@ -196,6 +220,13 @@ USTRUCT(BlueprintType)
 struct FEventSideEffect
 {
 	GENERATED_BODY()
+
+	/**
+	 * The description of what the side effect does. This is cosmetic only and used to change the title of the modifier in the editor UI.
+	 * Can be left blank if desired. 
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString SideEffectDescription = "Event Side Effect";
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<EAttributeModifierSideEffectTrigger> ApplicationTriggers;
@@ -211,9 +242,9 @@ struct FEventSideEffect
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESimpleEventReplicationPolicy EventReplicationPolicy;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag EventContextTag;
+	
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetStructContext", DefaultBindingName="GetEventSideEffectContext"))
+	FMemberReference EventContextFunction;
 
 	UPROPERTY(BlueprintInternalUseOnly)
 	FInstancedStruct EventContext;
@@ -224,6 +255,13 @@ struct FAttributeModifierSideEffect
 {
 	GENERATED_BODY()
 
+	/**
+	 * The description of what the side effect does. This is cosmetic only and used to change the title of the modifier in the editor UI.
+	 * Can be left blank if desired. 
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString SideEffectDescription = "Attribute Modifier Side Effect";
+	
 	UPROPERTY(BlueprintReadWrite)
 	FGuid AttributeID;
 	
@@ -238,13 +276,13 @@ struct FAttributeModifierSideEffect
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<USimpleAttributeModifier> AttributeModifierClass;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag ModifierContextTag;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag ModifierTargetsTag;
 
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetAttributeModifierSideEffectTargets", DefaultBindingName="GetAttributeModifierSideEffectTargets"))
+	FMemberReference GetTargetsFunction;
+	
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetStructContext", DefaultBindingName="GetAttributeModifierSideEffectContext"))
+	FMemberReference ContextFunction;
+	
 	UPROPERTY(BlueprintInternalUseOnly)
 	FInstancedStruct ModifierContext;
 };

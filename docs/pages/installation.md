@@ -4,52 +4,78 @@ layout: home
 nav_order: 3
 ---
 
-# Installing the plugin
+# Installing SimpleGAS
+
+Getting SimpleGAS up and running in your Unreal Engine project is pretty straightforward. Here's how to do it.
 
 {: .note }
-This plugin requires Unreal Engine 5.2 and later to work.  
-If you are starting with a Blueprint only project follow all the steps.  
-If you already have C++ code in your project you can go straight to Step 3.
+SimpleGAS requires Unreal Engine 5.2 or later.  
+If you're starting with a Blueprint-only project, follow all the steps below.  
+If you already have C++ code in your project, you can jump straight to Step 3.
 
+## Step 1: Convert Your Blueprint Project to C++
+
+Since SimpleGAS is written in C++, we need to make sure your project supports C++ code:
 
 <details markdown="1">
-  <summary>Step 1: Convert Your Blueprint Project into a C++ Project</summary>
+  <summary>Converting a Blueprint project to support C++</summary>
 
-Since Blueprint projects do not have a Visual Studio solution (`.sln`) or C++ support enabled by default, you need to add a C++ class to generate these files.  
-We need to generate these files because the plugin is written in C++ and needs to be compiled to be usable in the editor.
+Blueprint projects don't come with Visual Studio solution files or C++ support by default, so we need to add a C++ class to generate these files.
 
-1. Go to **File** > **New C++ Class**.
+1. Go to **File** > **New C++ Class**
 2. In the **Add C++ Class** window:
-   - Choose **None (Empty Class)** or any other minimal option (e.g., **Actor**).
-   - Click **Next**.
-   - Name your class (e.g., `MyFirstCppClass`).
-   - Click **Create Class**.
-3. Wait for Unreal to compile the C++ code. This will generate the necessary Visual Studio files for your project.
-4. Once finished, close the editor.
+   - Choose **None (Empty Class)** or something simple like **Actor**
+   - Click **Next**
+   - Name your class anything you like (e.g., `MyCppClass`)
+   - Click **Create Class**
+3. Wait for Unreal to compile the C++ code - this creates all the necessary Visual Studio files
+4. Once it's done, close the editor
 
 </details>
+
+## Step 2: Set Up Your Visual Studio Project
+
+Now that your project supports C++, let's make sure the Visual Studio project is properly configured:
 
 <details markdown="1">
-  <summary>Step 2: Regenerate the Visual Studio Project Files</summary>
+  <summary>Setting up the Visual Studio project</summary>
 
-Since you've added some code, you need to update your project files.
-
-1. Navigate to your project folder.
-2. **Right-click on the `.uproject` file** and select **Generate Visual Studio project files** (you may need to click on **Show more options** on Windows to see the context menu option).
-3. Open the newly generated `.sln` file in **Visual Studio** (or **Rider** if you use that).
-4. In **Visual Studio**, set the build configuration to **Development Editor** and **build the project** (`Ctrl+Shift+B`).
+1. Go to your project folder in File Explorer
+2. **Right-click on your .uproject file** and select **Generate Visual Studio project files** 
+   - On Windows, you might need to click "Show more options" to see this
+3. Open the newly generated **.sln** file in **Visual Studio** (or Rider if you prefer)
+4. In Visual Studio:
+   - Set the build configuration to **Development Editor**
+   - Build the project (Ctrl+Shift+B)
 
 </details>
+
+## Step 3: Add SimpleGAS to Your Project
+
+Now let's add the SimpleGAS plugin:
 
 <details markdown="1">
-  <summary>Step 3: Add the plugin to your project</summary>
+  <summary>Adding the SimpleGAS plugin</summary>
 
-1. [Download or clone the SimpleGAS repository](https://github.com/strayTrain/SimpleGameplayAbilitySystem) into your Unreal Engine project under your project's Plugins folder. Create the Plugins folder if it doesn't exist. 
-    - e.g. If your project folder is `C:\Projects\SimpleGASExample` then place `SimpleGameplayAbilitySystem` in `C:\Projects\SimpleGASExample\Plugins`
-    - ![windows example of the project folder](../images/installed_plugin_directory.png)
-2. Rebuild your project and run the editor.
-3. Enable the plugin in your Unreal Engine project by navigating to Edit > Plugins and searching for "SimpleGameplayAbilitySystem". (it should be enabled by default)
+1. [Download or clone the SimpleGAS repository](https://github.com/strayTrain/SimpleGameplayAbilitySystem) and place it in your project's Plugins folder
+   - If your project doesn't have a Plugins folder yet, create one
+   - For example, if your project is at `C:\Projects\MyGame`, place SimpleGAS in `C:\Projects\MyGame\Plugins\SimpleGameplayAbilitySystem`
+   - ![windows example of the project folder](../images/installed_plugin_directory.png)
+2. Rebuild your project and launch the editor
+3. The plugin should be enabled by default, but you can verify by going to **Edit** > **Plugins** and searching for "SimpleGameplayAbilitySystem"
 
 </details>
+
+That's it! SimpleGAS is now installed and ready to use in your project.
 
 *Note from the dev: I haven't tested this on Mac or Linux as I don't have machines running those on hand. If anyone can supply steps/screenshots of the process as a PR on the project it would be much appreciated!*
+
+## Having Trouble?
+
+Here are some common issues and solutions:
+
+- **Compile errors**: Make sure you're using Unreal Engine 5.2 or later
+- **Plugin not found**: Double-check that you've placed the plugin in the correct folder structure
+- **Missing dependencies**: SimpleGAS requires the StructUtils plugin, which should be automatically enabled
+
+If you're still having issues, drop a question on the [discussions page](https://github.com/strayTrain/SimpleGameplayAbilitySystem/discussions).

@@ -7,226 +7,227 @@ nav_order: 7
 
 # Attribute Modifiers
 
-Let's take a look at the `SimpleAttributeModifier` class. 
+Attribute Modifiers are the workhorses of SimpleGAS - they're how you actually change attributes during gameplay. Need to deal damage, apply a buff, or add a status effect? Attribute Modifiers are your go-to tool.
+Think of Attribute Modifiers as specialized tools that can read, change, and track changes to attributes. They come in two flavors:
 
-![a screenshot of the SimpleAttributeModifier class variables](../../images/BS_AM_Variables.png)
+- **Instant Modifiers**: Apply their changes immediately and are done (like dealing damage)
+- **Duration Modifiers**: Stick around for a while, doing their thing repeatedly (like poison damage over time)
+
+At their core, Attribute Modifiers take an attribute and say "change this value in this way." They can:
+
+- Add or subtract from an attribute
+- Multiply an attribute by some value
+- Override an attribute with a new value
+
+But they can do much more than just basic math! Modifiers can:
+
+- Chain together multiple attribute changes
+- Trigger side effects like visual effects or sounds
+- Activate other abilities
+- Apply gameplay tags to mark states
+- Remove or cancel other modifiers
+
+![Attribute modifier in the editor](../../images/BS_AM_Variables.png)
 
 <details markdown="1">
   <summary>Config</summary>
 
-* `Modifier Type` is an enum that determines how the modifier is applied. It has two options:
-    * `Instant`
-        * The modifier is applied immediately and then removed.
-        * This is useful for one off effects like applying damage and then playing a hit reaction animation.
-    * `Duration`
-        * The modifier sticks around for a set amount or infinite amount of time.
-        * This is useful for effects like applying a damage over time effect.
-        * Duration modifiers support stacking and can be cancelled by other modifiers.
-* `Modifier Application Policy` is an enum that controls how/if the modifier is replicated. There are three options:
-    * `Apply Server Only`
-        * The modifier is only applied on the server and will not apply in the client version of the ability.
-        * This is useful for deterring cheating because the client won't run the code that applies the modifier.
-        * Any `Side Effects` like activating abilities or sending events will only run on the server.
-    * `Apply Server Only But Replicate Side Effects`
-        * The modifier is only applied on the server but the side effects are replicated to the client. 
-            * e.g. Only the server modifies health but upon replicating the `Attribute State` to the client, the client will activate any side effects like playing a hit reaction animation.
-        * This is useful for effects that need to be seen by the client but not affect the game state.
-    * `Apply Client Predicted`
-        * The modifier is run on the client immediately assuming the server will allow it including applying `Side Effects`. 
-            * If the server rejects the modifier, the client will rollback the modifier and cancel any running side effects.
-        * This is useful for reducing perceived latency for the client.
-* `ModifierTags` are tags that can be used to identify the modifier. 
-    * These are useful for checking if a modifier is already applied to an attribute.
-    * They behave similarly to the `AbilityTags` in the `SimpleGameplayAbility` class.
-    * Similarly, there is a function on the `AbilityComponent` to cancel modifiers with matching tags
-        ![a screenshot of the CancelModifiersWithTag function](../../images/BS_CancelModifiersWithTag.png)
+When you create an Attribute Modifier, you'll configure these key settings:
 
+- **Modifier Type**: Determines the basic behavior
+  - **Instant**: Apply once and you're done (like a one-time healing spell)
+  - **Duration**: Stick around for a set time, possibly applying effects repeatedly (like a buff)
+
+- **Modifier Application Policy**: Controls how the modifier works in multiplayer
+  - **Apply Server Only**: Only the server applies the actual attribute changes
+  - **Apply Server Only But Replicate Side Effects**: Server changes attributes, but clients can still show effects
+  - **Apply Client Predicted**: Client applies changes immediately assuming server will agree, then corrects if needed
+
+- **Modifier Tags**: Tags that classify this modifier (like "DamageOverTime" or "StatusEffect")
+  - Useful for cancelation and querying
 </details>
 
 <details markdown="1">
   <summary>Duration Config</summary>
 
-Modifiers have additional variables that are only editable when the `Modifier Type` is set to `Duration`.
-Duration modifiers work like regularly repeating instant modifiers. Every time the modifier is applied it is referred to as a `tick`.
+Duration modifiers have additional settings that control their behavior over time:
 
-If your modifier is of type `Duration` you will have the following additional variables:  
-* `HasInfiniteDuration` is a boolean that determines if the modifier has a set duration or sticks around until manually removed.
-    * Enabling this will disable the `Duration` variable.
-* `Duration` is how long the Duration type modifier will stick around for.
-    * This is a float that represents the time in seconds.
-* `TickOnApply` is a boolean that determines if the modifier should tick immediately upon application or wait until the next tick interval to start modifications
-* `TickInterval` is a float that determines how often the modifier should tick.
-    * This is a float that represents the time in seconds.
-    * e.g. If you set this to 1, the modifier will tick every second. If the modifier `Duration` is 2.5 seconds it will tick 2 times if `TickOnApply` is false and 3 times if true.
-* `TickTagRequirementBehavior` is an enum that determines how the modifier should behave if the modifiers' tag requirements are not met. The options are:
-    * `SkipOnTagRequirementFailed` will skip the current tick but continue counting down the duration.
-        * e.g. In a Duration modifier of 2 seconds with an interval of 1 second:
-            1. You pass the tag requirements when the modifier was applied but then fail before the first tick.
-            2. The first tick is skipped
-            3. The blocking tag was removed in between the first and second tick 
-            4. The second tick will apply the modifier.
-            5. 2 seconds have passed and the modifier is removed.
-    * `PauseOnTagRequirementFailed` will pause the modifier until the requirements are met.
-        * This setting freezes the modifier until the requirements are met.
-        * As a side effect, a modifier that is expected to last 2 seconds can last forever if the tick requirements are not met after application (but won't do anything).
-    * `CancelOnTagRequirementFailed` will cancel the modifier if it fails tag requirements at any point
-        * e.g. You have a burning modifier that periodically applies damage and has a tag requirement that the target doesn't have `PlayerStatus.Wet`. As soon as the target has this tag, the burning modifier will be removed.
+- **Has Infinite Duration**: If true, the modifier stays active until explicitly removed
+- **Duration**: How long the modifier lasts if not infinite (in seconds)
+- **Tick On Apply**: Whether to apply the effect immediately upon activation
+- **Tick Interval**: How frequently the modifier applies its effect (in seconds)
+- **Tick Tag Requirement Behavior**: What happens if tag requirements fail during the effect
+  - **Skip**: Skip the current tick but continue the duration
+  - **Pause**: Freeze the timer until requirements are met again
+  - **Cancel**: End the modifier completely if requirements fail
+
+For example, a "Burning" modifier might last 10 seconds and deal damage every 2 seconds.
 </details>
-
 
 <details markdown="1">
   <summary>Stacking Config</summary>
 
-Duration modifiers support the concept of stacking. This means that if you apply the same modifier multiple times, the modifier will stack on top of itself.
-This doesn't mean that a modifier with a stack count of 2 will apply the effect twice or have a longer duration. Rather there is a `Stacks` variable that you can use in your modifier logic.  
-e.g. A burning effect that deals `1 + Stacks` damage per tick.
-You add a stack by applying the modifier again with the same tag.
+Duration modifiers can optionally stack when applied multiple times:
 
-* `CanStack` is a boolean that determines if the modifier supports stacking.
-    * If this is set to false, reapplying the modifier will refresh the duration instead of adding a stack.
-* `Stacks` is an integer that represents the number of times the modifier has been applied.
-    * This is the variable that you read from in your modifier logic to determine the effect of the modifier.
-* `HasMaxStacks` is a boolean that determines if the modifier has a maximum number of stacks.
-    * Enabling this will enable the `MaxStacks` variable.
-* `MaxStacks` is an integer that represents the maximum number of stacks the modifier can have.
-    * If the modifier reaches this number of stacks, it will not stack again.
-    * When reaching max stacks, the modifiers' `OnMaxStacksReached` event is called (more on available events after the variables section).
+- **Can Stack**: Whether applying the same modifier again adds stacks
+- **Stacks**: Current number of stacks
+- **Has Max Stacks**: Whether there's a cap on stacks
+- **Max Stacks**: Maximum number of stacks allowed
+
+The stack count is available to your modifier logic. For example, a burning effect might deal `1 + Stacks` damage per tick.
 </details>
 
 <details markdown="1">
   <summary>Requirements</summary>
 
-These determine if the modifier can be applied or not.
+These settings determine when the modifier can be applied:
 
-* `TargetRequiredTags` the target ability component of this modifier must have all of these tags to apply the modifier.
-* `TargetBlockingTags` the target ability component of this modifier must NOT have any of these tags to apply the modifier.
-* `TargetBlockingModifierTags` the target ability component of this modifier must NOT have an active duration modifier with these `ModifierTags` to apply the modifier.
-    * e.g. If you want to make sure that only one `ModifierDamageType.Burning` modifier can be applied at a time, you would set this to `ModifierDamageType.Burning`.
+- **Target Required Tags**: Tags that must be present on the target
+- **Target Blocking Tags**: Tags that prevent application if present
+- **Target Blocking Modifier Tags**: Prevents application if another modifier with these tags is active
 
+For example, a "Freezing" effect might require the target to have "Can.Freeze" and be blocked if they have "Status.Immune.Cold".
 </details>
 
 <details markdown="1">
   <summary>Application</summary>
 
-If the modifier passes the tag requirements:
-* `CancelAbilities` is an array of class references to `SimpleGameplayAbility` blueprints.
-    * This refers to abilities on the target ability component
-    * These abilities will be cancelled.
-* `CancelAbilitiesWithAbilityTags` will cancel abilities on the target ability component that have any of these tags.
-* `CancelModifiersWithTags` will cancel any active Duration type modifiers running on the target ability component that have `ModifierTags` that match
-* `TemporarilyAppliedTags` are tags that are temporarily added to the target ability component while the modifier is active.
-    * This is disables for Instant type modifiers.
-* `PermanentlyAppliedTags` are tags that are permanently added to the target ability component.
-    * These tags need to be removed manually.
-    * Supported by both Instant and Duration type modifiers.
-* `RemoveTags` are tags that are removed from the target ability component.
-    * Supported by both Instant and Duration type modifiers.
+These settings control what happens when the modifier is applied:
+
+- **Cancel Abilities**: List of ability classes to cancel when applied
+- **Cancel Abilities With Ability Tags**: Tags that identify abilities to cancel
+- **Cancel Modifiers With Tag**: Tags that identify other modifiers to cancel
+- **Temporarily Applied Tags**: Tags added during the modifier's duration and removed when it ends
+- **Permanently Applied Tags**: Tags added that remain even after the modifier ends
+- **Remove Gameplay Tags**: Tags to remove from the target when applied
 </details>
 
 <details markdown="1">
   <summary>Modifiers</summary>
 
-Modifiers are where the bulk of the work happens. These change the attributes on the target ability component.
-The options shown to you in a modifier change depending on the type of attribute you are modifying.  
+This is where you define the actual attribute changes. Each modifier entry specifies:
 
+- **Attribute Type**: Float or Struct attribute
+- **Modified Attribute**: Tag identifying the attribute to change
+- **Modified Attribute Value Type**: Which value to modify (CurrentValue, BaseValue, etc.)
+- **Cancel If Attribute Not Found**: Whether to fail if the attribute doesn't exist
+- **Application Triggers**: When this modification should apply (e.g., on initial application, on tick, when ending)
+- **Modification Operation**: Add, Multiply, or Override
+- **Modification Input Value Source**: Where to get the value for the modification
 
+The value source can be:
+- **Manual**: A fixed value you specify
+- **From Overflow**: Leftover value from a previous modification
+- **From Instigator Attribute**: Value from the attribute of whoever applied the modifier
+- **From Target Attribute**: Value from one of the target's other attributes
+- **From Meta Attribute**: Value calculated by custom blueprint logic
 
-
-There are two types of modifiers:
-<details markdown="1">
-<summary>Float Modifiers</summary>
-
-![a screenshot of a float modifier](../../images/BS_ManualInputValue.png)
-
-The idea behind float modifiers is that they take an attribute and say: `Attribute = Attribute Operation InputValue`  
-Where `Operation` is an enum that determines how the attribute will be changed and `Value` is the value that will be used in the operation.  
-e.g `Health` = `Health` `Add` `FromAnotherAttribute`  
-e.g `Health` = `Health` `Multiply` `0.5`  
-
-* `ModifierDescription` is a cosmetic string that describes what the modifier does and displays it in the editor window. This field is optional
-* `AttributeType` is an enum that determines what type of attribute you are modifying. In the above screenshot we set it to `Float Attribute`.
-* `ModifiedAttribute` is a gameplay tag representing the attribute that you are modifying.
-* `ModifiedAttributeValueType` determines which part of the `Float Attribute` you are changing. 
-    * This option only appears when the `AttributeType` is set to `Float Attribute`.
-    * The options are:
-        * `BaseValue`
-        * `CurrentValue`
-        * `MaxCurrentValue`
-        * `MaxBaseValue`
-        * `MinCurrentValue`
-        * `MinBaseValue`
-* `CancelIfAttributeNotFound` is a boolean that determines if the modifier should cancel if the attribute is not found on the target ability component.
-* `ApplicationTriggers` determines when this modifier will apply. The triggers are an array of an enum that represents different "phases" of the modifier application. 
-    * If left empty it will apply every tick for a `Duration` or once for an `Instant` type modifier
-    * These are a list of the phases:
-        * `OnInstantModifierEndedSuccess`
-        * `OnInstantModifierEndedCancel`
-        * `OnDurationModifierInitiallyAppliedSuccess`
-        * `OnDurationModifierEndedSuccess`
-        * `OnDurationModifierEndedCancel`
-        * `OnDurationModifierTickSuccess`
-        * `OnDurationModifierTickCancel`
-    * If your modifier is an `Instant` type modifier, the `OnDurationModifier` triggers will not be called.
-    * If used in conjunction with Duration modifiers you can have effects like *when first applied do burst damage of 20 and then apply 5 damage every second for 4 seconds*.
-* `ModificationOperation` is an enum that determines how the modifier will change the float attribute. The options are:
-    * `Add`
-    * `Multiply`
-    * `Override`
-    * There is no `Subtract` or `Divide` operation because you can achieve this by using negative values and reciprocals.
-        * e.g. `Add -20` or `Multiply 0.5`
-* `ModificationInputValueSource` determines where we get the input value from:
-    * `Manual`
-        * A hardcoded value. 
-        * e.g. Health = `Health Add -20` to reduce health by 20
-            ![a screenshot of a manual input value for a modifier](../../images/BS_ManualInputValue.png)
-    * `FromOverflow`
-        * If the previous modifier reduced an attribute beyond its minimum/maximum value, the overflow value is used.
-        * e.g If you have 20 Armour with a min current value of 0 and you reduce it by 30, Armour get's clamped to 0 and the overflow value is set to -10.
-        * So, if we're modifying `Health` after `Armour` and set the input source to `FromOverflow`, we add -10 to `Health`. 
-            * If Armour was set to 30 instead of 20, the overflow value would be 0 and Health would effectively be untouched.
-        * Using `FromOverflow` adds an extra option called `ConsumeOverflow`
-            * Setting this to true will set the overflow to 0 after using it, even if there is overflow left over
-            * e.g. `Shield = 10, Armour = 10, Health = 100`. You apply 50 damage to shield and the overflow if 40. You apply 40 damage to Armour and the overflow is 30 but because Armour has `ConsumeOverflow` set to true, the overflow is set to 0 afterwards and health is untouched.
-        ![a screenshot of an overflow input value for a modifier](../../images/BS_OverflowInputValue.png)
-    * `FromInstigatorAttribute`
-        * The input value is a `Float Attribute` from the instigator ability component. If the attribute doesn't exist a value of 0 is used and a warning will get printed to the log.
-    * `FromTargetAttribute`
-        * The input value is a `Float Attribute` from the target ability component. If the attribute doesn't exist a value of 0 is used and a warning will get printed to the log.
-    * `FromMetaAttribute`
-        * You supply a gameplay tag and a function on the Modifier class is called to get the value. You can use this if you have complex calculations that need to be done to get the input value.
-            ![a screenshot of a meta input variable](../../images/BS_MetaInputVariable.png)
-            ![a screenshot of the meta input function](../../images/BS_MetaInputFunction.png)
+For struct attributes, you specify an operation tag that determines how the struct is modified.
 </details>
-
-<details markdown="1">
-<summary>Struct Modifiers</summary>
-
-Struct modifiers are simpler than Float modifiers but require blueprint code to work.
-![a screenshot of a struct modifier](../../images/BS_StructModifierExample.png)
-
-I'll skip the fields it shares with the Float modifier and focus on the unique one:
-* `StructOperationTag` is a gameplay tag that represents what we want to do with the struct. e.g. `Attributes.Speed.AddBonus`
-    * ![a screenshot of the struct operation tag](../../images/BS_StructOperationTag.png)
-
-</details>
-
-</details>
-
 
 <details markdown="1">
   <summary>Side Effects</summary>
 
-Side effects happen are non attribute related changes that happen alongside the modifier. There are three types of side effects:
-* `AbilitySideEffects` are abilities that are activated as a part of the modifier
-    * A common use case is applying a damage modifier and then activating a hit reaction ability.
-* `EventSideEffects` are events that are sent as a part of the modifier through the `SimpleEventSubsystem`
-* `AttributeModifierSideEffects` are attribute modifiers that are applied in addition to this one.
-    * This is useful for chaining attribute modifiers together.
+Side effects are additional actions triggered by the modifier:
 
-Like the `Modifiers` section from earlier we can choose what "phase" of the modifier application we want to trigger the side effect.  
-So it's possible to have a modifier that, upon failing to apply to the target, can apply a different modifier to the instigator.  
-e.g. A failed stun attempt by the instigator on the target applies a slow modifier to the instigator instead.
+- **Ability Side Effects**: Activate other abilities
+  - Useful for visual effects or follow-up gameplay mechanics
+  
+- **Event Side Effects**: Send events through the event system
+  - Great for notifying UI or other systems
+  
+- **Attribute Modifier Side Effects**: Apply other modifiers
+  - Allows for chaining effects together
 
-![a screenshot of the side effects section](../../images/BS_SideEffects.png)
+Each side effect can be configured to trigger at specific phases:
+- On initial application
+- Each time a duration modifier ticks
+- When the modifier ends successfully
+- If the modifier is cancelled
 
+For example, a "Burning" effect might spawn fire particles, make the character shout in pain, and apply a movement slow.
 </details>
+
+<details markdown="1">
+  <summary>Blueprint Override Functions</summary>
+
+You can extend Attribute Modifiers in Blueprint by overriding these functions:
+
+- **CanApplyModifier**: Determine if the modifier can be applied
+  - Return true/false based on custom conditions
+  
+- **OnPreApplyModifier**: Called just before applying the modifier
+  - Use for setup work
+  
+- **OnPostApplyModifier**: Called after the modifier is applied
+  - Use for follow-up actions
+  
+- **OnModifierEnded**: Called when the modifier ends (success or cancel)
+  - Use for cleanup
+  
+- **OnStacksAdded**: Called when stacks are added to a duration modifier
+  - Handle stack-specific logic
+  
+- **OnMaxStacksReached**: Called when maximum stacks are reached
+  - Special behavior at max stacks
+  
+- **GetFloatMetaAttributeValue**: Calculate custom values for modifiers
+  - Used with the "FromMetaAttribute" input source
+  
+- **GetModifiedStructAttributeValue**: Custom logic for struct modifications
+  - Define how struct attributes change
+</details>
+
+<details markdown="1">
+  <summary>Usage Examples</summary>
+
+Here are some examples of how you might use Attribute Modifiers:
+
+- **Direct Damage**: An instant modifier that reduces health
+  ```
+  Health = Health - 20
+  ```
+
+- **Damage Over Time**: A duration modifier that reduces health each tick
+  ```
+  Duration: 5 seconds
+  Tick Interval: 1 second
+  Health = Health - 5 (each tick)
+  ```
+
+- **Buff**: A duration modifier that increases a stat temporarily
+  ```
+  Duration: 30 seconds
+  MovementSpeed = MovementSpeed * 1.5
+  ```
+
+- **Chain Effect**: A modifier that applies another effect when it ends
+  ```
+  Burning effect with Chilled effect as a side effect when cancelled
+  ```
+
+- **Resource Cost**: An instant modifier that consumes a resource
+  ```
+  Mana = Mana - SpellCost
+  ```
+
+- **Status Effect**: A complex modifier with multiple effects and visual changes
+  ```
+  Apply "Stunned" tag
+  Cancel movement abilities
+  Spawn stun particle effect (ability side effect)
+  ```
+</details>
+
+<details markdown="1">
+  <summary>Tips for Working with Modifiers</summary>
+
+- **Start Simple**: Create basic modifiers before attempting complex ones
+- **Use Consistent Tags**: Develop a clear tag hierarchy for your requirements
+- **Test Edge Cases**: Make sure modifiers behave correctly when stacked or cancelled
+- **Consider Multiplayer**: Be thoughtful about replication policies for networked games
+- **Chain Modifiers**: Use side effects to create complex, interconnected systems
+- **Document Your Modifiers**: Especially for team projects, document what each modifier does
+</details>
+
+Attribute Modifiers are where SimpleGAS really shines - they give you the tools to create rich, interactive gameplay systems that are easy to understand and extend.

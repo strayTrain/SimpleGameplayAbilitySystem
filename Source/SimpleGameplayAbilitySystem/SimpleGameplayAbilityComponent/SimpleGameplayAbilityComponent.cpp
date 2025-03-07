@@ -9,10 +9,8 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
-#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilityOverrideSet/AbilityOverrideSet.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
-#include "StructAttributeHandler/SimpleStructAttributeHandler.h"
 #include "StructUtils/InstancedStruct.h"
 #include "Windows/WindowsTextInputMethodSystem.h"
 
@@ -190,6 +188,19 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 		return false;
 	}
 
+	// Check if the ability is on cooldown
+	if (LastActivatedAbilityTimeStamps.Contains(AbilityClass))
+	{
+		const float LastActivatedTime = LastActivatedAbilityTimeStamps[AbilityClass];
+		const float Cooldown = AbilityClass.GetDefaultObject()->Cooldown;
+
+		if (LastActivatedTime + Cooldown > GetServerTime())
+		{
+			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbilityInternal]: Failed to activate ability %s because it is on cooldown."), *AbilityClass->GetName()));
+			return false;
+		}
+	}
+	
 	// For single player or local-only games, skip state tracking and replication if not needed
 	if (TrackState)
 	{
@@ -208,7 +219,14 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 	}
 	
 	AbilityInstance->InitializeAbility(this, AbilityID, false);
-	return AbilityInstance->ActivateAbility(AbilityID, AbilityContext);
+	const bool WasActivated = AbilityInstance->ActivateAbility(AbilityID, AbilityContext);
+
+	if (WasActivated)
+	{
+		LastActivatedAbilityTimeStamps.Add(AbilityClass, GetServerTime());
+	}
+	
+	return WasActivated;
 }
 
 void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(const FGuid AbilityID, TSubclassOf<USimpleGameplayAbility> AbilityClass,
@@ -467,299 +485,6 @@ void USimpleGameplayAbilityComponent::SetAbilityStateEndingContext(FGuid Ability
 	}
 }
 
-/* Attribute Functions */
-
-void USimpleGameplayAbilityComponent::AddFloatAttribute(FFloatAttribute AttributeToAdd, bool OverrideValuesIfExists)
-{
-	for (FFloatAttribute& AuthorityAttribute : AuthorityFloatAttributes.Attributes)
-	{
-		if (AuthorityAttribute.AttributeTag.MatchesTagExact(AttributeToAdd.AttributeTag))
-		{
-			// Attribute exists but we don't want to override it
-			if (!OverrideValuesIfExists)
-			{
-				return;
-			}
-
-			// Attribute exists and we want to override it
-			AuthorityAttribute = AttributeToAdd;
-			AuthorityFloatAttributes.MarkItemDirty(AuthorityAttribute);
-			return;
-		}
-	}
-	
-	AuthorityFloatAttributes.Attributes.Add(AttributeToAdd);
-	AuthorityFloatAttributes.MarkArrayDirty();
-}
-
-void USimpleGameplayAbilityComponent::RemoveFloatAttribute(FGameplayTag AttributeTag)
-{
-	AuthorityFloatAttributes.Attributes.RemoveAll([AttributeTag](const FFloatAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
-	AuthorityFloatAttributes.MarkArrayDirty();
-}
-
-void USimpleGameplayAbilityComponent::AddStructAttribute(FStructAttribute AttributeToAdd, bool OverrideValuesIfExists)
-{
-	if (!AttributeToAdd.AttributeHandler)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddStructAttribute]: AttributeHandler is null for attribute %s! Can't add new attribute"), *AttributeToAdd.AttributeTag.ToString()));
-		return;
-	}
-	
-	const int32 AttributeIndex = AuthorityStructAttributes.Attributes.Find(AttributeToAdd);
-	USimpleStructAttributeHandler* AttributeHandler = GetStructAttributeHandler(AttributeToAdd.AttributeHandler);
-
-	if (!AttributeHandler->StructType)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddStructAttribute]: StructType is null for attribute %s! Can't add new attribute"), *AttributeToAdd.AttributeTag.ToString()));
-		return;
-	}
-	
-	// This is a new attribute
-	if (AttributeIndex == INDEX_NONE)
-	{
-		AuthorityStructAttributes.Attributes.AddUnique(AttributeToAdd);
-		AuthorityStructAttributes.MarkArrayDirty();
-		
-		return;
-	}
-
-	// Attribute exists but we don't want to override it
-	if (!OverrideValuesIfExists)
-	{
-		return;
-	}
-
-	// Attribute exists and we want to override it
-	AuthorityStructAttributes.Attributes[AttributeIndex] = AttributeToAdd;
-	AuthorityStructAttributes.MarkItemDirty(AuthorityStructAttributes.Attributes[AttributeIndex]);
-}
-
-void USimpleGameplayAbilityComponent::RemoveStructAttribute(FGameplayTag AttributeTag)
-{
-	AuthorityStructAttributes.Attributes.RemoveAll([AttributeTag](const FStructAttribute& Attribute) { return Attribute.AttributeTag == AttributeTag; });
-	AuthorityStructAttributes.MarkArrayDirty();
-}
-
-bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* ModifierTarget,
-	TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct ModifierContext, FGuid& ModifierID)
-{
-	if (!ModifierClass)
-	{
-		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget]: ModifierClass is null!"));
-		return false;
-	}
-	
-	const FGuid ModifierInstanceID = FGuid::NewGuid();
-	USimpleAttributeModifier* Modifier = nullptr;
-	ModifierID = ModifierInstanceID;
-
-	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributes)
-	{
-		if (InstancedModifier->GetClass() == ModifierClass)
-		{
-			if (InstancedModifier->ModifierType == EAttributeModifierType::Duration && InstancedModifier->IsModifierActive())
-			{
-				if (InstancedModifier->CanStack)
-				{
-					InstancedModifier->AddModifierStack(1);
-					return true;
-				}
-
-				InstancedModifier->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
-			}
-
-			Modifier = InstancedModifier;
-			break;
-		}
-	}
-
-	if (!Modifier)
-	{
-		Modifier = NewObject<USimpleAttributeModifier>(this, ModifierClass);
-		InstancedAttributes.Add(Modifier);
-	}
-	
-	Modifier->InitializeAbility(this, ModifierInstanceID, false);
-	CreateAttributeState(ModifierClass, ModifierContext, ModifierInstanceID);
-	
-	return Modifier->ApplyModifier(this, ModifierTarget, ModifierContext);
-}
-
-bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToSelf(TSubclassOf<USimpleAttributeModifier> ModifierClass,
-	FInstancedStruct ModifierContext, FGuid& ModifierID)
-{
-	return ApplyAttributeModifierToTarget(this, ModifierClass, ModifierContext, ModifierID);
-}
-
-void USimpleGameplayAbilityComponent::AddAttributeStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State)
-{
-	if (HasAuthority())
-	{
-		for (FAbilityState& AuthorityAttributeState : AuthorityAttributeStates.AbilityStates)
-		{
-			if (AuthorityAttributeState.AbilityID == AbilityInstanceID)
-			{
-				AuthorityAttributeState.SnapshotHistory.Add(State);
-				AuthorityAttributeStates.MarkItemDirty(AuthorityAttributeState);
-				return;
-			}
-		}
-	}
-	else
-	{
-		for (FAbilityState& ActiveAttribute : LocalAttributeStates)
-		{
-			if (ActiveAttribute.AbilityID == AbilityInstanceID)
-			{
-				ActiveAttribute.SnapshotHistory.Add(State);
-				return;
-			}
-		}
-	}
-
-	SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddAttributeStateSnapshot]: Attribute with ID %s not found in InstancedAttributes array"), *AbilityInstanceID.ToString()));
-}
-
-void USimpleGameplayAbilityComponent::CancelAttributeModifier(FGuid ModifierID)
-{
-	// If this is an active duration modifier, we end it
-	if (USimpleAttributeModifier* ModifierInstance = GetAttributeModifierInstance(ModifierID))
-	{
-		if (ModifierInstance->ModifierType == EAttributeModifierType::Duration && ModifierInstance->IsModifierActive())
-		{
-			ModifierInstance->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
-			return;
-		}
-	}
-
-	// If it's not an active duration modifier we go through all activated ability states and cancel any active ability side effects
-	TArray<FSimpleAbilitySnapshot>* Snapshots = GetLocalAttributeStateSnapshots(ModifierID);
-
-	if (Snapshots)
-	{
-		for (FSimpleAbilitySnapshot& Snapshot : *Snapshots)
-		{
-			// Cancel any active abilities that were activated by this modifier
-			if (const FAttributeModifierResult* ModifierResult = Snapshot.StateData.GetPtr<FAttributeModifierResult>())
-			{
-				for (const FAbilitySideEffect& AbilitySideEffect : ModifierResult->AppliedAbilitySideEffects)
-				{
-					if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilitySideEffect.AbilityInstanceID))
-					{
-						AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled, FInstancedStruct());
-					}
-				}
-			}
-
-			// Cancel anu duration modifiers that were activated by this modifier
-			if (const FAttributeModifierResult* ModifierResult = Snapshot.StateData.GetPtr<FAttributeModifierResult>())
-			{
-				for (const FAttributeModifierSideEffect& AttributeModifier : ModifierResult->AppliedAttributeModifierSideEffects)
-				{
-					if (USimpleAttributeModifier* AttributeModifierInstance = GetAttributeModifierInstance(AttributeModifier.AttributeID))
-					{
-						AttributeModifierInstance->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
-					}
-				}
-			}
-		}
-	}
-}
-
-void USimpleGameplayAbilityComponent::CancelAttributeModifiersWithTags(FGameplayTagContainer Tags)
-{
-	// We go through all active modifiers and cancel them if any of their tags match the provided tags
-	for (USimpleAttributeModifier* ModifierInstance : InstancedAttributes)
-	{
-		if (ModifierInstance->IsModifierActive() && ModifierInstance->ModifierTags.HasAnyExact(Tags))
-		{
-			CancelAttributeModifier(ModifierInstance->AbilityInstanceID);
-		}
-	}
-}
-
-const USimpleStructAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHandlerAs(FGameplayTag AttributeTag,
-	TSubclassOf<USimpleStructAttributeHandler> HandlerClass, bool& WasFound)
-{
-	const FStructAttribute* Attribute = nullptr;
-
-	if (HasAuthority())
-	{
-		for (const FStructAttribute& AuthorityAttribute : AuthorityStructAttributes.Attributes)
-		{
-			if (AuthorityAttribute.AttributeTag.MatchesTagExact(AttributeTag))
-			{
-				Attribute = &AuthorityAttribute;
-				break;
-			}
-		}
-	}
-	else
-	{
-		for (const FStructAttribute& LocalAttribute : LocalStructAttributes)
-		{
-			if (LocalAttribute.AttributeTag.MatchesTagExact(AttributeTag))
-			{
-				Attribute = &LocalAttribute;
-				break;
-			}
-		}
-	}
-
-	if (Attribute && Attribute->AttributeHandler)
-	{
-		WasFound = true;
-		return GetStructAttributeHandler(HandlerClass);
-	}
-
-	WasFound = false;
-	return nullptr;
-}
-
-void USimpleGameplayAbilityComponent::CreateAttributeState(const TSubclassOf<USimpleAttributeModifier>& AttributeClass,
-                                                           const FInstancedStruct& AttributeContext, FGuid AttributeInstanceID)
-{
-	FAbilityState NewAttributeState;
-	
-	NewAttributeState.AbilityID = AttributeInstanceID;
-	NewAttributeState.AbilityClass = AttributeClass;
-	NewAttributeState.ActivationTimeStamp = GetServerTime();
-	NewAttributeState.ActivationContext = AttributeContext;
-	NewAttributeState.AbilityStatus = ActivationSuccess;
-	
-	if (HasAuthority())
-	{
-		for (FAbilityState& AuthorityAttributeState : AuthorityAttributeStates.AbilityStates)
-		{
-			if (AuthorityAttributeState.AbilityID == AttributeInstanceID)
-			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CreateAttributeState]: Attribute with ID %s already exists in AuthorityAttributeStates array."), *AttributeInstanceID.ToString()));
-				return;
-			}
-		}
-		
-		FAbilityState NewAttributeStateItem;
-		NewAttributeStateItem = NewAttributeState;
-
-		AuthorityAttributeStates.AbilityStates.Add(NewAttributeStateItem);
-		AuthorityAttributeStates.MarkArrayDirty();
-	}
-	else
-	{
-		for (FAbilityState& AbilityState : LocalAbilityStates)
-		{
-			if (AbilityState.AbilityID == AttributeInstanceID)
-			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CreateAttributeState]: Attribute with ID %s already exists in LocalAttributeStates array."), *AttributeInstanceID.ToString()));
-				return;
-			}
-		}
-		
-		LocalAttributeStates.Add(NewAttributeState);
-	}
-}
-
 /* Tag Functions */
 
 void USimpleGameplayAbilityComponent::AddGameplayTag(FGameplayTag Tag, FInstancedStruct Payload)
@@ -955,6 +680,21 @@ TArray<FSimpleAbilitySnapshot>* USimpleGameplayAbilityComponent::GetLocalAttribu
 	return nullptr;
 }
 
+bool USimpleGameplayAbilityComponent::IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass)
+{
+	return LastActivatedAbilityTimeStamps.Contains(AbilityClass) && LastActivatedAbilityTimeStamps[AbilityClass] + AbilityClass.GetDefaultObject()->Cooldown > GetServerTime();
+}
+
+float USimpleGameplayAbilityComponent::GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass)
+{
+	if (!LastActivatedAbilityTimeStamps.Contains(AbilityClass))
+	{
+		return 0.0f;
+	}
+
+	return FMath::Clamp(LastActivatedAbilityTimeStamps[AbilityClass] + AbilityClass.GetDefaultObject()->Cooldown - GetServerTime(), 0.0f, AbilityClass.GetDefaultObject()->Cooldown);
+}
+
 double USimpleGameplayAbilityComponent::GetServerTime_Implementation()
 {
 	if (!GetWorld())
@@ -1025,22 +765,6 @@ bool USimpleGameplayAbilityComponent::DoesAbilityHaveOverride(TSubclassOf<USimpl
 	}
 
 	return false;
-}
-
-USimpleStructAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHandler(const TSubclassOf<USimpleStructAttributeHandler>& HandlerClass)
-{
-	for (USimpleStructAttributeHandler* Handler : StructAttributeHandlers)
-	{
-		if (Handler->GetClass() == HandlerClass)
-		{
-			return Handler;
-		}
-	}
-
-	USimpleStructAttributeHandler* NewHandler = NewObject<USimpleStructAttributeHandler>(this, HandlerClass);
-	NewHandler->SetOwningAbilityComponent(this);
-	StructAttributeHandlers.Add(NewHandler);
-	return NewHandler;
 }
 
 /* Replication */
@@ -1274,7 +998,7 @@ void USimpleGameplayAbilityComponent::OnFloatAttributeChanged(const FFloatAttrib
 	{
 		if (LocalFloatAttribute.AttributeTag.MatchesTagExact(ChangedFloatAttribute.AttributeTag))
 		{
-			USimpleAttributeFunctionLibrary::CompareFloatAttributesAndSendEvents(this, LocalFloatAttribute, ChangedFloatAttribute);
+			CompareFloatAttributesAndSendEvents(LocalFloatAttribute, ChangedFloatAttribute);
 			LocalFloatAttribute = ChangedFloatAttribute;
 			return;
 		}
@@ -1305,11 +1029,6 @@ void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttr
 	{
 		if (LocalStructAttribute.AttributeTag.MatchesTagExact(ChangedStructAttribute.AttributeTag))
 		{
-			if (USimpleStructAttributeHandler* Handler = GetStructAttributeHandler(ChangedStructAttribute.AttributeHandler))
-			{
-				Handler->OnStructChanged(LocalStructAttribute.AttributeTag, LocalStructAttribute.AttributeValue, ChangedStructAttribute.AttributeValue);
-			}
-			
 			LocalStructAttribute = ChangedStructAttribute;
 			return;
 		}

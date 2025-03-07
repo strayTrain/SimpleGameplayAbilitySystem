@@ -52,9 +52,34 @@ enum class EAttributeValueType : uint8
 UENUM(BlueprintType)
 enum class EFloatAttributeModificationOperation : uint8
 {
+	/**
+	 * Output = A + B
+	 */
 	Add,
+	/**
+	 * Output = A - B
+	 */
+	Subtract,
+	/**
+	 * Output = A * B
+	 */
 	Multiply,
-	Override
+	/**
+	 * Output = A / B
+	 */
+	Divide,
+	/**
+	 * Output = A ** B
+	 */
+	Power,
+	/**
+	 * Output = B
+	 */
+	Override,
+	/**
+	 * Output = [function call]
+	 */
+	Custom
 };
 
 UENUM(BlueprintType)
@@ -71,7 +96,7 @@ enum class EAttributeModificationValueSource : uint8
 	FromOverflow,
 	FromInstigatorAttribute,
 	FromTargetAttribute,
-	FromMetaAttribute,
+	CustomInputValue
 };
 
 /* Structs */
@@ -213,11 +238,8 @@ struct FStructAttribute : public FFastArraySerializerItem
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag AttributeTag;
 
-	/**
-	 * Required handler class that acts as an interface to the struct attribute.
-	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<USimpleStructAttributeHandler> AttributeHandler;
+	UScriptStruct* StructType;
 
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct AttributeValue;

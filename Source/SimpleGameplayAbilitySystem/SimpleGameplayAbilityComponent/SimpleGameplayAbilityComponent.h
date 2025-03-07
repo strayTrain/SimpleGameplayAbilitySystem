@@ -139,8 +139,43 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Attributes")
 	void RemoveStructAttribute(FGameplayTag AttributeTag);
 
-	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "HandlerClass", HideSelfPin))
-	USimpleStructAttributeHandler* GetStructAttributeHandler(const TSubclassOf<USimpleStructAttributeHandler>& HandlerClass);
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool HasFloatAttribute(const FGameplayTag AttributeTag);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool HasStructAttribute(const FGameplayTag AttributeTag);
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
+	float GetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound);
+
+	UFUNCTION(BlueprintCallable)
+	bool SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
+
+	bool IncrementFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow);
+	
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
+	bool OverrideFloatAttribute(FGameplayTag AttributeTag, FFloatAttribute NewAttribute);
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FInstancedStruct GetStructAttributeValue(FGameplayTag AttributeTag, bool& WasFound);
+	
+	UFUNCTION(BlueprintCallable)
+	bool SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue);
+
+	UFUNCTION()
+	float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EAttributeValueType ValueType, float NewValue, float& Overflow);
+
+	UFUNCTION()
+	void CompareFloatAttributesAndSendEvents(const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute);
+
+	UFUNCTION()
+	void SendFloatAttributeChangedEvent(FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue);
+
+	UFUNCTION()
+	void ApplyAbilitySideEffects(USimpleGameplayAbilityComponent* Instigator, const TArray<FAbilitySideEffect>& AbilitySideEffects);
+
+	FFloatAttribute* GetFloatAttribute(FGameplayTag AttributeTag);
+	FStructAttribute* GetStructAttribute(FGameplayTag AttributeTag);
 	
 	/* Attribute Modifier Functions */
 	
@@ -164,9 +199,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	void CancelAttributeModifiersWithTags(FGameplayTagContainer Tags);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "HandlerClass", HideSelfPin))
-	const USimpleStructAttributeHandler* GetStructAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleStructAttributeHandler> HandlerClass, bool& WasFound);
 	
 	/* Gameplay Tag Functions */
 	
@@ -209,6 +241,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Utility")
 	bool HasAuthority() const { return GetOwner()->HasAuthority(); }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
+	bool IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
+	float GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 	
 	/**
 	 * Returns the server time if called on the server.
@@ -238,12 +276,6 @@ public:
 	/* Called by multiple instance abilities to set themselves up for deletion once the ability is over */
 	void RemoveInstancedAbility(USimpleGameplayAbility* AbilityToRemove);
 	
-	template <typename T>
-	T* GetStructAttributeHandlerAs()
-	{
-		return Cast<T>(GetStructAttributeHandler(T::StaticClass()));
-	}
-	
 protected:
 	
 	UPROPERTY()
@@ -251,8 +283,6 @@ protected:
 	
 	UPROPERTY()
 	TArray<USimpleAttributeModifier*> InstancedAttributes;
-
-	TArray<USimpleStructAttributeHandler*> StructAttributeHandlers;
 	
 	// Used to keep track of which events have been handled locally to avoid double event sending with multicast
 	TArray<FGuid> HandledEventIDs;
@@ -274,6 +304,9 @@ protected:
 	
 	FAbilityState* GetAbilityState(FGuid AbilityID, bool IsAuthorityState);
 	USimpleGameplayAbility* GetAbilityInstance(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+
+	// Used to keep track of the last time an ability was activated for checking cooldowns
+	TMap<TSubclassOf<USimpleGameplayAbility>, float> LastActivatedAbilityTimeStamps;
 	
 	// Called on the client after an ability or attribute state has been added, changed or removed
 	void OnStateAdded(const FAbilityState& NewAbilityState);

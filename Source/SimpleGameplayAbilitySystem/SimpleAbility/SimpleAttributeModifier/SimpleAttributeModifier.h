@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "SimpleAttributeModifierTypes.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "SimpleAttributeModifier.generated.h"
 
@@ -13,6 +14,8 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeModifier : public USimpleA
 	GENERATED_BODY()
 
 public:
+	/* Properties */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
 	EAttributeModifierType ModifierType = EAttributeModifierType::Instant;
 
@@ -113,9 +116,12 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
 	FGameplayTagContainer RemoveGameplayTags;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierDescription"))
+	TArray<FFloatAttributeModifier> FloatAttributeModifications;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierDescription"))
-	TArray<FAttributeModifier> AttributeModifications;
+	TArray<FStructAttributeModifier> StructAttributeModifications;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
 	TArray<FAbilitySideEffect> AbilitySideEffects;
@@ -161,24 +167,6 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnMaxStacksReached();
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Attribute Modifier|Meta Values")
-	void GetFloatMetaAttributeValue(FGameplayTag MetaAttributeTag, float& OutValue, bool& WasHandled) const;
-
-	UFUNCTION(BlueprintNativeEvent, Category = "Attribute Modifier|Meta Values")
-	FInstancedStruct GetModifiedStructAttributeValue(FGameplayTag OperationTag, FInstancedStruct StructToModify, bool& WasHandled) const;
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
-	FInstancedStruct GetAbilitySideEffectContext(FGameplayTag MetaTag, bool& WasHandled) const;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
-	FInstancedStruct GetEventSideEffectContext(FGameplayTag MetaTag, bool& WasHandled) const;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
-	FInstancedStruct GetAttributeModifierSideEffectContext(FGameplayTag MetaTag, bool& WasHandled) const;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Meta Values")
-	void GetAttributeModifierSideEffectTargets(FGameplayTag TargetsTag, USimpleGameplayAbilityComponent*& OutInstigator, USimpleGameplayAbilityComponent*& OutTarget) const;
-
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Utility")
 	bool IsModifierActive() const { return bIsModifierActive; }
 
@@ -193,8 +181,8 @@ protected:
 	UFUNCTION()
 	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, AActor* Sender = nullptr);
 	
-	bool ApplyFloatAttributeModifier(const FAttributeModifier& Modifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const;
-	bool ApplyStructAttributeModifier(const FAttributeModifier& Modifier, TArray<FStructAttribute>& TempStructAttributes) const;
+	bool ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const;
+	bool ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes) const;
 	bool ApplyModifiersInternal(const EAttributeModifierSideEffectTrigger TriggerPhase);
 
 private:
@@ -202,7 +190,7 @@ private:
 	FInstancedStruct InitialModifierContext;
 	FFloatAttribute* GetTempFloatAttribute(const FGameplayTag AttributeTag, TArray<FFloatAttribute>& TempFloatAttributes) const;
 	FStructAttribute* GetTempStructAttribute(const FGameplayTag AttributeTag, TArray<FStructAttribute>& TempStructAttributes) const;
-
+	
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
 };

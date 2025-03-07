@@ -3,14 +3,18 @@
 #include "CoreMinimal.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "StructUtils/InstancedStruct.h"
+#include "Tickable.h"
 #include "SimpleGameplayAbility.generated.h"
 
 UCLASS(Blueprintable)
-class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbilityBase
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbilityBase, public FTickableGameObject
 {
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Tick")
+	bool CanTick = false;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
 	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
 	
@@ -25,6 +29,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
 	FGameplayTagContainer ActivationBlockingTags;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Activation")
+	float Cooldown = 0.0f;
+	
 	/* If set, this ability will only activate if it receives an ActivationContext of this struct type. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Activation")
 	UScriptStruct* RequiredContextType;
@@ -91,6 +98,10 @@ public:
 		FInstancedStruct ActivationContext,
 		bool CancelIfParentEnds = true,
 		bool CancelIfParentCancels = true);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "AbilityComponent|Utility")
+	void OnTick(float DeltaTime);
+	virtual void OnTick_Implementation(float DeltaTime);
 	
 	/**
 	 * A generic function to end the ability. This function should be called by the ability itself when it's done.
@@ -136,6 +147,12 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool IsAbilityActive() const;
+
+	// FTickableGameObject overrides
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override;
+	virtual TStatId GetStatId() const override;
+	virtual ETickableTickType GetTickableTickType() const override;
 	
 	/**
 	 * Returns the server time this ability was activated at.

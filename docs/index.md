@@ -4,78 +4,59 @@ layout: home
 nav_order: 1
 ---
 
-# Simple Gameplay Ability System (SimpleGAS)
+# SimpleGAS: A More Approachable Gameplay Ability System
 
-[SimpleGAS](https://github.com/strayTrain/SimpleGameplayAbilitySystem) is a streamlined alternative to Epic's [**Gameplay Ability System (GAS)**](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-ability-system-for-unreal-engine) with a focus on developer experience and ease of understanding.
+**SimpleGAS** is an alternative to Epic's Gameplay Ability System that focuses on developer experience. It's designed to be easier to understand while still giving you the tools to create complex gameplay mechanics.
 
-## Why Use SimpleGAS?
+## What's SimpleGAS About?
 
-- **GAS** is powerful but comes with a steep learning curve, has a lot of boilerplate code, and requires some knowledge of C++ to use.  
-- **SimpleGAS** is designed to be more accessible, allowing for purely blueprint-based setup and operation. While it has fewer built-in features than **GAS**, it is significantly easier to use, understand, and extend.
+Epic's Gameplay Ability System (GAS) is powerful but comes with a steep learning curve.  
+SimpleGAS aims to provide much of the same functionality with:
 
-## Core Features
+- Full Blueprint support
+- Less boilerplate code
+- Straightforward documentation with examples
 
-### Create Modular and Reusable Gameplay Mechanics
+Check out the [examples](pages/examples.html) to see if SimpleGAS fits your project's needs.
 
-SimpleGAS allows you to break down your gameplay mechanics into **SimpleAbilities**: self-contained gameplay actions that can be activated with an input payload.
+## Features
 
-- Abilities can be reused and combined to create complex interactions.
-- Any struct can be passed as an input payload, allowing for flexible customization.
+### Blueprint-Friendly Design
 
-Example: Launching a player using a custom struct called `LaunchParams`.
+Create abilities without writing C++ code:
 
-![Ability activation with input parameters](images/index_ability_activation_example.png)
+- SimpleGAS helps you implement mechanics like:
+  - Character abilities with cooldowns
+  - Status effects and buffs/debuffs
+  - Stat based damage systems
+  - Ability combos and interactions
 
-Inside the ability:
-`
-![Launch player ability](images/index_launch_player_example.png)
+### A Modular Ability System
 
-### Comes With a Flexible Attribute System
+Break down your gameplay mechanics into reusable pieces:
 
-`SimpleGameplayAbilityComponent` provides an **Attribute** system to manage gameplay stats like health, stamina, or velocity.
+- **SimpleAbilities**: Self-contained gameplay actions that can activate sub abilities
 
-- **Float Attributes**: Represent simple numerical values.
-- **Struct Attributes**: Use arbitrary structs for more complex stats.
-- **Automatic Events**: When attributes change, events are sent automatically, making it easy to react to changes (e.g., updating UI elements).
-- **Attribute Sets**: Attributes can be grouped into reusable data assets.
+### Flexible Attribute System
 
-Example: Setting up a float attribute like Health:
+Manage gameplay stats like health or energy. Supports floats and structs.
 
-![Float Attribute Example](images/index_float_attribute_example.png)
+- **Float Attributes**: Numerical values like health or mana
+- **Struct Attributes**: Complex data structures
+- **Attribute Modifiers**: Apply temporary or permanent changes to attributes
 
-### Dynamic Attribute Modifiers
+### Multiplayer Support
 
-Attribute modifiers allow you to create effects like buffs, debuffs, and damage over time effects.
+SimpleGAS includes tools for multiplayer games:
 
-- **Modify multiple attributes at once**.
-- **Instant or over-time application**.
-- **Trigger side effects** such as activating abilities or applying additional status effects.
+- Client prediction for responsive gameplay
+- Server authority for consistency
+- Automatic state correction with optional manual intervention
 
-Example Use Cases:
+### Event Based Communication
 
-- A buff that permanently increases a player's health and damage.
-- Damage calculation based on armor:
-  - If the target has an `Armor` attribute, reduce that first before affecting `Health`.
-  - If they don’t, apply full damage to `Health`.
-- A **Burning** status effect:
-  - Deals initial damage and periodic damage over 5 seconds.
-  - Adds fire particles while active.
-  - Explodes on removal, spreading to nearby targets.
-
-### Multiplayer-Ready with Predictive Syncing
-
-SimpleGAS is designed with multiplayer in mind, providing built-in support for:
-
-- **Replication**: Abilities, attributes, and modifiers sync across clients and the server.
-- **Client Prediction**:
-  - Immediate feedback for smooth gameplay, even with high latency.
-  - Abilities take **State Snapshots** that store gameplay state, allowing for seamless correction of client-server differences.
-- **Automated Attribute Correction**:
-  - Clients apply modifiers instantly.
-  - If the server determines the modifier was invalid, the client automatically corrects its state.
-
-Example Workflow:
-
-1. A client predicts a hit, reducing the target’s health and triggering a hit reaction ability.
-2. The server decides the hit was actually blocked.
-3. The client reverts the incorrect health change and cancels the hit reaction ability.
+Communicate between game systems using gameplay tags:
+- Use hierarchical tags to organize events
+- Send and receive custom data
+- Filter events with specific criteria
+- Connect different systems together without hard dependencies between them.

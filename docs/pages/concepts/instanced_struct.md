@@ -7,94 +7,174 @@ nav_order: 2
 
 # Instanced Structs (`FInstancedStruct`)
 
-## Overview
+## What is an Instanced Struct?
 
-`FInstancedStruct` is a powerful Unreal Engine feature that allows developers to store, manipulate, and transfer struct-based data dynamically at runtime. SimpleGAS makes extensive use of `FInstancedStruct` to provide flexible and extendable gameplay systems, particularly for handling payloads, ability contexts, attribute modifications, and event payloads.
+An `FInstancedStruct` is a flexible container that can hold any Unreal Engine struct type. Think of it as a box that can store different types of data at runtime, which makes it great for passing around information when you don't know the exact type ahead of time.
 
-## Why Use `FInstancedStruct`?
+SimpleGAS uses `FInstancedStruct` extensively to make its systems more flexible and extendable.
 
-### 1. **Runtime Flexibility**
-Unlike normal `UStructs`, which require static definitions, `FInstancedStruct` enables storing arbitrary struct types at runtime. This makes it ideal for handling dynamic gameplay data, such as ability payloads or modifier contexts.
+![Instanced struct visualization](TODO)
 
-### 2. **Type Safety & Reflection Support**
-`FInstancedStruct` provides type safety while allowing introspection using Unreal's reflection system. This is crucial for debugging, serialization, and replication.
+## Why Do We Need Instanced Structs?
 
-### 3. **Efficient Memory Usage**
-By storing only the necessary data and allowing type-less manipulation, `FInstancedStruct` reduces the need for unnecessary class inheritance, reducing memory overhead.
+In SimpleGAS, different abilities and systems often need to pass different types of data to each other. For example:
 
-## How `FInstancedStruct` is Used in SimpleGAS
+- A fire ability might need to pass burn damage information
+- A healing spell might need to pass healing amount and targets
+- A buff might need to pass stat multipliers
 
-### Ability Activation Payloads
-In SimpleGAS, abilities can be activated with a payload that is passed as an `FInstancedStruct`. This allows developers to define and send arbitrary context data when activating an ability.
+Rather than creating rigid systems with predefined data structures, `FInstancedStruct` allows us to handle any type of data dynamically.
+
+## How SimpleGAS Uses Instanced Structs
+
+### Ability Activation Context
+
+When you activate an ability, you can pass in any struct as context:
 
 ```cpp
-FGuid AbilityID = AbilityComponent->ActivateAbility(AbilityClass, FInstancedStruct::Make(MyCustomPayload), false, EAbilityActivationPolicy::LocalOnly);
+// Define a custom context struct
+struct FFireballContext
+{
+    float Damage;
+    float Radius;
+    bool CanBurnEnvironment;
+};
+
+// Activate the ability with this context
+FFireballContext Context;
+Context.Damage = 50.0f;
+Context.Radius = 300.0f;
+Context.CanBurnEnvironment = true;
+
+AbilityComponent->ActivateAbility(FireballAbilityClass, 
+    FInstancedStruct::Make(Context));
 ```
 
-### Attribute Modifiers
-`FInstancedStruct` is used to store custom modifier contexts, allowing each modifier to carry different types of data without needing a rigid, predefined structure.
+Inside the ability, you can retrieve this information:
 
 ```cpp
-FInstancedStruct ModifierContext = FInstancedStruct::Make(MyModifierData);
-MyAttributeModifier->ApplyModifier(InstigatorComponent, TargetComponent, ModifierContext);
+// In your ability's OnActivate function
+if (const FFireballContext* Context = 
+    ActivationContext.GetPtr<FFireballContext>())
+{
+    // Use Context->Damage, Context->Radius, etc.
+}
+```
+
+### Attribute Modifier Context
+
+Attribute modifiers can receive custom contexts to determine how they modify attributes:
+
+```cpp
+FDamageContext DamageInfo;
+DamageInfo.DamageType = EDamageType::Fire;
+DamageInfo.IsCritical = true;
+DamageInfo.SourceAbility = AbilityID;
+
+// Apply a damage modifier with this context
+AbilityComponent->ApplyAttributeModifierToTarget(
+    TargetComponent, 
+    DamageModifierClass,
+    FInstancedStruct::Make(DamageInfo),
+    ModifierID);
 ```
 
 ### Event Payloads
-Events in the SimpleEventSubsystem can carry an `FInstancedStruct` payload, enabling arbitrary data to be sent and received dynamically.
+
+The event system uses `FInstancedStruct` to pass arbitrary data with events:
 
 ```cpp
-FInstancedStruct Payload = FInstancedStruct::Make(MyEventData);
-EventSubsystem->SendEvent(MyEventTag, MyDomainTag, Payload, Sender);
+FPlayerDamagedEvent DamageEvent;
+DamageEvent.DamageAmount = 50.0f;
+DamageEvent.DamageSource = this;
+DamageEvent.HitLocation = HitResult.Location;
+
+// Send an event with this payload
+AbilityComponent->SendEvent(
+    GameplayTags.DamageEvent,
+    GameplayTags.DamageDomain,
+    FInstancedStruct::Make(DamageEvent),
+    Instigator);
 ```
 
-## Working with `FInstancedStruct`
-
-### Creating an `FInstancedStruct`
-To store custom data in an `FInstancedStruct`, initialize it with a concrete struct type:
+Listeners can then check for and use events with specific payload types:
 
 ```cpp
-FInstancedStruct MyStruct;
-MyStruct.InitializeAs<FMyCustomStruct>();
-FMyCustomStruct& Data = MyStruct.GetMutable<FMyCustomStruct>();
-Data.MyValue = 42;
-```
-
-Alternatively, if you have an existing struct:
-
-```cpp
-FInstancedStruct MyStruct = FInstancedStruct::Make(FMyCustomStruct{42});
-```
-
-### Retrieving Data from `FInstancedStruct`
-To extract the stored struct:
-
-```cpp
-if (MyStruct.IsValid())
+// A function bound to an event callback
+void OnDamageEvent(FGameplayTag EventTag, FGameplayTag DomainTag, 
+    FInstancedStruct Payload, AActor* Sender)
 {
-    const FMyCustomStruct* RetrievedData = MyStruct.GetPtr<FMyCustomStruct>();
-    if (RetrievedData)
+    if (const FPlayerDamagedEvent* DamageEvent = 
+        Payload.GetPtr<FPlayerDamagedEvent>())
     {
-        UE_LOG(LogTemp, Log, TEXT("Value: %d"), RetrievedData->MyValue);
+        // Process the damage event
+        HandleDamage(DamageEvent->DamageAmount, DamageEvent->HitLocation);
     }
 }
 ```
 
-For mutable access:
+## Working with Instanced Structs
+
+### Creating an Instanced Struct
+
+There are a few ways to create and use `FInstancedStruct`:
 
 ```cpp
-FMyCustomStruct* RetrievedData = MyStruct.GetMutable<FMyCustomStruct>();
-if (RetrievedData)
+// Method 1: Make from an existing struct
+FMyCustomStruct MyData;
+MyData.SomeValue = 42;
+FInstancedStruct Container = FInstancedStruct::Make(MyData);
+
+// Method 2: Initialize as a specific type and then set values
+FInstancedStruct Container;
+Container.InitializeAs<FMyCustomStruct>();
+Container.GetMutable<FMyCustomStruct>()->SomeValue = 42;
+```
+
+### Reading from an Instanced Struct
+
+To access the data stored in an `FInstancedStruct`:
+
+```cpp
+// Method 1: Get a const pointer (safer)
+if (const FMyCustomStruct* Data = Container.GetPtr<FMyCustomStruct>())
 {
-    RetrievedData->MyValue = 99;
+    // Use Data->SomeValue
+}
+
+// Method 2: Get a mutable pointer (when you need to modify)
+if (FMyCustomStruct* Data = Container.GetMutable<FMyCustomStruct>())
+{
+    Data->SomeValue = 100;
+}
+
+// Method 3: Get a copy of the data
+bool WasValid = false;
+FMyCustomStruct Data = Container.Get<FMyCustomStruct>(&WasValid);
+```
+
+### Checking Validity
+
+Always check if an `FInstancedStruct` contains valid data of the expected type:
+
+```cpp
+// Check if the struct contains any valid data
+if (Container.IsValid())
+{
+    // Now check if it contains the expected type
+    if (Container.GetScriptStruct() == FMyCustomStruct::StaticStruct())
+    {
+        // Safe to access as FMyCustomStruct
+    }
 }
 ```
 
-### Checking if `FInstancedStruct` is Valid
-Before using an `FInstancedStruct`, ensure it contains valid data:
+## Tips for Using Instanced Structs
 
-```cpp
-if (MyStruct.IsValid())
-{
-    // Safe to use
-}
-```
+- **Type Safety**: Always check the type before casting
+- **Keep Structs Simple**: Avoid complex inheritance in structs used with `FInstancedStruct`
+- **Documentation**: Document the expected struct types for functions that take or return an `FInstancedStruct`
+- **Default Values**: Initialize structs with sensible defaults when possible
+- **Error Handling**: Have fallback behavior when an expected struct type isn't found
+
+Instanced structs give SimpleGAS much of its flexibility, allowing for dynamic, data-driven gameplay systems without sacrificing type safety.

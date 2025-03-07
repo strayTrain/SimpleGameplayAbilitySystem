@@ -5,146 +5,161 @@ parent: Concepts
 nav_order: 9
 ---
 
-# Replication and Prediction
+# Replication and Prediction in SimpleGAS
 
-SimpleGAS provides built-in replication and optional client prediction for abilities, attributes, and attribute modifiers. This allows for responsive gameplay on clients while ensuring the server remains authoritative.
+Let's break down how SimpleGAS handles multiplayer gameplay through replication and prediction.
 
----
+## The Golden Rule: Server Authority
 
-## Ability Replication
+In SimpleGAS, the server is always the ultimate authority. This means:
+- The server decides what's "real" in your game
+- Clients can propose or predict what happens, but the server gets final say
+- If there's a conflict between client and server, the server wins
 
-### Overview
+This approach prevents cheating and keeps your game consistent across all players, but it creates a challenge: **lag**. Players hate waiting for server confirmation before seeing their actions take effect.
 
-When a **SimpleGameplayAbility** is activated on the server, it creates an **AbilityState** struct to track the ability’s status and any snapshots. This **AbilityState** is added to an authoritative array on the server and replicated to all clients. Upon receiving the new state, each client activates the corresponding ability instance (if needed) to stay in sync with the server.
+That's where prediction comes in!
 
-### Server-Initiated Ability Example
+## Abilities: Synchronized Actions
 
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-sequenceDiagram
-    participant Client
-    participant Server
-    Client->>Server: Request ability activation
-    Server->>Server: Validate request, create AbilityState & ability instance
-    Server->>Client: Replicate authoritative AbilityState
-    Client->>Client: Activate ability from replicated state
+### How Abilities Replicate
+
+When a player activates an ability (like casting a fireball), SimpleGAS creates an **AbilityState** struct:
+
+```cpp
+struct FAbilityState
+{
+    FGuid AbilityID;                 // Unique identifier
+    TSubclassOf<USimpleAbilityBase> AbilityClass;  // What ability is this?
+    double ActivationTimeStamp;      // When was it activated?
+    FInstancedStruct ActivationContext;  // Extra data passed at activation
+    EAbilityStatus AbilityStatus;    // Is it running, ended, canceled?
+    TArray<FSimpleAbilitySnapshot> SnapshotHistory;  // Record of state changes
+};
 ```
 
-- **Server** is always authoritative; it creates and manages the definitive state.
-- **Client** simply reacts to the replicated state.
+For server-initiated abilities, the flow works like this:
+1. Client requests ability activation
+2. Server validates and creates an authoritative AbilityState
+3. This AbilityState gets replicated to clients via `AuthorityAbilityStates` 
+4. Clients receive the AbilityState and activate their local version
 
----
+The beauty is that SimpleGAS handles all this synchronization automatically. Your ability classes define the behavior, and the AbilityComponent manages the replication.
 
-## Ability Prediction
+### Client Prediction: Instant Feedback
 
-### Overview
+But waiting for the server feels sluggish, especially with high ping. That's why SimpleGAS supports client prediction:
 
-For a more responsive experience, you can enable **client-predicted** abilities. The client immediately activates the ability, assuming the server will confirm it. Internally, the client maintains a **predicted AbilityState**, while the server holds the authoritative one.
+1. Client immediately activates ability locally (feels snappy!)
+2. Client sends activation request to server
+3. Server validates and activates its authoritative version
+4. Server replicates back the "official" state
+5. Client compares its predicted version against server's version
+6. If they match, great! If not, client corrects itself
 
-### Client-Predicted Ability Example
+This is controlled through the `ActivationPolicy` property on abilities:
 
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-sequenceDiagram
-    participant Client
-    participant Server
-    Client->>Client: Activate predicted ability (local AbilityState)
-    Client->>Server: Send activation request + unique ID/context
-    Server->>Server: Validate & create authoritative AbilityState
-    Server->>Client: Replicate authoritative AbilityState
-    Client->>Client: Compare predicted & authoritative states
-    alt States match
-        Client->>Client: Continue as normal
-    else States differ
-        Client->>Client: Trigger correction (rollback/fix)
-    end
+```
+ClientPredicted: Run on client immediately, correct if server disagrees
+ServerInitiatedFromClient: Request from client, but wait for server 
+ServerAuthority: Only run on server, then replicate to clients
 ```
 
-### State Snapshots
+### State Snapshots: Tracking What's Important
 
-A **StateSnapshot** is a custom struct that captures the ability’s internal data at a given moment.  
-- Both client and server can record snapshots during the ability’s lifecycle.  
-- When the server replicates its snapshot, the client compares it to the predicted snapshot and corrects any differences if needed.
+During an ability's lifecycle, important moments can be captured as "snapshots" with `TakeStateSnapshot()`:
 
-**Example workflow**:  
-1. **Client** does an overlap check and stores a list of hit actors in a snapshot.  
-2. **Server** does the same check and replicates its snapshot to the client.  
-3. **Client** compares snapshots; if they differ, the client corrects its local state.
-
----
-
-## Attribute Replication
-
-### Overview
-
-Attributes (like Health or Stamina) are maintained by the **AbilityComponent**. Whenever the server changes an attribute, it replicates the updated value(s) to clients.
-
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-flowchart TD
-    A[Server updates attribute] --> B[Server replicates new value]
-    B --> C[Client receives updated attribute]
-    C --> D[UI/logic react to updated attribute]
+```cpp
+// Inside your ability code:
+FMyHitResult HitResult = DoSomeCheck();
+TakeStateSnapshot(FDefaultTags::HitResult, FInstancedStruct::Make(HitResult));
 ```
 
-- **Server** ensures all attributes remain authoritative.  
-- **Clients** display or use the replicated attribute data for UI and gameplay logic.
+The snapshot system helps with:
+- Recording important state (hit enemies, random values, etc.)
+- Comparing client predictions with server reality
+- Correcting differences only where they matter
 
----
+For example, in a shooting ability:
+1. Client predicts hitting an enemy
+2. Server determines the shot actually missed
+3. SimpleGAS automatically reconciles this difference
 
-## Attribute Modifier Replication
+When a replicated snapshot arrives from the server, your ability can override `ClientResolvePastState()` to handle any corrections:
 
-### Overview
-
-An **AttributeModifier** can change one or more attributes on the target’s AbilityComponent, either instantly or over time (e.g., DoT or HoT). By default, modifiers run on the server, and their effects are replicated to clients.
-
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-sequenceDiagram
-    participant Server
-    participant TargetComponent
-    participant AllClients
-    Server->>TargetComponent: Apply or remove attribute modifier
-    TargetComponent->>TargetComponent: Update attribute(s)
-    TargetComponent->>Server: Confirm updated attribute state
-    Server->>AllClients: Replicate new attribute values
+```cpp
+void UMyAbility::ClientResolvePastState(FGameplayTag StateTag, 
+    FSimpleAbilitySnapshot AuthorityState, 
+    FSimpleAbilitySnapshot PredictedState)
+{
+    // Server says we missed, but we predicted a hit
+    if (StateTag == FDefaultTags::HitResult)
+    {
+        // Undo local hit effects
+        RemoveHitParticles();
+        // Apply server's "miss" effect instead
+        PlayMissSound();
+    }
+}
 ```
 
----
+## Attributes: Synchronized Stats
 
-## Attribute Modifier Prediction
+Attributes like health, stamina, or speed use a similar strategy:
 
-### Overview
+1. Server maintains authoritative attributes in `AuthorityFloatAttributes` and `AuthorityStructAttributes`
+2. Client keeps local copies in `LocalFloatAttributes` and `LocalStructAttributes`
+3. When server changes attributes, changes are replicated to clients
 
-Attribute modifiers can also be **client predicted**, reducing perceived latency for immediate effects (e.g., showing damage feedback right away). The client applies the modifier optimistically, then corrects if the server disagrees.
+This parallel structure means:
+- Server always has the final say on attribute values
+- Clients have immediate access to read attributes
+- When replicated values arrive, clients update their local copies
 
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-sequenceDiagram
-    participant Client
-    participant Server
-    Client->>Client: Apply modifier (predicted)
-    Client->>Server: Send modifier request
-    Server->>Server: Validate & apply modifier & update attribute
-    Server->>Client: Replicate authoritative attribute update
-    Client->>Client: Compare predicted vs. authoritative
-    alt Matches
-        Client->>Client: Continue as is
-    else Differs
-        Client->>Client: Rollback or adjust attribute
-    end
+Behind the scenes, SimpleGAS handles this with `FFastArraySerializer` to efficiently replicate only changed attributes.
+
+## Attribute Modifiers: Smart Effects
+
+Attribute modifiers (like damage-over-time effects or buffs) are specialized abilities that modify attributes. They follow similar replication rules, with some automation for convenience:
+
+1. Modifiers can be client-predicted using `ModifierApplicationPolicy`
+2. The side effects (VFX, sounds, activated abilities) get cleaned up automatically if the server rejects the modifier
+3. Predictive modifiers show immediate feedback but correct themselves if invalid
+
+Example: When a player hits an enemy with fire damage:
+
+```
+1. Client shows immediate hit effect and reduces enemy health
+2. Server validates hit and replicates official damage
+3. If client and server agree, nothing changes visually
+4. If client was wrong, health bar "springs back" and effects are removed
 ```
 
-- **Predicted Modifiers** can be rolled back or corrected when the authoritative server data arrives.  
-- **Side effects** (e.g., visuals, sounds) can also be started immediately on the client, then canceled if the server rejects the modifier.
+This automatic handling means you don't need to manually reconcile prediction errors for modifiers - the system cleans up predicted effects that didn't actually happen.
 
----
+## FInstancedStruct: Flexible Data Replication
+
+SimpleGAS uses `FInstancedStruct` to replicate dynamic data. This powerful mechanism:
+- Allows arbitrary structs to be replicated
+- Gives type safety with runtime flexibility
+- Lets you pass any data structure through the network
+
+However, keep these things in mind:
+1. Struct properties must be marked for replication
+2. Complex nested structs can be bandwidth-intensive
+3. Custom structs need to be registered properly
+
+When using `FInstancedStruct` in your abilities:
+- Keep payloads as small as practical
+- Use basic types where possible
+- Remember all replicated structs need valid serialization code
 
 ## Key Takeaways
 
-1. **Server Authority:** All final states (abilities, attributes, modifiers) are owned by the server.  
-2. **Prediction:** Enhances responsiveness by letting the client assume success. Mismatches trigger correction.  
-3. **Snapshots & Mispredictions:** Use snapshots to pinpoint differences and fix them cleanly.  
-4. **Design Trade-offs:** Decide where to predict carefully—too much prediction can lead to frequent rollbacks; too little can feel laggy.
+1. **Server Authority**: The server is always right, but SimpleGAS makes this transparent
+2. **Smart Prediction**: Get responsive gameplay but with eventual consistency
+3. **Flexible Replication**: Attributes, abilities, and modifiers all share similar strategies
+4. **Automatic Reconciliation**: SimpleGAS handles most prediction errors automatically
+5. **Bandwidth Efficiency**: Only relevant changes get replicated
 
-With these systems, you can build responsive multiplayer gameplay while maintaining consistent, authoritative server control.
+This framework gives you responsive gameplay without sacrificing security or consistency - the best of both worlds!

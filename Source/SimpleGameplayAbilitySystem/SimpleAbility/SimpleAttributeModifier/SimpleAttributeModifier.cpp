@@ -1,6 +1,6 @@
 #include "SimpleAttributeModifier.h"
 
-#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/SimpleAttributes/SimpleAttributeFunctionLibrary.h"
+#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/FunctionSelectors/FunctionSelectors.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
@@ -190,35 +190,36 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 	TArray<FGameplayTag> ModifiedStructAttributes;
 
 	float CurrentFloatModifierOverflow = 0;
-	
-	for (const FAttributeModifier& Modifier : AttributeModifications )
+
+	for (const FFloatAttributeModifier& FloatModifier : FloatAttributeModifications)
 	{
-		if (ModifierType == EAttributeModifierType::Duration && !Modifier.ApplicationTriggers.Contains(TriggerPhase))
+		if (ModifierType == EAttributeModifierType::Duration && !FloatModifier.ApplicationRequirements.Contains(TriggerPhase))
+		{
+			continue;
+		}
+
+		if (ApplyFloatAttributeModifier(FloatModifier, TempFloatAttributes, CurrentFloatModifierOverflow))
+		{
+			ModifiedFloatAttributes.Add(FloatModifier.AttributeToModify);
+		}
+		else if (FloatModifier.IfAttributeNotFound == EAttributeModiferNotFoundBehaviour::CancelModifier)
+		{
+			return false;
+		}
+	}
+	
+	for (const FStructAttributeModifier& StructModifier : StructAttributeModifications)
+	{
+		if (ModifierType == EAttributeModifierType::Duration && !StructModifier.ApplicationRequirements.Contains(TriggerPhase))
 		{
 			continue;
 		}
 		
-		bool WasModifierApplied = false;
-		
-		switch (Modifier.AttributeType)
+		if (ApplyStructAttributeModifier(StructModifier, TempStructAttributes))
 		{
-			case EAttributeType::FloatAttribute:
-				WasModifierApplied = ApplyFloatAttributeModifier(Modifier, TempFloatAttributes, CurrentFloatModifierOverflow);
-				if (WasModifierApplied)
-				{
-					ModifiedFloatAttributes.Add(Modifier.ModifiedAttribute);
-				}
-				break;
-			case EAttributeType::StructAttribute:
-				WasModifierApplied = ApplyStructAttributeModifier(Modifier, TempStructAttributes);
-				if (WasModifierApplied)
-				{
-					ModifiedStructAttributes.Add(Modifier.ModifiedAttribute);
-				}
-				break;
+			ModifiedStructAttributes.Add(StructModifier.AttributeToModify);
 		}
-		
-		if (!WasModifierApplied && Modifier.CancelIfAttributeNotFound)
+		else if (StructModifier.IfAttributeNotFound == EAttributeModiferNotFoundBehaviour::CancelModifier)
 		{
 			return false;
 		}
@@ -231,7 +232,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 		{
 			if (ModifiedFloatAttributes.Contains(Attribute.AttributeTag))
 			{
-				USimpleAttributeFunctionLibrary::OverrideFloatAttribute(TargetAbilityComponent, Attribute.AttributeTag, Attribute);
+				TargetAbilityComponent->OverrideFloatAttribute(Attribute.AttributeTag, Attribute);
 			}
 		}
 
@@ -239,7 +240,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 		{
 			if (ModifiedStructAttributes.Contains(Attribute.AttributeTag))
 			{
-				TargetAbilityComponent->AddStructAttribute(Attribute);
+				TargetAbilityComponent->SetStructAttributeValue(Attribute.AttributeTag, Attribute.AttributeValue);
 			}
 		}
 	}
@@ -323,31 +324,35 @@ void USimpleAttributeModifier::AddModifierStack(int32 StackCount)
 	OnStacksAdded(StackCount, Stacks);
 }
 
-bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModifier& Modifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const
+bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const
 {
-	FFloatAttribute* AttributeToModify = GetTempFloatAttribute(Modifier.ModifiedAttribute, TempFloatAttributes);
+	FFloatAttribute* AttributeToModify = GetTempFloatAttribute(FloatModifier.AttributeToModify, TempFloatAttributes);
 	
 	if (!AttributeToModify)
 	{
-		SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Attribute %s not found."), *Modifier.ModifiedAttribute.ToString()));
+		SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Attribute %s not found."), *FloatModifier.AttributeToModify.ToString()));
 		return false;
 	}
+	
+	/**
+	 * The formula is NewAttributeValue = CurrentAttributeValue [operation] ModificationInputValue
+	 * Where [operation] is one of the following: add, multiply, override (i.e. replace with) or custom (call a function)
+	 **/
 
-	// Get the input value for the modification
+	// To Start we get the input value for the modification
 	float ModificationInputValue = 0;
-	bool WasInstigatorAttributeFound = false;
 	bool WasTargetAttributeFound = false;
-	bool WasMetaAttributeHandled = false;
-	switch (Modifier.ModificationInputValueSource)
+	bool WasInstigatorAttributeFound = false;
+	switch (FloatModifier.ModificationInputValueSource)
 	{
 		case EAttributeModificationValueSource::Manual:
-			ModificationInputValue = Modifier.ManualInputValue;
+			ModificationInputValue = FloatModifier.ManualInputValue;
 			break;
 		
 		case EAttributeModificationValueSource::FromOverflow:
 			ModificationInputValue = CurrentOverflow;
 
-			if (Modifier.ConsumeOverflow)
+			if (FloatModifier.ConsumeOverflow)
 			{
 				CurrentOverflow = 0;
 			}
@@ -360,12 +365,12 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Instigator ability component is nullptr."));
 				return false;
 			}
-
-			ModificationInputValue = USimpleAttributeFunctionLibrary::GetFloatAttributeValue(InstigatorAbilityComponent, Modifier.SourceAttributeValueType, Modifier.SourceAttribute, WasTargetAttributeFound);
+		
+			ModificationInputValue = InstigatorAbilityComponent->GetFloatAttributeValue(FloatModifier.SourceAttributeValueType, FloatModifier.SourceAttribute, WasInstigatorAttributeFound);
 
 			if (!WasInstigatorAttributeFound)
 			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on instigator ability component."), *Modifier.SourceAttribute.ToString());
+				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on instigator ability component."), *FloatModifier.SourceAttribute.ToString());
 				return false;
 			}
 
@@ -377,106 +382,164 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FAttributeModif
 				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Target ability component is nullptr."));
 				return false;
 			}
-
-			ModificationInputValue = USimpleAttributeFunctionLibrary::GetFloatAttributeValue(TargetAbilityComponent, Modifier.SourceAttributeValueType, Modifier.SourceAttribute, WasTargetAttributeFound);
+		
+			ModificationInputValue = TargetAbilityComponent->GetFloatAttributeValue(FloatModifier.SourceAttributeValueType, FloatModifier.SourceAttribute, WasTargetAttributeFound);
 
 			if (!WasTargetAttributeFound)
 			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on target ability component."), *Modifier.SourceAttribute.ToString());
+				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on target ability component."), *FloatModifier.SourceAttribute.ToString());
 				return false;
 			}
 			
 			break;
 		
-		case EAttributeModificationValueSource::FromMetaAttribute:
-			GetFloatMetaAttributeValue(Modifier.MetaAttributeTag, ModificationInputValue, WasMetaAttributeHandled);
-
-			if (!WasMetaAttributeHandled)
+	case EAttributeModificationValueSource::CustomInputValue:
+			if (!UFunctionSelectors::GetCustomFloatInputValue(
+				this,
+				FloatModifier.CustomInputFunction,
+				AttributeToModify->AttributeTag,
+				ModificationInputValue))
 			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Meta attribute %s not handled."), *Modifier.MetaAttributeTag.ToString());
+				SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom input function failed to activate.")));
 				return false;
 			}
 		
+	}
+
+	// Next up we get the current value of the attribute
+	float CurrentAttributeValue = 0;
+	switch (FloatModifier.ModifiedAttributeValueType)
+	{
+		case EAttributeValueType::BaseValue:
+			CurrentAttributeValue = AttributeToModify->BaseValue;
+			break;
+		case EAttributeValueType::MinBaseValue:
+			CurrentAttributeValue = AttributeToModify->ValueLimits.MinBaseValue;
+			break;
+		case EAttributeValueType::MaxBaseValue:
+			CurrentAttributeValue = AttributeToModify->ValueLimits.MaxBaseValue;
+			break;
+		case EAttributeValueType::CurrentValue:
+			CurrentAttributeValue = AttributeToModify->CurrentValue;
+			break;
+		case EAttributeValueType::MinCurrentValue:
+			CurrentAttributeValue = AttributeToModify->ValueLimits.MinCurrentValue;
+			break;
+		case EAttributeValueType::MaxCurrentValue:
+			CurrentAttributeValue = AttributeToModify->ValueLimits.MaxCurrentValue;
+			break;
+	}
+	
+	// Next, modify AttributeToModify based on the input value and the modifier's operation
+	float NewAttributeValue = 0;
+	FGameplayTag FloatChangedDomainTag = AttributeToModify->AttributeTag;
+	switch (FloatModifier.ModificationOperation)
+	{
+		case EFloatAttributeModificationOperation::Add:
+			NewAttributeValue = CurrentAttributeValue + ModificationInputValue;
+			break;
+
+		case EFloatAttributeModificationOperation::Subtract:
+			NewAttributeValue = CurrentAttributeValue - ModificationInputValue;
+			break;
+					
+		case EFloatAttributeModificationOperation::Multiply:
+			NewAttributeValue = CurrentAttributeValue * ModificationInputValue;
+			break;
+
+		case EFloatAttributeModificationOperation::Divide:
+			if (FMath::IsNearlyZero(ModificationInputValue))
+			{
+				SIMPLE_LOG(OwningAbilityComponent, TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Division by zero."));
+				return false;
+			}
+			NewAttributeValue = CurrentAttributeValue / ModificationInputValue;
+			break;
+
+		case EFloatAttributeModificationOperation::Power:
+			NewAttributeValue = FMath::Pow(CurrentAttributeValue, ModificationInputValue);
+			break;
+		
+		case EFloatAttributeModificationOperation::Override:
+			NewAttributeValue =  ModificationInputValue;
+			break;
+		
+		case EFloatAttributeModificationOperation::Custom:
+			if (!UFunctionSelectors::ApplyFloatAttributeOperation(
+				this,
+				FloatModifier.FloatOperationFunction,
+				AttributeToModify->AttributeTag,
+				CurrentAttributeValue,
+				ModificationInputValue,
+				CurrentOverflow,
+				FloatChangedDomainTag,
+				NewAttributeValue,
+				CurrentOverflow))
+			{
+				SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom operation function %s failed to activate."), *FloatModifier.CustomInputFunction.GetMemberName().ToString()));
+				return false;
+			}
+
 			break;
 	}
 
-	// Finally, modify AttributeToModify based on the input value and the modifier's operation
-	switch (Modifier.ModifiedAttributeValueType)
+	// Lastly, we set the new value to the attribute
+	switch (FloatModifier.ModifiedAttributeValueType)
 	{
 		case EAttributeValueType::BaseValue:
-			switch (Modifier.ModificationOperation)
-			{
-				case EFloatAttributeModificationOperation::Add:
-					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue + ModificationInputValue, CurrentOverflow);
-					break;
-				
-				case EFloatAttributeModificationOperation::Multiply:
-					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, AttributeToModify->BaseValue * ModificationInputValue, CurrentOverflow);
-					break;
-				
-				case EFloatAttributeModificationOperation::Override:
-					AttributeToModify->BaseValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, ModificationInputValue, CurrentOverflow);
-					break;
-			}
+			AttributeToModify->BaseValue = OwningAbilityComponent->ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, NewAttributeValue, CurrentOverflow);
 			break;
 		
 		case EAttributeValueType::CurrentValue:
-			switch (Modifier.ModificationOperation)
-			{
-				case EFloatAttributeModificationOperation::Add:
-					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue + ModificationInputValue, CurrentOverflow);
-					break;
-				
-				case EFloatAttributeModificationOperation::Multiply:
-					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, AttributeToModify->CurrentValue * ModificationInputValue, CurrentOverflow);
-					break;
-				
-				case EFloatAttributeModificationOperation::Override:
-					AttributeToModify->CurrentValue = USimpleAttributeFunctionLibrary::ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, ModificationInputValue, CurrentOverflow);
-					break;
-			}
+			AttributeToModify->CurrentValue = OwningAbilityComponent->ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, NewAttributeValue, CurrentOverflow);
 			break;
 		
 		case EAttributeValueType::MaxBaseValue:
-			AttributeToModify->ValueLimits.MaxBaseValue = ModificationInputValue;
+			AttributeToModify->ValueLimits.MaxBaseValue = NewAttributeValue;
 			break;
 		
 		case EAttributeValueType::MinBaseValue:
-			AttributeToModify->ValueLimits.MinBaseValue = ModificationInputValue;
+			AttributeToModify->ValueLimits.MinBaseValue = NewAttributeValue;
 			break;
 		
 		case EAttributeValueType::MaxCurrentValue:
-			AttributeToModify->ValueLimits.MaxCurrentValue = ModificationInputValue;
+			AttributeToModify->ValueLimits.MaxCurrentValue = NewAttributeValue;
 			break;
 		
 		case EAttributeValueType::MinCurrentValue:
-			AttributeToModify->ValueLimits.MinCurrentValue = ModificationInputValue;
+			AttributeToModify->ValueLimits.MinCurrentValue = NewAttributeValue;
 			break;
 	}
 	
 	return true;
 }
 
-bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FAttributeModifier& Modifier, TArray<FStructAttribute>& TempStructAttributes) const
+bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes) const
 {
-	FStructAttribute* AttributeToModify = GetTempStructAttribute(Modifier.ModifiedAttribute, TempStructAttributes);
+	FStructAttribute* AttributeToModify = GetTempStructAttribute(StructModifier.AttributeToModify, TempStructAttributes);
 	
 	if (!AttributeToModify)
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyStructAttributeModifier: Attribute %s not found on target ability component."), *Modifier.ModifiedAttribute.ToString());
+		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyStructAttributeModifier: Attribute %s not found on target ability component."), *StructModifier.AttributeToModify.ToString());
 		return false;
 	}
 
-	bool WasHandled = false;
-	const FInstancedStruct NewValue = GetModifiedStructAttributeValue(Modifier.StructOperationTag, AttributeToModify->AttributeValue, WasHandled);
-
-	if (!WasHandled)
+	FGameplayTagContainer EventTags;
+	FInstancedStruct OutStruct;
+	
+	if (!UFunctionSelectors::ModifyStructAttributeValue(
+		this,
+		StructModifier.StructModificationFunction,
+		AttributeToModify->AttributeTag,
+		AttributeToModify->AttributeValue,
+		EventTags,
+		OutStruct))
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyStructAttributeModifier: Struct modifier %s not handled."), *Modifier.StructOperationTag.ToString());
+		SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyStructAttributeModifier]: Struct modifier %s failed to apply."), *StructModifier.ModifierDescription));
 		return false;
 	}
 
-	AttributeToModify->AttributeValue = NewValue;
+	AttributeToModify->AttributeValue = OutStruct;
 	return true;
 }
 
@@ -495,6 +558,7 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 	ModifierResult.Instigator = Instigator;
 	ModifierResult.Target = Target;
 	
+	
 	// Ability side effects
 	for (FAbilitySideEffect AbilitySideEffect : AbilitySideEffects)
 	{
@@ -505,13 +569,9 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 			bool IsClient = OwningAbilityComponent->GetNetMode() == NM_Client && !IsListenServer;
 
 			USimpleGameplayAbilityComponent* ActivatingAbilityComponent = AbilitySideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
-			FInstancedStruct Payload;
+			FInstancedStruct Payload = FInstancedStruct();
 
-			if (AbilitySideEffect.AbilityContextTag.IsValid())
-			{
-				bool IsPayloadValid = true;
-				Payload = GetAbilitySideEffectContext(AbilitySideEffect.AbilityContextTag, IsPayloadValid);
-			}
+			UFunctionSelectors::GetStructContext(this, AbilitySideEffect.ContextFunction, Payload);
 
 			AbilitySideEffect.AbilityContext = Payload;
 			ModifierResult.AppliedAbilitySideEffects.Add(AbilitySideEffect);
@@ -564,21 +624,16 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 	for (FEventSideEffect& EventSideEffect : EventSideEffects)
 	{
 		USimpleGameplayAbilityComponent* EventSendingComponent = EventSideEffect.EventSender == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
+		FInstancedStruct Payload = FInstancedStruct();
+
+		UFunctionSelectors::GetStructContext(this, EventSideEffect.EventContextFunction, Payload);
 		
 		if (EventSideEffect.ApplicationTriggers.Contains(EffectPhase))
 		{
-			FInstancedStruct Payload;
-
-			if (EventSideEffect.EventContextTag.IsValid())
-			{
-				bool IsPayloadValid = true;
-				Payload = GetEventSideEffectContext(EventSideEffect.EventContextTag, IsPayloadValid);
-			}
-
 			EventSideEffect.EventContext = Payload;
 			ModifierResult.AppliedEventSideEffects.Add(EventSideEffect);
 			
-			EventSendingComponent->SendEvent(EventSideEffect.EventTag, EventSideEffect.EventDomain, Payload, EventSendingComponent->GetOwner(), {}, EventSideEffect.EventReplicationPolicy);
+			EventSendingComponent->SendEvent(EventSideEffect.EventTag, EventSideEffect.EventDomain, EventSideEffect.EventContext, EventSendingComponent->GetOwner(), {}, EventSideEffect.EventReplicationPolicy);
 		}
 	}
 
@@ -601,24 +656,14 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 			USimpleGameplayAbilityComponent* InstigatingAbilityComponent = AttributeSideEffect.ModifierInstigator == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
 			USimpleGameplayAbilityComponent* TargetedAbilityComponent = AttributeSideEffect.ModifierTarget == EAttributeModifierSideEffectTarget::Instigator ? Instigator : Target;
 
-			if (AttributeSideEffect.ModifierTargetsTag.IsValid())
-			{
-				GetAttributeModifierSideEffectTargets(AttributeSideEffect.ModifierTargetsTag, InstigatingAbilityComponent, TargetedAbilityComponent);
-
-				if (!InstigatingAbilityComponent || !TargetedAbilityComponent)
-				{
-					SIMPLE_LOG(InstigatingAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplySideEffects]: InstigatingAbilityComponent or TargetedAbilityComponent is null. Can't apply Attribute Modifier side effect.")));
-					return;
-				}
-			}
+			UFunctionSelectors::GetAttributeModifierSideEffectTargets(
+				this,
+				AttributeSideEffect.GetTargetsFunction,
+				InstigatingAbilityComponent,
+				TargetedAbilityComponent);
 			
-			FInstancedStruct Payload;
-
-			if (AttributeSideEffect.ModifierContextTag.IsValid())
-			{
-				bool IsPayloadValid = true;
-				Payload = GetAttributeModifierSideEffectContext(AttributeSideEffect.ModifierContextTag, IsPayloadValid);
-			}
+			FInstancedStruct Payload = FInstancedStruct();
+			UFunctionSelectors::GetStructContext(this, AttributeSideEffect.ContextFunction, Payload);
 
 			FGuid AttributeID = FGuid::NewGuid();
 			InstigatingAbilityComponent->ApplyAttributeModifierToTarget(TargetedAbilityComponent, AttributeSideEffect.AttributeModifierClass, Payload, AttributeID);
@@ -646,44 +691,6 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 
 	Snapshot.StateData = FInstancedStruct::Make(ModifierResult);
 	OwningAbilityComponent->AddAttributeStateSnapshot(AbilityInstanceID, Snapshot);
-}
-
-/* Meta Attribute Functions */
-
-void USimpleAttributeModifier::GetFloatMetaAttributeValue_Implementation(FGameplayTag MetaAttributeTag, float& OutValue, bool& WasHandled) const
-{
-	OutValue = 0;
-	WasHandled = false;
-}
-
-FInstancedStruct USimpleAttributeModifier::GetModifiedStructAttributeValue_Implementation(FGameplayTag OperationTag, FInstancedStruct StructToModify, bool& WasHandled) const
-{
-	WasHandled = false;
-	return StructToModify;
-}
-
-FInstancedStruct USimpleAttributeModifier::GetAbilitySideEffectContext_Implementation(FGameplayTag MetaTag, bool& WasHandled) const
-{
-	WasHandled = false;
-	return FInstancedStruct();
-}
-
-FInstancedStruct USimpleAttributeModifier::GetEventSideEffectContext_Implementation(FGameplayTag MetaTag, bool& WasHandled) const
-{
-	WasHandled = false;
-	return FInstancedStruct();
-}
-
-FInstancedStruct USimpleAttributeModifier::GetAttributeModifierSideEffectContext_Implementation(FGameplayTag MetaTag, bool& WasHandled) const
-{
-	WasHandled = false;
-	return FInstancedStruct();
-}
-
-void USimpleAttributeModifier::GetAttributeModifierSideEffectTargets_Implementation(FGameplayTag TargetsTag, USimpleGameplayAbilityComponent*& OutInstigator, USimpleGameplayAbilityComponent*& OutTarget) const
-{
-	OutInstigator = nullptr;
-	OutTarget = nullptr;
 }
 
 /* Utility Functions */
