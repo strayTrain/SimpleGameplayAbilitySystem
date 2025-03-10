@@ -1,8 +1,8 @@
 ---
 title: Utility Nodes
 layout: home
-parent: Concepts
-nav_order: 8
+parent: Blueprint Reference
+nav_order: 4
 ---
 
 # Useful Utility Nodes

@@ -1,5 +1,5 @@
 ---
-title: Simple Event Subsystem
+title: Events
 layout: home
 parent: Concepts
 nav_order: 3

@@ -1,8 +1,8 @@
 ---
 title: Simple Ability Component
 layout: home
-parent: Concepts
-nav_order: 6
+parent: Blueprint Reference
+nav_order: 2
 ---
 
 # Simple Ability Component

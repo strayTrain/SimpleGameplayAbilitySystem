@@ -51,24 +51,24 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FStructAttribute> StructAttributes;
 	
-	UPROPERTY(VisibleAnywhere, Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
 	FFloatAttributeContainer AuthorityFloatAttributes;
-	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"))
+	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"), Category = "AbilityComponent|State")
 	TArray<FFloatAttribute> LocalFloatAttributes;
 	
-	UPROPERTY(VisibleAnywhere, Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
 	FStructAttributeContainer AuthorityStructAttributes;
-	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"))
+	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"), Category = "AbilityComponent|State")
 	TArray<FStructAttribute> LocalStructAttributes;
 	
-	UPROPERTY(Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
 	FAbilityStateContainer AuthorityAbilityStates;
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
 	TArray<FAbilityState> LocalAbilityStates;
 	
-	UPROPERTY(Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
 	FAbilityStateContainer AuthorityAttributeStates;
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
 	TArray<FAbilityState> LocalAttributeStates;
 
 	/* Avatar Actor Functions */
@@ -122,7 +122,7 @@ public:
 	TArray<FGuid> CancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
 	
 	void AddAbilityStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State);
-	void ChangeAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus);
+	bool ChangeAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus);
 	void SetAbilityStateEndingContext(FGuid AbilityInstanceID, FGameplayTag EndTag, FInstancedStruct EndContext);
 	
 	/* Attribute Functions */

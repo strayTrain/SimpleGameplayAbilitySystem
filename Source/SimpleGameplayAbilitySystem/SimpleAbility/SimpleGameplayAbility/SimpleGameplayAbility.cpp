@@ -75,12 +75,22 @@ void USimpleGameplayAbility::OnTick_Implementation(float DeltaTime)
 
 void USimpleGameplayAbility::EndAbility(const FGameplayTag EndStatus, const FInstancedStruct EndingContext)
 {
+    if (!bIsAbilityActive)
+    {
+        return;
+    }
+    
     OnEnd(EndStatus, EndingContext, false);
     EndAbilityInternal(EndStatus, EndingContext, false);
 }
 
 void USimpleGameplayAbility::CancelAbility(const FGameplayTag CancelStatus, const FInstancedStruct CancelContext)
 {
+    if (!bIsAbilityActive || !CanCancel())
+    {
+        return;
+    }
+    
     OnEnd(CancelStatus, CancelContext, true);
     EndAbilityInternal(CancelStatus, CancelContext, true);
 }
@@ -116,10 +126,18 @@ void USimpleGameplayAbility::EndAbilityInternal(FGameplayTag Status, FInstancedS
     OwningAbilityComponent->SetAbilityStateEndingContext(AbilityInstanceID, Status, Context);
 }
 
-AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const
+AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const
 {
     if (AActor* AvatarActor = OwningAbilityComponent->GetAvatarActor())
     {
+        if (AvatarActor->IsA(AvatarClass))
+        {
+            IsValid = true;
+            return AvatarActor;
+        }
+
+        SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("Avatar actor %s is not of type %s"), *AvatarActor->GetName(), *AvatarClass->GetName()));
+        IsValid = false;
         return AvatarActor;
     }
 

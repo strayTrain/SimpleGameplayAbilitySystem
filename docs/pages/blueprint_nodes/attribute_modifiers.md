@@ -1,8 +1,8 @@
 ---
 title: Attribute Modifiers
 layout: home
-parent: Concepts
-nav_order: 7
+parent: Blueprint Reference
+nav_order: 3
 ---
 
 # Attribute Modifiers

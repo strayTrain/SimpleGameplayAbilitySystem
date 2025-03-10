@@ -1,8 +1,8 @@
 ---
 title: Simple Ability
 layout: home
-parent: Concepts
-nav_order: 5
+parent: Blueprint Reference
+nav_order: 1
 ---
 
 # Simple Gameplay Abilities

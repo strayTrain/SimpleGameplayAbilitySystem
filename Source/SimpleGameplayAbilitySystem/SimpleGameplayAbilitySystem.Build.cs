@@ -16,11 +16,15 @@ public class SimpleGameplayAbilitySystem : ModuleRules
 			{
 				"Core",
 				"GameplayTags",
-				"StructUtils",
 				"NetCore"
 			}
 			);
-			
+		
+		// For UE versions before 5.5, add the StructUtils dependency as it was an external plugin.
+		if (Target.Version.MajorVersion < 5 || (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion < 5))
+		{
+			PublicDependencyModuleNames.Add("StructUtils");
+		}
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]

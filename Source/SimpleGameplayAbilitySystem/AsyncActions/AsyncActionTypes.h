@@ -2,7 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "StructUtils/InstancedStruct.h"
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+	#include "StructUtils/InstancedStruct.h"
+#else
+	#include "InstancedStruct.h"
+#endif
+
 #include "AsyncActionTypes.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FEventSenderDelegate, FInstancedStruct, Payload);

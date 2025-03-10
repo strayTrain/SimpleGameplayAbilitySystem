@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
-#include "StructUtils/InstancedStruct.h"
 #include "Tickable.h"
 #include "SimpleGameplayAbility.generated.h"
 
@@ -140,7 +139,7 @@ public:
 
 	/* Utility functions */
 	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
-	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass) const;
+	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const;
 
 	UFUNCTION(BlueprintCallable)
 	void ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* TargetComponent, TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct Context, FGuid& ModifierID);

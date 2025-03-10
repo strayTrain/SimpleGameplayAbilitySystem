@@ -3,7 +3,6 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "StructUtils/InstancedStruct.h"
 #include "FunctionSelectors.generated.h"
 
 class USimpleAttributeModifier;

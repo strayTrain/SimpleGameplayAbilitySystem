@@ -25,3 +25,6 @@ callouts:
   tip:
     title: Tip
     color: blue
+
+# Add this to your existing _config.yml file
+aux_links_new_tab: true

@@ -67,3 +67,18 @@ iframe {
   border-color: initial;
   border-image: initial;
 }
+
+/* Standardize image sizes and make them clickable */
+.main-content img {
+  display: block;
+  max-width: 100%;
+  max-height: 500px; /* Set a max height for very tall images */
+  width: auto;
+  height: auto;
+  margin: 1.5rem auto;
+  object-fit: contain; /* Maintain aspect ratio */
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer; /* Show pointer cursor on hover */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}

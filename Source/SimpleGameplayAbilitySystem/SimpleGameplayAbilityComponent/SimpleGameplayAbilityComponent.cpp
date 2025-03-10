@@ -11,7 +11,6 @@
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilityOverrideSet/AbilityOverrideSet.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
-#include "StructUtils/InstancedStruct.h"
 #include "Windows/WindowsTextInputMethodSystem.h"
 
 class USimpleEventSubsystem;
@@ -414,7 +413,7 @@ void USimpleGameplayAbilityComponent::AddAbilityStateSnapshot(FGuid AbilityInsta
 	SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddAbilityStateSnapshot]: Ability with ID %s not found in InstancedAbilities array"), *AbilityInstanceID.ToString()));
 }
 
-void USimpleGameplayAbilityComponent::ChangeAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus)
+bool USimpleGameplayAbilityComponent::ChangeAbilityStatus(FGuid AbilityInstanceID, EAbilityStatus NewStatus)
 {
 	if (HasAuthority())
 	{
@@ -424,25 +423,23 @@ void USimpleGameplayAbilityComponent::ChangeAbilityStatus(FGuid AbilityInstanceI
 			{
 				AuthorityAbilityState.AbilityStatus = NewStatus;
 				AuthorityAbilityStates.MarkItemDirty(AuthorityAbilityState);
-				return;
+				return true;
 			}
 		}
 
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ChangeAbilityStatus]: Ability with ID %s not found in AuthorityAbilityStates array"), *AbilityInstanceID.ToString()));
+		return false;
 	}
-	else
+	
+	for (FAbilityState& ActiveAbility : LocalAbilityStates)
 	{
-		for (FAbilityState& ActiveAbility : LocalAbilityStates)
+		if (ActiveAbility.AbilityID == AbilityInstanceID)
 		{
-			if (ActiveAbility.AbilityID == AbilityInstanceID)
-			{
-				ActiveAbility.AbilityStatus = NewStatus;
-				return;
-			}
+			ActiveAbility.AbilityStatus = NewStatus;
+			return true;
 		}
-
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ChangeAbilityStatus]: Ability with ID %s not found in LocalAbilityStates array"), *AbilityInstanceID.ToString()));
 	}
+
+	return false;
 }
 
 void USimpleGameplayAbilityComponent::SetAbilityStateEndingContext(FGuid AbilityInstanceID, FGameplayTag EndTag, FInstancedStruct EndContext)
@@ -465,8 +462,6 @@ void USimpleGameplayAbilityComponent::SetAbilityStateEndingContext(FGuid Ability
 				return;
 			}
 		}
-
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ChangeAbilityStatus]: Ability with ID %s not found in AuthorityAbilityStates array"), *AbilityInstanceID.ToString()));
 	}
 	else
 	{
@@ -480,8 +475,6 @@ void USimpleGameplayAbilityComponent::SetAbilityStateEndingContext(FGuid Ability
 				return;
 			}
 		}
-
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ChangeAbilityStatus]: Ability with ID %s not found in LocalAbilityStates array"), *AbilityInstanceID.ToString()));
 	}
 }
 
@@ -802,6 +795,12 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 			}
 			
 			USimpleGameplayAbility* NewAbilityInstance = GetAbilityInstance(AbilityClass);
+
+			if (NewAbilityInstance->IsAbilityActive())
+			{
+				NewAbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled, FInstancedStruct());
+			}
+			
 			NewAbilityInstance->InitializeAbility(this, NewAbilityState.AbilityID, true);
 			NewAbilityInstance->ActivateAbility(NewAbilityState.AbilityID, NewAbilityState.ActivationContext);
 			return;
