@@ -53,37 +53,37 @@ void UWaitForFloatAttributeChange::Activate()
 		FGameplayTagContainer EventFilter;
 		if (ShouldListenForBaseValueChange)
 		{
-			EventFilter.AddTagFast(FDefaultTags::FloatAttributeBaseValueChanged);
+			EventFilter.AddTagFast(FDefaultTags::FloatAttributeBaseValueChanged());
 		}
 
 		if (ShouldListenForCurrentValueChange)
 		{
-			EventFilter.AddTagFast(FDefaultTags::FloatAttributeCurrentValueChanged);
+			EventFilter.AddTagFast(FDefaultTags::FloatAttributeCurrentValueChanged());
 		}
 
 		if (ShouldListenForMaxBaseValueChange)
 		{
-			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMaxBaseValueChanged);
+			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMaxBaseValueChanged());
 		}
 
 		if (ShouldListenForMinBaseValueChange)
 		{
-			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMinBaseValueChanged);
+			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMinBaseValueChanged());
 		}
 
 		if (ShouldListenForMaxCurrentValueChange)
 		{
-			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMaxCurrentValueChanged);
+			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMaxCurrentValueChanged());
 		}
 
 		if (ShouldListenForMinCurrentValueChange)
 		{
-			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMinCurrentValueChanged);
+			EventFilter.AddTagFast(FDefaultTags::FloatAttributeMinCurrentValueChanged());
 		}
 
 		FGameplayTagContainer DomainFilter;
-		DomainFilter.AddTagFast(FDefaultTags::LocalDomain);
-		DomainFilter.AddTagFast(FDefaultTags::AuthorityDomain);
+		DomainFilter.AddTagFast(FDefaultTags::LocalAttributeDomain());
+		DomainFilter.AddTagFast(FDefaultTags::AuthorityAttributeDomain());
 		
 		TArray<UScriptStruct*> PayloadFilter;
 		PayloadFilter.Add(FFloatAttributeModification::StaticStruct());

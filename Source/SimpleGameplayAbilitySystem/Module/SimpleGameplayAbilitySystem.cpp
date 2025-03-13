@@ -11,7 +11,6 @@ DEFINE_LOG_CATEGORY(LogSimpleGAS);
 void FSimpleGameplayAbilitySystemModule::StartupModule()
 {
 	UGameplayTagsManager::Get().AddTagIniSearchPath(FPaths::ProjectPluginsDir() / TEXT("SimpleGameplayAbilitySystem/Config/Tags"));
-	FDefaultTags::InitializeDefaultTags();
 }
 
 void FSimpleGameplayAbilitySystemModule::ShutdownModule()

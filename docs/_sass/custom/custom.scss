@@ -46,6 +46,45 @@ details[open] > div {
   transform: translateY(0);
 }
 
+/* Nested details indentation */
+details details {
+  margin-left: 20px;
+}
+
+/* Nested details styling - slightly different background to show hierarchy */
+details details > summary {
+  background-color: #3a3740;
+  border-color: #524a5a;
+}
+
+details details > summary:hover {
+  background-color: #443c4d;
+}
+
+details details > div {
+  background-color: #323039;
+  border-color: #524a5a;
+}
+
+/* Third level nesting */
+details details details {
+  margin-left: 20px;
+}
+
+details details details > summary {
+  background-color: #403b46;
+  border-color: #5a526b;
+}
+
+details details details > summary:hover {
+  background-color: #4a4352;
+}
+
+details details details > div {
+  background-color: #35323c;
+  border-color: #5a526b;
+}
+
 .content iframe {
   border: none !important;
   margin: 0 !important;
@@ -70,7 +109,6 @@ iframe {
 
 /* Standardize image sizes and make them clickable */
 .main-content img {
-  display: block;
   max-width: 100%;
   max-height: 500px; /* Set a max height for very tall images */
   width: auto;
@@ -81,4 +119,207 @@ iframe {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer; /* Show pointer cursor on hover */
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/**
+ * API Documentation styling
+ * Add .api-docs class to your content to activate these styles
+ */
+
+// More compact details for API docs
+.api-docs details {
+  margin-bottom: 0.5rem;
+}
+
+.api-docs details[open] {
+  margin-bottom: 0.75rem;
+}
+
+.api-docs details > summary {
+  padding: 6px 10px;
+  font-size: 0.95rem;
+}
+
+.api-docs details details > summary {
+  padding: 5px 10px;
+  font-size: 0.9rem;
+}
+
+.api-docs details > div,
+.api-docs details[open] > div {
+  padding: 8px;
+  margin-bottom: 0.5rem;
+}
+
+// API Table styling for more compact look
+.api-docs table {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.api-docs table th {
+  padding: 6px 8px;
+  font-weight: 600;
+}
+
+.api-docs table td {
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+
+// Highlight even/odd rows for better readability
+.api-docs table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+// Parameters section
+.api-docs .parameters-section {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+// Code examples
+.api-docs pre {
+  margin: 0.5rem 0;
+}
+
+.api-docs code {
+  font-size: 0.85rem;
+}
+
+// Images
+.api-docs img {
+  margin: 0.5rem 0;
+  max-width: 90%;
+  display: block;
+  border: 1px solid #4a4652;
+}
+
+// Reduce nested indentation for API docs
+.api-docs details details {
+  margin-left: 12px;
+}
+
+.api-docs details details details {
+  margin-left: 10px;
+}
+
+// Highlight function names
+.api-docs details > summary strong {
+  color: #d0a5ff;
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.api-docs h3 code {
+  color: #d0a5ff;
+}
+
+// Handle line breaks in table cells better
+.api-docs table td br {
+  margin-bottom: 0.25rem;
+  content: "";
+  display: block;
+}
+
+// Minimize spacing in lists inside tables
+.api-docs table td ul {
+  margin: 0.25rem 0 0.25rem 1.5rem;
+  padding: 0;
+}
+
+.api-docs table td li {
+  margin: 0;
+}
+
+// Improve paragraph spacing in tables
+.api-docs table td p {
+  margin: 0.25rem 0;
+}
+
+// Reduce whitespace between list items
+.api-docs ul li {
+  margin-bottom: 0.25rem;
+}
+
+// Highlight function names
+.api-docs details > summary strong {
+  color: #d0a5ff;
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+// Highlight function parameters
+.api-docs details > summary strong .parameter {
+  color: #5ccfe6;  // Light blue for parameters
+  font-style: normal;
+}
+
+.api-docs details > summary strong .return-type {
+  color: #ffcc66;  // Golden yellow for return types
+  font-style: normal;
+}
+
+.api-docs details > summary strong .parentheses,
+.api-docs details > summary strong .arrows,
+.api-docs details > summary strong .comma,
+.api-docs details > summary strong .angle-brackets {
+  color: #f8f8f2;  // Light gray for brackets and symbols
+  font-weight: normal;
+}
+
+.api-docs h3 code {
+  color: #d0a5ff;
+}
+
+// Remove numbering from TOC
+.page-nav-toc ul,
+.page-nav-toc ol {
+  list-style-type: none !important;
+  counter-reset: none !important;
+  
+  li {
+    &::before {
+      content: none !important;
+    }
+    
+    a {
+      margin-left: 0 !important;
+    }
+  }
+}
+
+// Also remove numbering from the main TOC if it appears
+#markdown-toc,
+#markdown-toc ol,
+#markdown-toc ul {
+  list-style-type: none !important;
+  
+  li {
+    &::before {
+      content: none !important;
+    }
+    
+    a {
+      margin-left: 0 !important;
+    }
+  }
+}
+
+// Style different heading levels in TOC
+.page-nav-toc ul li {
+  // Level 2 headings (##)
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  
+  // Level 3 headings (###) - functions
+  ul li {
+    font-weight: normal;
+    margin: 0.2rem 0;
+    padding-left: 0.75rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.85rem;
+  }
 }

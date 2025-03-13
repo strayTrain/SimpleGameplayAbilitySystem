@@ -1,7 +1,7 @@
 ---
 title: Installing the plugin
 layout: home
-nav_order: 4
+nav_order: 2
 ---
 
 # Installing SimpleGAS
@@ -11,8 +11,10 @@ Getting SimpleGAS up and running in your Unreal Engine project is pretty straigh
 {: .note }
 SimpleGAS requires Unreal Engine 5.2 or later.  
 If you're starting with a Blueprint-only project, follow all the steps below.  
-If you already have C++ code in your project, you can jump straight to Step 3.
+**If you already have C++ code in your project, you can jump straight to Step 3.**
 
+
+---
 
 <details markdown="1">
   <summary>Step 1: Convert Your Blueprint Project to C++</summary>
@@ -49,11 +51,13 @@ Blueprint projects don't come with Visual Studio solution files or C++ support b
 1. [Download or clone the SimpleGAS repository](https://github.com/strayTrain/SimpleGameplayAbilitySystem) and place it in your project's Plugins folder
    - If your project doesn't have a Plugins folder yet, create one
    - For example, if your project is at `C:\Projects\MyGame`, place SimpleGAS in `C:\Projects\MyGame\Plugins\SimpleGameplayAbilitySystem`
-   - ![windows example of the project folder](../images/installed_plugin_directory.png)
+   - ![windows example of the project folder](installed_plugin_directory.png)
 2. Rebuild your project and launch the editor
 3. The plugin should be enabled by default, but you can verify by going to **Edit** > **Plugins** and searching for "SimpleGameplayAbilitySystem"
 
 </details>
+
+---
 
 That's it! SimpleGAS is now installed and ready to use in your project.
 

@@ -325,6 +325,92 @@ struct TStructOpsTypeTraits<FStructAttributeContainer> : public TStructOpsTypeTr
 	};
 };
 
+USTRUCT(BlueprintType)
+struct FGameplayTagCounter : public FFastArraySerializerItem
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag GameplayTag;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	int32 ReferenceCounter;
+
+	bool operator==(const FGameplayTagCounter& Other) const
+	{
+		return GameplayTag.MatchesTagExact(Other.GameplayTag);
+	}
+
+	friend uint32 GetTypeHash(const FGameplayTagCounter& GameplayTagCounter)
+	{
+		return GetTypeHash(GameplayTagCounter.GameplayTag);
+	}
+};
+
+DECLARE_DELEGATE_OneParam(FOnGameplayTagCounterAdded, const FGameplayTagCounter&);
+DECLARE_DELEGATE_OneParam(FOnGameplayTagCounterChanged, const FGameplayTagCounter&);
+DECLARE_DELEGATE_OneParam(FOnGameplayTagCounterRemoved, const FGameplayTagCounter&);
+
+USTRUCT()
+struct FGameplayTagCounterContainer : public FFastArraySerializer
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, meta = (TitleProperty = "GameplayTag"))
+	TArray<FGameplayTagCounter> Tags;
+
+	FOnGameplayTagCounterAdded   OnGameplayTagCounterAdded;
+	FOnGameplayTagCounterChanged OnGameplayTagCounterChanged;
+	FOnGameplayTagCounterRemoved OnGameplayTagCounterRemoved;
+	
+	void PostReplicatedAdd(const TArrayView< int32 >& AddedIndices, int32 FinalSize)
+	{
+		if (OnGameplayTagCounterAdded.IsBound())
+		{
+			for (const int32 AddedIndex : AddedIndices)
+			{
+				OnGameplayTagCounterAdded.Execute(Tags[AddedIndex]);
+			}
+		}
+	}
+	
+	void PostReplicatedChange(const TArrayView< int32 >& ChangedIndices, int32 FinalSize)
+	{
+		if (OnGameplayTagCounterChanged.IsBound())
+		{
+			for (const int32 ChangedIndex : ChangedIndices)
+			{
+				OnGameplayTagCounterChanged.Execute(Tags[ChangedIndex]);
+			}
+		}
+	}
+
+	void PreReplicatedRemove (const TArrayView< int32 >& RemovedIndices, int32 FinalSize)
+	{
+		if (OnGameplayTagCounterRemoved.IsBound())
+		{
+			for (const int32 RemovedIndex : RemovedIndices)
+			{
+				OnGameplayTagCounterRemoved.Execute(Tags[RemovedIndex]);
+			}
+		}
+	}
+
+	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
+	{
+		return FFastArraySerializer::FastArrayDeltaSerialize<FGameplayTagCounter, FGameplayTagCounterContainer>(Tags, DeltaParms, *this);
+	}
+};
+
+template<>
+struct TStructOpsTypeTraits<FGameplayTagCounterContainer> : public TStructOpsTypeTraitsBase2<FGameplayTagCounterContainer>
+{
+	enum 
+	{
+		WithNetDeltaSerializer = true,
+	};
+};
+
 UENUM(BlueprintType)
 enum class EFlowControl : uint8
 {

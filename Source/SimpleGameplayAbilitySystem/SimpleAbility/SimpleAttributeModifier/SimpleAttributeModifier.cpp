@@ -23,13 +23,13 @@ bool USimpleAttributeModifier::CanApplyModifierInternal(FInstancedStruct Modifie
 		return false;
 	}
 	
-	if (!TargetAbilityComponent->GameplayTags.HasAllExact(TargetRequiredTags))
+	if (!TargetAbilityComponent->HasAllGameplayTags(TargetRequiredTags))
 	{
 		UE_LOG(LogSimpleGAS, Warning, TEXT("Target does not have required tags in USimpleAttributeModifier::CanApplyModifierInternal"));
 		return false;
 	}
 	
-	if (TargetAbilityComponent->GameplayTags.HasAnyExact(TargetBlockingTags))
+	if (TargetAbilityComponent->HasAnyGameplayTags(TargetBlockingTags))
 	{
 		UE_LOG(LogSimpleGAS, Warning, TEXT("Target has blocking tags in USimpleAttributeModifier::CanApplyModifierInternal"));
 		return false;
@@ -66,7 +66,7 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 	// Check if we can apply the modifier
 	if (!CanApplyModifierInternal(ModifierContext) || !CanApplyModifier(ModifierContext))
 	{
-		EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+		EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 		
 		return false;
 	}
@@ -92,8 +92,8 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 		if (USimpleEventSubsystem* EventSubsystem = Instigator->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
 		{
 			FGameplayTagContainer EventTags;
-			EventTags.AddTag(FDefaultTags::GameplayTagAdded);
-			EventTags.AddTag(FDefaultTags::GameplayTagRemoved);
+			EventTags.AddTag(FDefaultTags::GameplayTagAdded());
+			EventTags.AddTag(FDefaultTags::GameplayTagRemoved());
     
 			FSimpleEventDelegate EventDelegate;
 			EventDelegate.BindDynamic(this, &USimpleAttributeModifier::OnTagsChanged);
@@ -116,7 +116,7 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 				DurationTimerHandle,
 				[this]()
 				{
-					EndModifier(FDefaultTags::AbilityEndedSuccessfully, FInstancedStruct());
+					EndModifier(FDefaultTags::AbilityEndedSuccessfully(), FInstancedStruct());
 				},
 				Duration,
 				false
@@ -135,7 +135,7 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 						{
 							case EDurationTickTagRequirementBehaviour::CancelOnTagRequirementFailed:
 								ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierTickCancel);
-								EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+								EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 								return;
 							case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
 								UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeModifier::ApplyModifier]: tag requirement failed on tick. Skipping modification."));
@@ -172,11 +172,11 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 	if (ApplyModifiersInternal(EAttributeModifierSideEffectTrigger::OnInstantModifierEndedSuccess))
 	{
 		OnPostApplyModifier();
-		EndModifier(FDefaultTags::AbilityEndedSuccessfully, FInstancedStruct());
+		EndModifier(FDefaultTags::AbilityEndedSuccessfully(), FInstancedStruct());
 		return true;
 	}
 
-	EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+	EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 	return false;
 }
 
@@ -240,7 +240,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 		{
 			if (ModifiedStructAttributes.Contains(Attribute.AttributeTag))
 			{
-				TargetAbilityComponent->SetStructAttributeValue(Attribute.AttributeTag, Attribute.AttributeValue);
+				TargetAbilityComponent->SetStructAttributeValue(Attribute.AttributeTag, Attribute.AttributeValue, FGameplayTagContainer());
 			}
 		}
 	}
@@ -258,7 +258,7 @@ void USimpleAttributeModifier::EndModifier(const FGameplayTag EndingStatus, cons
 		EventSubsystem->StopListeningForAllEvents(this);
 	}
 
-	if (EndingStatus == FDefaultTags::AbilityCancelled)
+	if (EndingStatus.MatchesTagExact(FDefaultTags::AbilityCancelled()))
 	{
 		for (const FGameplayTag& Tag : PermanentlyAppliedTags)
 		{
@@ -268,12 +268,12 @@ void USimpleAttributeModifier::EndModifier(const FGameplayTag EndingStatus, cons
 
 	if (ModifierType == EAttributeModifierType::Instant)
 	{
-		if (EndingStatus == FDefaultTags::AbilityCancelled)
+		if (EndingStatus.MatchesTagExact(FDefaultTags::AbilityCancelled()))
 		{
 			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnInstantModifierEndedCancel);
 		}
 
-		if (EndingStatus == FDefaultTags::AbilityEndedSuccessfully)
+		if (EndingStatus.MatchesTagExact(FDefaultTags::AbilityEndedSuccessfully()))
 		{
 			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnInstantModifierEndedSuccess);
 		}
@@ -286,12 +286,12 @@ void USimpleAttributeModifier::EndModifier(const FGameplayTag EndingStatus, cons
 			TargetAbilityComponent->RemoveGameplayTag(Tag, FInstancedStruct());
 		}
 
-		if (EndingStatus == FDefaultTags::AbilityCancelled)
+		if (EndingStatus.MatchesTagExact(FDefaultTags::AbilityCancelled()))
 		{
 			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierEndedCancel);
 		}
 
-		if (EndingStatus == FDefaultTags::AbilityEndedSuccessfully)
+		if (EndingStatus.MatchesTagExact(FDefaultTags::AbilityEndedSuccessfully()))
 		{
 			ApplyModifiersInternal(EAttributeModifierSideEffectTrigger::OnDurationModifierEndedSuccess);
 			ApplySideEffects(InstigatorAbilityComponent, TargetAbilityComponent, EAttributeModifierSideEffectTrigger::OnDurationModifierEndedSuccess);
@@ -577,35 +577,31 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 			ModifierResult.AppliedAbilitySideEffects.Add(AbilitySideEffect);
 
 			FGuid AbilityID = FGuid::NewGuid();
-			bool ShouldTrackState = true;
 			
 			switch (AbilitySideEffect.ActivationPolicy)
 			{
 				case EAbilityActivationPolicy::LocalOnly:
-					ShouldTrackState = false;
-					ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload, ShouldTrackState);
+					ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload);
 					break;
 
 				case EAbilityActivationPolicy::ClientOnly:
-					ShouldTrackState = false;
 					if (IsClient)
 					{
-						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload, ShouldTrackState);
+						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload);
 					}
 					break;
 
 				case EAbilityActivationPolicy::ServerOnly:
-					ShouldTrackState = false;
 					if (IsServer)
 					{
-						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload, ShouldTrackState);
+						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload);
 					}
 					break;
 				
 				case EAbilityActivationPolicy::ClientPredicted:
 					if (IsClient && !(IsListenServer || IsServer))
 					{
-						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload, ShouldTrackState);
+						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload);
 					}
 					break;
 				
@@ -613,7 +609,7 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 				case EAbilityActivationPolicy::ServerAuthority:
 					if (IsServer)
 					{
-						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload, ShouldTrackState);
+						ActivatingAbilityComponent->ActivateAbilityWithID(AbilityID, AbilitySideEffect.AbilityClass, Payload);
 					}
 					break;
 			}
@@ -676,7 +672,7 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 	
 	FSimpleAbilitySnapshot Snapshot;
 	Snapshot.AbilityID = AbilityInstanceID;
-	Snapshot.SnapshotTag  = FDefaultTags::AttributeModifierApplied;
+	Snapshot.SnapshotTag = FDefaultTags::AttributeModifierApplied();
 	Snapshot.TimeStamp = OwningAbilityComponent->GetServerTime();
 
 	// ApplyServerOnly means we don't want to replicate any side effects so we clear the modifier result
@@ -730,7 +726,7 @@ void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag
 			switch (TickTagRequirementBehaviour)
 			{
 				case EDurationTickTagRequirementBehaviour::CancelOnTagRequirementFailed:
-					EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+					EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 					return;;
 				case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
 					return;
@@ -759,8 +755,7 @@ void USimpleAttributeModifier::ClientFastForwardState(FGameplayTag StateTag, FSi
 	for (const FAbilitySideEffect& AuthoritySideEffect : AuthorityModifierResult->AppliedAbilitySideEffects)
 	{
 		USimpleGameplayAbilityComponent* ActivatingAbilityComponent = AuthoritySideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? AuthorityModifierResult->Instigator : AuthorityModifierResult->Target;
-		FGuid AbilityID;
-		ActivatingAbilityComponent->ActivateAbility(AuthoritySideEffect.AbilityClass, AuthoritySideEffect.AbilityContext, true, AuthoritySideEffect.ActivationPolicy);
+		ActivatingAbilityComponent->ActivateAbilityWithID(FGuid::NewGuid(), AuthoritySideEffect.AbilityClass, AuthoritySideEffect.AbilityContext, true, AuthoritySideEffect.ActivationPolicy);
 	}
 }
 
@@ -793,8 +788,8 @@ void USimpleAttributeModifier::ClientResolvePastState(FGameplayTag StateTag, FSi
             // Activate the side effect that was not predicted
         	SIMPLE_LOG(this, FString::Printf(TEXT("ClientResolvePastState: Activating ability side effect %s"), *AuthoritySideEffect.AbilityClass->GetName()));
             USimpleGameplayAbilityComponent* ActivatingAbilityComponent = AuthoritySideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? InstigatorAbilityComponent : TargetAbilityComponent;
-        	FGuid AbilityID;
-            ActivatingAbilityComponent->ActivateAbility(AuthoritySideEffect.AbilityClass, AuthoritySideEffect.AbilityContext, true, AuthoritySideEffect.ActivationPolicy);
+        	
+            ActivatingAbilityComponent->ActivateAbilityWithID(FGuid::NewGuid(), AuthoritySideEffect.AbilityClass, AuthoritySideEffect.AbilityContext, true, AuthoritySideEffect.ActivationPolicy);
         }
     }
 

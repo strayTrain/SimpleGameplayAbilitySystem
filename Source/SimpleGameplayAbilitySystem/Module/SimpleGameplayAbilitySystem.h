@@ -20,7 +20,7 @@ static void SIMPLE_LOG(UObject* WorldContext, FString Msg)
 		return;
 	}
 
-	FString NetPrefix = World->IsNetMode(NM_Client) ? "[CLIENT]" : "[SERVER]";
+	FString NetPrefix = World->GetNetMode() < NM_Client ? "[SERVER]" : "[CLIENT]";
 	UE_LOG(LogSimpleGAS, Log, TEXT("%s %s"), *NetPrefix, *Msg);
 }
 

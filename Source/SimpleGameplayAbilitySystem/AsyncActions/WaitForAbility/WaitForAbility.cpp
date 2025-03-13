@@ -74,7 +74,7 @@ void UWaitForAbility::Activate()
 	WaitForAbilityEndedDelegate.BindDynamic(this, &UWaitForAbility::OnWaitAbilityEndedEventReceived);
 	EventSubsystem->ListenForEvent(
 		this,true,
-		FGameplayTagContainer(FDefaultTags::WaitForAbilityEnded),
+		FGameplayTagContainer(FDefaultTags::WaitForAbilityEnded()),
 		FGameplayTagContainer(),
 		WaitForAbilityEndedDelegate,
 		TArray<UScriptStruct*>({FSimpleAbilityEndedEvent::StaticStruct()}),
@@ -94,7 +94,7 @@ void UWaitForAbility::Activate()
 	AbilityEndedDelegate.BindDynamic(this, &UWaitForAbility::OnAbilityEndedEventReceived);
 	EventSubsystem->ListenForEvent(
 		this,true,
-		FGameplayTagContainer(FDefaultTags::AbilityEnded),
+		FGameplayTagContainer(FDefaultTags::AbilityEnded()),
 		FGameplayTagContainer(),
 		AbilityEndedDelegate,
 		TArray<UScriptStruct*>({FSimpleAbilityEndedEvent::StaticStruct()}),
@@ -105,7 +105,6 @@ void UWaitForAbility::Activate()
 		ActivatedAbilityID,
 		AbilityClass,
 		AbilityPayload,
-		false,
 		true,
 		EAbilityActivationPolicy::LocalOnly);
 }
@@ -127,8 +126,8 @@ void UWaitForAbility::OnAbilityEndedEventReceived(FGameplayTag AbilityTag, FGame
 	
 	USimpleGameplayAbilityComponent* OwningAbilityComponent = ActivatorAbility->OwningAbilityComponent;
 	OwningAbilityComponent->SendEvent(
-		FDefaultTags::WaitForAbilityEnded,
-		EndedEvent.EndStatus,
+		FDefaultTags::WaitForAbilityEnded(),
+		EndedEvent.EndStatusTag,
 		FInstancedStruct::Make(EndedEvent),
 		OwningAbilityComponent->GetAvatarActor(),
 		{}, ReplicationPolicy);

@@ -58,6 +58,21 @@ enum class EAbilityActivationPolicy :uint8
 };
 
 UENUM(BlueprintType)
+enum class ESubAbilityActivationPolicy :uint8
+{
+	/** The sub ability will activate locally on both the server and client version of the parent ability */
+	NoReplication,
+	/** The sub ability will activate only on the client with a replication policy of ClientOnly */
+	ClientOnly,
+	/** The sub ability will activate only on the client  with a replication policy of ClientPredicted */
+	InitiateFromClient,
+	/** The sub ability will activate only on the server with a replication policy of ServerOnly */
+	ServerOnly,
+	/** The sub ability will activate only on the server with a replication policy of ServerAuthority */
+	InitiateFromServer,
+};
+
+UENUM(BlueprintType)
 enum class EAbilityInstancingPolicy : uint8
 {
 	/**
@@ -88,6 +103,15 @@ enum class EAbilityStatus :uint8
 	EndedCancelled,
 	/* The ability was ended with a custom status */
 	EndedCustomStatus,
+};
+
+UENUM(BlueprintType)
+enum class EAbilityServerRole :uint8
+{
+	/* This ability is running on either a dedicated server or a listen server or a single player game */
+	Server,
+	/* This ability is running on a client or listen server (because they're also clients) */
+	Client,
 };
 
 /* Structs */
@@ -249,10 +273,16 @@ struct FSimpleAbilityEndedEvent
 	FGuid AbilityID;
 	
 	UPROPERTY(BlueprintReadWrite)
-	FGameplayTag EndStatus;
+	FGameplayTag EndStatusTag;
 
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct EndingContext;
+	
+	UPROPERTY(BlueprintReadWrite)
+	EAbilityStatus NewAbilityStatus = EAbilityStatus::EndedCustomStatus;
+
+	UPROPERTY(BlueprintReadWrite)
+	bool WasCancelled;
 };
 
 /* Delegates */

@@ -108,7 +108,7 @@ bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(
 					return true;
 				}
 
-				InstancedModifier->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+				InstancedModifier->EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 			}
 
 			Modifier = InstancedModifier;
@@ -172,7 +172,7 @@ void USimpleGameplayAbilityComponent::CancelAttributeModifier(FGuid ModifierID)
 	{
 		if (ModifierInstance->ModifierType == EAttributeModifierType::Duration && ModifierInstance->IsModifierActive())
 		{
-			ModifierInstance->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+			ModifierInstance->EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 			return;
 		}
 	}
@@ -191,7 +191,7 @@ void USimpleGameplayAbilityComponent::CancelAttributeModifier(FGuid ModifierID)
 				{
 					if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilitySideEffect.AbilityInstanceID))
 					{
-						AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled, FInstancedStruct());
+						AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 					}
 				}
 			}
@@ -203,7 +203,7 @@ void USimpleGameplayAbilityComponent::CancelAttributeModifier(FGuid ModifierID)
 				{
 					if (USimpleAttributeModifier* AttributeModifierInstance = GetAttributeModifierInstance(AttributeModifier.AttributeID))
 					{
-						AttributeModifierInstance->EndModifier(FDefaultTags::AbilityCancelled, FInstancedStruct());
+						AttributeModifierInstance->EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 					}
 				}
 			}
@@ -334,27 +334,27 @@ bool USimpleGameplayAbilityComponent::SetFloatAttributeValue(EAttributeValueType
 	{
 		case EAttributeValueType::BaseValue:
 			Attribute->BaseValue = ClampedValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, AttributeTag, ValueType, ClampedValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged(), AttributeTag, ValueType, ClampedValue);
 			break;
 		case EAttributeValueType::CurrentValue:
 			Attribute->CurrentValue = ClampedValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, AttributeTag, ValueType, ClampedValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged(), AttributeTag, ValueType, ClampedValue);
 			break;
 		case EAttributeValueType::MaxCurrentValue:
 			Attribute->ValueLimits.MaxCurrentValue = ClampedValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, AttributeTag, ValueType, ClampedValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged(), AttributeTag, ValueType, ClampedValue);
 			break;
 		case EAttributeValueType::MinCurrentValue:
 			Attribute->ValueLimits.MinCurrentValue = ClampedValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, AttributeTag, ValueType, ClampedValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged(), AttributeTag, ValueType, ClampedValue);
 			break;
 		case EAttributeValueType::MaxBaseValue:
 			Attribute->ValueLimits.MaxBaseValue = ClampedValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, AttributeTag, ValueType, ClampedValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged(), AttributeTag, ValueType, ClampedValue);
 			break;
 		case EAttributeValueType::MinBaseValue:
 			Attribute->ValueLimits.MinBaseValue = ClampedValue;
-			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, AttributeTag, ValueType, ClampedValue);
+			SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged(), AttributeTag, ValueType, ClampedValue);
 			break;
 	}
 
@@ -416,7 +416,7 @@ FInstancedStruct USimpleGameplayAbilityComponent::GetStructAttributeValue(FGamep
 	return FInstancedStruct();
 }
 
-bool USimpleGameplayAbilityComponent::SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue)
+bool USimpleGameplayAbilityComponent::SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue, FGameplayTagContainer ModificationEvents)
 {
 	FStructAttribute* Attribute = GetStructAttribute(AttributeTag);
 	
@@ -431,6 +431,11 @@ bool USimpleGameplayAbilityComponent::SetStructAttributeValue(FGameplayTag Attri
 	if (HasAuthority())
 	{
 		AuthorityStructAttributes.MarkItemDirty(*Attribute);
+	}
+	
+	for (const FGameplayTag& ModificationEvent : ModificationEvents)
+	{
+		SendEvent(FDefaultTags::StructAttributeValueChanged(), ModificationEvent, NewValue, GetOwner(), {GetOwner()}, ESimpleEventReplicationPolicy::NoReplication);
 	}
 	
 	return true;
@@ -484,32 +489,32 @@ void USimpleGameplayAbilityComponent::CompareFloatAttributesAndSendEvents(const 
 {
 	if (OldAttribute.BaseValue != NewAttribute.BaseValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::BaseValue, NewAttribute.BaseValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeBaseValueChanged(), NewAttribute.AttributeTag, EAttributeValueType::BaseValue, NewAttribute.BaseValue);
 	}
 
 	if (NewAttribute.ValueLimits.UseMaxBaseValue && OldAttribute.ValueLimits.MaxBaseValue != NewAttribute.ValueLimits.MaxBaseValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MaxBaseValue, NewAttribute.ValueLimits.MaxBaseValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxBaseValueChanged(), NewAttribute.AttributeTag, EAttributeValueType::MaxBaseValue, NewAttribute.ValueLimits.MaxBaseValue);
 	}
 
 	if (NewAttribute.ValueLimits.UseMinBaseValue && OldAttribute.ValueLimits.MinBaseValue != NewAttribute.ValueLimits.MinBaseValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MinBaseValue, NewAttribute.ValueLimits.MinBaseValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinBaseValueChanged(), NewAttribute.AttributeTag, EAttributeValueType::MinBaseValue, NewAttribute.ValueLimits.MinBaseValue);
 	}
 	
 	if (OldAttribute.CurrentValue != NewAttribute.CurrentValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::CurrentValue, NewAttribute.CurrentValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeCurrentValueChanged(), NewAttribute.AttributeTag, EAttributeValueType::CurrentValue, NewAttribute.CurrentValue);
 	}
 	
 	if (NewAttribute.ValueLimits.UseMaxCurrentValue && OldAttribute.ValueLimits.MaxCurrentValue != NewAttribute.ValueLimits.MaxCurrentValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MaxCurrentValue, NewAttribute.ValueLimits.MaxCurrentValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMaxCurrentValueChanged(), NewAttribute.AttributeTag, EAttributeValueType::MaxCurrentValue, NewAttribute.ValueLimits.MaxCurrentValue);
 	}
 
 	if (NewAttribute.ValueLimits.UseMinCurrentValue && OldAttribute.ValueLimits.MinCurrentValue != NewAttribute.ValueLimits.MinCurrentValue)
 	{
-		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged, NewAttribute.AttributeTag, EAttributeValueType::MinCurrentValue, NewAttribute.ValueLimits.MinCurrentValue);
+		SendFloatAttributeChangedEvent(FDefaultTags::FloatAttributeMinCurrentValueChanged(), NewAttribute.AttributeTag, EAttributeValueType::MinCurrentValue, NewAttribute.ValueLimits.MinCurrentValue);
 	}
 }
 
@@ -523,7 +528,7 @@ void USimpleGameplayAbilityComponent::SendFloatAttributeChangedEvent(FGameplayTa
 		Payload.NewValue = NewValue;
 
 		const FInstancedStruct EventPayload = FInstancedStruct::Make(Payload);
-		const FGameplayTag DomainTag = HasAuthority() ? FDefaultTags::AuthorityDomain : FDefaultTags::LocalDomain;
+		const FGameplayTag DomainTag = HasAuthority() ? FDefaultTags::AuthorityAttributeDomain() : FDefaultTags::LocalAttributeDomain();
 		
 		EventSubsystem->SendEvent(EventTag, DomainTag, EventPayload, GetOwner(), {});
 	}
@@ -537,8 +542,7 @@ void USimpleGameplayAbilityComponent::ApplyAbilitySideEffects(USimpleGameplayAbi
 {
 	for (const FAbilitySideEffect& SideEffect : AbilitySideEffects)
 	{
-		FGuid ModifierID;
-		Instigator->ActivateAbility(SideEffect.AbilityClass, SideEffect.AbilityContext, true, SideEffect.ActivationPolicy);
+		Instigator->ActivateAbilityWithID(FGuid::NewGuid(), SideEffect.AbilityClass, SideEffect.AbilityContext, true, SideEffect.ActivationPolicy);
 	}
 }
 

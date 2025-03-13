@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "SimpleAttributeModifierTypes.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "SimpleAttributeModifier.generated.h"
 
