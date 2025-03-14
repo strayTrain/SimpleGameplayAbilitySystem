@@ -7,6 +7,8 @@ nav_order: 2
 
 # Simple Gameplay Ability Component
 
+## Overview
+
 The Simple Gameplay Ability Component is the core manager for your game's ability system. It ties together abilities, attributes, and gameplay tags, serving as the central hub for gameplay mechanics. This component can be attached to any actor that needs to use abilities or have attributes.
 
 Think of it as the "character sheet" for your actors that:
@@ -16,173 +18,515 @@ Think of it as the "character sheet" for your actors that:
 - Handles ability activation and networking
 - Provides an event system for gameplay communication
 
-## Table of Contents
+## Table of contents
+{: .no_toc .text-delta }
 
-- [Variables](#variables)
-- [Ability Functions](#ability-functions)
-- [Tag Functions](#tag-functions)
-- [Attribute Functions](#attribute-functions)
-- [Event Functions](#event-functions)
-- [Utility Functions](#utility-functions)
+1. TOC
+{:toc}
 
-## Variables
+<div class="api-docs" markdown="1">
+
+## Properties
 
 | Name | Type | Description |
 |:-----|:-----|:------------|
 | Avatar Actor | Actor Reference | The Actor that this ability component controls |
+| Ability Sets | Array of Ability Set References | Sets containing predefined abilities to grant |
+| Ability Override Sets | Array of Ability Override Set References | Sets containing predefined ability overrides |
 | Granted Abilities | Array of Simple Gameplay Ability Class References | Abilities that are granted to this component |
 | Active Ability Overrides | Array of Ability Override | Abilities that override other abilities |
 | Attribute Sets | Array of Attribute Set References | Sets containing predefined attributes |
-| Ability Override Sets | Array of Ability Override Set References | Sets containing predefined ability overrides |
+| Float Attributes | Array of Float Attributes | Float attributes to initialize on this component |
+| Struct Attributes | Array of Struct Attributes | Struct attributes to initialize on this component |
+
+## Avatar Actor Functions
+
+### GetAvatarActor
+
+Returns the avatar actor that this ability component is controlling. The avatar is the actor that performs abilities.
+
+**Parameters:**
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | Actor | The avatar actor or null if none has been set |
+
+### SetAvatarActor
+
+Sets the avatar actor for this ability component. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| New Avatar Actor | Actor | The actor to set as the avatar |
+
+### IsAvatarActorOfType
+
+Checks if the avatar actor is of a specific type. Useful for ensuring abilities only activate with appropriate avatar types.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Avatar Class | TSubclassOf&lt;Actor&gt; | The class to check against |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the avatar actor is of the specified type, false otherwise |
 
 ## Ability Functions
 
-### Activation
+### GrantAbility
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Activate Ability | Activates an ability class | Ability Class, Ability Context, Override Activation Policy (optional), Activation Policy Override (optional) | Success (bool), Ability ID (GUID) |
-| Activate Ability With ID | Activates an ability with a specific ID | Ability ID, Ability Class, Ability Context, Override Activation Policy (optional), Activation Policy Override (optional) | Success (bool) |
-| Cancel Ability | Cancels a running ability | Ability ID, Cancellation Context (optional) | Success (bool) |
-| Cancel Abilities With Tags | Cancels all running abilities that have any of the specified tags | Tags, Cancellation Context (optional) | Cancelled Ability IDs (Array of GUIDs) |
-| Is Ability On Cooldown | Checks if an ability is on cooldown | Ability Class | Is On Cooldown (bool) |
-| Get Ability Cooldown Time Remaining | Gets the remaining cooldown time for an ability | Ability Class | Time Remaining (float) |
-| Is Any Ability Active | Checks if any ability is currently active | None | Is Active (bool) |
+Grants an ability to this component, allowing it to be activated. This function is available only on the server.
 
-### Management
+**Parameters:**
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Grant Ability | Grants an ability to this component | Ability Class | None |
-| Revoke Ability | Revokes an ability from this component | Ability Class | None |
-| Add Ability Override | Adds an ability override | Original Ability Class, Override Ability Class | None |
-| Remove Ability Override | Removes an ability override | Original Ability Class | None |
-| Does Ability Have Override | Checks if an ability has an override | Ability Class | Has Override (bool) |
-| Is Avatar Actor Of Type | Checks if the avatar actor is of a specific type | Actor Class | Is Of Type (bool) |
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Class | TSubclassOf&lt;USimpleGameplayAbility&gt; | The class of the ability to grant |
 
-## Tag Functions
+### RevokeAbility
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Add Gameplay Tag | Adds a gameplay tag to this component | Tag, Payload (optional) | None |
-| Remove Gameplay Tag | Removes a gameplay tag from this component | Tag, Payload (optional) | None |
-| Has Gameplay Tag | Checks if this component has a specific gameplay tag | Tag | Has Tag (bool) |
-| Has All Gameplay Tags | Checks if this component has all specified gameplay tags | Tags | Has All Tags (bool) |
-| Has Any Gameplay Tags | Checks if this component has any of the specified gameplay tags | Tags | Has Any Tags (bool) |
+Revokes a previously granted ability from this component. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Class | TSubclassOf&lt;USimpleGameplayAbility&gt; | The class of the ability to revoke |
+
+### AddAbilityOverride
+
+Defines an ability override, which replaces one ability with another. Useful for equipment or status effects that modify abilities. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability | TSubclassOf&lt;USimpleGameplayAbility&gt; | The original ability class to be overridden |
+| Override Ability | TSubclassOf&lt;USimpleGameplayAbility&gt; | The ability class that will replace the original |
+
+### RemoveAbilityOverride
+
+Removes a previously defined ability override. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability | TSubclassOf&lt;USimpleGameplayAbility&gt; | The original ability class whose override should be removed |
+
+### DoesAbilityHaveOverride
+
+Checks if an ability has an override set for it on this ability component.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Class | TSubclassOf&lt;USimpleGameplayAbility&gt; | The class of the ability to check |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the ability has an override, false otherwise |
+
+### ActivateAbility
+
+Activates an ability on this component. This is the main function for initiating abilities.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Class | TSubclassOf&lt;USimpleGameplayAbility&gt; | The class of the ability to activate |
+| Ability Context | FInstancedStruct | Context data for the ability activation |
+| Override Activation Policy | bool | Whether to override the ability's default activation policy |
+| Activation Policy Override | EAbilityActivationPolicy | The activation policy to use if overriding: <br> - `LocalOnly`: Activates on client or server but doesn't replicate (best for single-player or cosmetic effects). <br> - `ClientOnly`: Only activates on clients (for client-side effects). <br> - `ServerOnly`: Only activates on server without replicating to clients. <br> - `ClientPredicted`: Client activates immediately then sends request to server; supports state snapshots and prediction. <br> - `ServerInitiatedFromClient`: Client requests activation, server runs first, then replicates to client. <br> - `ServerAuthority`: Only activates on server but replicates to clients. |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Was Activated | bool | Whether the ability was successfully activated |
+| Ability ID | FGuid | The unique ID of the activated ability instance |
+
+### CancelAbility
+
+Cancels a running ability. The ability will only be cancelled if it allows cancellation through its CanCancel function.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Instance ID | FGuid | The ID of the ability instance to cancel |
+| Cancellation Context | FInstancedStruct | Optional context data for the cancellation |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the ability was successfully cancelled |
+
+### CancelAbilitiesWithTags
+
+Cancels all running abilities that have any of the specified tags. Useful for cancelling groups of related abilities.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tags | FGameplayTagContainer | The tags to check against |
+| Cancellation Context | FInstancedStruct | Optional context data for the cancellation |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | TArray&lt;FGuid&gt; | Array of ability IDs that were cancelled |
+
+### IsAbilityOnCooldown
+
+Checks if an ability is currently on cooldown and cannot be activated.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Class | TSubclassOf&lt;USimpleGameplayAbility&gt; | The class of the ability to check |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the ability is on cooldown, false otherwise |
+
+### GetAbilityCooldownTimeRemaining
+
+Gets the remaining cooldown time for an ability in seconds.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Ability Class | TSubclassOf&lt;USimpleGameplayAbility&gt; | The class of the ability to check |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | float | Remaining cooldown time in seconds (0 if not on cooldown) |
+
+### IsAnyAbilityActive
+
+Checks if any ability is currently active on this component.
+
+**Parameters:**
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if any ability is active, false otherwise |
 
 ## Attribute Functions
 
-### Float Attributes
+### AddFloatAttribute
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Add Float Attribute | Adds a float attribute to this component | Float Attribute, Override If Exists (optional) | None |
-| Remove Float Attribute | Removes a float attribute from this component | Attribute Tag | None |
-| Has Float Attribute | Checks if this component has a specific float attribute | Attribute Tag | Has Attribute (bool) |
-| Get Float Attribute Value | Gets the value of a float attribute | Value Type, Attribute Tag | Was Found (bool), Value (float) |
-| Set Float Attribute Value | Sets the value of a float attribute | Value Type, Attribute Tag, New Value | Success (bool), Overflow (float) |
-| Increment Float Attribute Value | Increments the value of a float attribute | Value Type, Attribute Tag, Increment | Success (bool), Overflow (float) |
-| Override Float Attribute | Completely replaces a float attribute | Attribute Tag, New Attribute | Success (bool) |
+Adds a float attribute to this component. This function is available only on the server.
 
-### Struct Attributes
+**Parameters:**
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Add Struct Attribute | Adds a struct attribute to this component | Struct Attribute, Override If Exists (optional) | None |
-| Remove Struct Attribute | Removes a struct attribute from this component | Attribute Tag | None |
-| Has Struct Attribute | Checks if this component has a specific struct attribute | Attribute Tag | Has Attribute (bool) |
-| Get Struct Attribute Value | Gets the value of a struct attribute | Attribute Tag | Was Found (bool), Value (Instanced Struct) |
-| Set Struct Attribute Value | Sets the value of a struct attribute | Attribute Tag, New Value, Modification Events (optional) | Success (bool) |
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute To Add | FFloatAttribute | The attribute to add with all its properties |
+| Override Values If Exists | bool | If true and the attribute already exists, replace its values |
 
-### Attribute Modifiers
+### RemoveFloatAttribute
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Apply Attribute Modifier To Target | Applies an attribute modifier to a target component | Target Component, Modifier Class, Modifier Context | Success (bool), Modifier ID (GUID) |
-| Apply Attribute Modifier To Self | Applies an attribute modifier to this component | Modifier Class, Modifier Context | Success (bool), Modifier ID (GUID) |
-| Cancel Attribute Modifier | Cancels an attribute modifier | Modifier ID | None |
-| Cancel Attribute Modifiers With Tags | Cancels all attribute modifiers with any of the specified tags | Tags | None |
+Removes a float attribute from this component. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to remove |
+
+### AddStructAttribute
+
+Adds a struct attribute to this component. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute To Add | FStructAttribute | The attribute to add with all its properties |
+| Override Values If Exists | bool | If true and the attribute already exists, replace its values |
+
+### RemoveStructAttribute
+
+Removes a struct attribute from this component. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to remove |
+
+### HasFloatAttribute
+
+Checks if this component has a specific float attribute.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to check for |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the attribute exists, false otherwise |
+
+### HasStructAttribute
+
+Checks if this component has a specific struct attribute.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to check for |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the attribute exists, false otherwise |
+
+### GetFloatAttributeValue
+
+Gets the value of a float attribute. Float attributes have multiple value types including base value, current value, min/max values, etc.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Value Type | EAttributeValueType | Which value to get: <br> - `CurrentValue`: The actual gameplay value used in calculations <br> - `BaseValue`: The base/permanent value without temporary modifications <br> - `MaxCurrentValue`: The maximum limit for CurrentValue <br> - `MinCurrentValue`: The minimum limit for CurrentValue <br> - `MaxBaseValue`: The maximum limit for BaseValue <br> - `MinBaseValue`: The minimum limit for BaseValue |
+| Attribute Tag | FGameplayTag | The tag of the attribute to get |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Was Found | bool | Whether the attribute was found |
+| Return Value | float | The value of the attribute |
+
+### SetFloatAttributeValue
+
+Sets the value of a float attribute. Handles clamping values to respect min/max limits.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Value Type | EAttributeValueType | Which value to set: <br> - `CurrentValue`: The actual gameplay value used in calculations <br> - `BaseValue`: The base/permanent value without temporary modifications <br> - `MaxCurrentValue`: The maximum limit for CurrentValue <br> - `MinCurrentValue`: The minimum limit for CurrentValue <br> - `MaxBaseValue`: The maximum limit for BaseValue <br> - `MinBaseValue`: The minimum limit for BaseValue |
+| Attribute Tag | FGameplayTag | The tag of the attribute to set |
+| New Value | float | The new value to set |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | Whether the operation was successful |
+| Overflow | float | Any excess value that couldn't be applied due to clamping |
+
+### OverrideFloatAttribute
+
+Completely replaces a float attribute with a new one. This function is available only on the server.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to override |
+| New Attribute | FFloatAttribute | The new attribute to replace it with |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | Whether the operation was successful |
+
+### GetStructAttributeValue
+
+Gets the value of a struct attribute.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to get |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Was Found | bool | Whether the attribute was found |
+| Return Value | FInstancedStruct | The value of the attribute |
+
+### SetStructAttributeValue
+
+Sets the value of a struct attribute. Can optionally trigger events to notify other systems of the change.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Attribute Tag | FGameplayTag | The tag of the attribute to set |
+| New Value | FInstancedStruct | The new value to set |
+| Modification Events | FGameplayTagContainer | Tags for events to fire after modification |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | Whether the operation was successful |
+
+## Attribute Modifier Functions
+
+### ApplyAttributeModifierToTarget
+
+Applies an attribute modifier to a target component. Attribute modifiers can change attributes with more complex logic than direct setting.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Modifier Target | USimpleGameplayAbilityComponent* | The component to apply the modifier to |
+| Modifier Class | TSubclassOf&lt;USimpleAttributeModifier&gt; | The modifier class to apply |
+| Modifier Context | FInstancedStruct | Context data for the modifier |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | Whether the modifier was successfully applied |
+| Modifier ID | FGuid | The unique ID of the applied modifier |
+
+### ApplyAttributeModifierToSelf
+
+Applies an attribute modifier to this component. Convenience wrapper for applying a modifier to self.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Modifier Class | TSubclassOf&lt;USimpleAttributeModifier&gt; | The modifier class to apply |
+| Modifier Context | FInstancedStruct | Context data for the modifier |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | Whether the modifier was successfully applied |
+| Modifier ID | FGuid | The unique ID of the applied modifier |
+
+### CancelAttributeModifier
+
+Cancels an active attribute modifier. If the modifier is a duration type, it will end prematurely.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Modifier ID | FGuid | The ID of the modifier to cancel |
+
+### CancelAttributeModifiersWithTags
+
+Cancels all attribute modifiers that have any of the specified tags. Useful for removing groups of related effects.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tags | FGameplayTagContainer | The tags to check against |
+
+## Gameplay Tag Functions
+
+### AddGameplayTag
+
+Adds a gameplay tag to this component. If the tag already exists, its reference counter is incremented.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tag | FGameplayTag | The tag to add |
+| Payload | FInstancedStruct | Optional payload data to send with the tag added event |
+
+### RemoveGameplayTag
+
+Removes a gameplay tag from this component. If the tag is referenced multiple times, its counter is decremented.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tag | FGameplayTag | The tag to remove |
+| Payload | FInstancedStruct | Optional payload data to send with the tag removed event |
+
+### HasGameplayTag
+
+Checks if this component has a specific gameplay tag.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tag | FGameplayTag | The tag to check for |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the component has the tag |
+
+### HasAllGameplayTags
+
+Checks if this component has all of the specified gameplay tags.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tags | FGameplayTagContainer | The tags to check for |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the component has all the tags |
+
+### HasAnyGameplayTags
+
+Checks if this component has any of the specified gameplay tags.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Tags | FGameplayTagContainer | The tags to check for |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the component has any of the tags |
 
 ## Event Functions
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Send Event | Sends a gameplay event | Event Tag, Domain Tag, Payload, Sender, Listener Filter (optional), Replication Policy | None |
+### SendEvent
+
+Sends a gameplay event from this component. Events can be used for communication between game systems.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Event Tag | FGameplayTag | The main tag identifying the event |
+| Domain Tag | FGameplayTag | Secondary tag qualifying the event domain |
+| Payload | FInstancedStruct | Structured data for the event |
+| Sender | AActor* | The actor that is sending the event |
+| Listener Filter | TArray&lt;UObject*&gt; | Only send the event to these listeners |
+| Replication Policy | ESimpleEventReplicationPolicy | Controls how the event is replicated: <br> - `NoReplication`: Event is only sent locally <br> - `ServerAndOwningClient`: Event is sent from server to owning client <br> - `ServerAndOwningClientPredicted`: Event runs on client first, then is verified by server <br> - `AllConnectedClients`: Event is sent from server to all clients <br> - `AllConnectedClientsPredicted`: Event runs on client first, then is sent to all clients |
 
 ## Utility Functions
 
-| Function | Description | Inputs | Outputs |
-|:---------|:------------|:-------|:--------|
-| Get Server Time | Gets the current server time | None | Server Time (double) |
-| Get Gameplay Ability Instance | Gets an instance of an ability by ID | Ability ID | Ability Instance |
-| Get Attribute Modifier Instance | Gets an instance of an attribute modifier by ID | Attribute ID | Attribute Modifier Instance |
+### GetServerTime
 
-## Replication Modes
+Returns the current server time. On the server this is the actual server time, on clients it's their estimation of the server time.
 
-The Simple Gameplay Ability Component supports various replication policies for abilities and events:
+**Parameters:**
 
-| Policy | Description |
-|:-------|:------------|
-| No Replication | The ability or event is not replicated |
-| Server And Owning Client | The ability or event is replicated from server to the owning client only |
-| Server And Owning Client Predicted | The ability or event runs on client first (prediction) and then is verified by the server |
-| All Connected Clients | The ability or event is replicated from server to all connected clients |
-| All Connected Clients Predicted | The ability or event runs on client first (prediction) and then is replicated to all clients |
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | double | The current server time in seconds |
 
-## Example Usage
+### HasAuthority
 
-### Activating an Ability
+Checks if this component has network authority (is on the server).
 
-```
-// Create context data for the ability
-Variable Type: Instanced Struct
-Variable Name: AbilityContext
+**Parameters:**
 
-// Activate the ability
-Target: Your Ability Component
-Function: Activate Ability
-Ability Class: YourAbilityClass
-Ability Context: AbilityContext
-Success -> Branch
-Ability ID -> Store for later reference
-```
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if this component has authority |
 
-### Managing Attributes
-
-```
-// Add a health attribute
-Target: Your Ability Component
-Function: Add Float Attribute
-Attribute To Add: 
-    - Attribute Name: "Health"
-    - Attribute Tag: "Attribute.Health"
-    - Base Value: 100.0
-    - Current Value: 100.0
-    - Value Limits:
-        - Min Current Value: 0.0
-        - Max Current Value: 100.0
-        - Use Min Current Value: true
-        - Use Max Current Value: true
-Override If Exists: true
-
-// Later, apply damage
-Target: Your Ability Component
-Function: Increment Float Attribute Value
-Value Type: Current Value
-Attribute Tag: "Attribute.Health"
-Increment: -10.0 // Damage amount
-```
-
-### Using Tags
-
-```
-// Add a tag
-Target: Your Ability Component
-Function: Add Gameplay Tag
-Tag: "PlayerState.Stunned"
-
-// Cancel abilities that shouldn't run while stunned
-Target: Your Ability Component
-Function: Cancel Abilities With Tags
-Tags: ["Ability.Movement", "Ability.Attack"]
-```
+</div>

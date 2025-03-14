@@ -6,6 +6,11 @@ nav_order: 1
 ---
 
 # Simple Gameplay Abilities
+
+## Overview
+
+Simple Gameplay Abilities are self-contained units of gameplay logic that define actions or behaviors in your game. They provide a structured way to implement discrete gameplay actions like attacks, spells, skills, or movement abilities.
+
 ## Table of contents
 {: .no_toc .text-delta }
 
@@ -13,19 +18,6 @@ nav_order: 1
 {:toc}
 
 <div class="api-docs" markdown="1">
-
-## Overview
-
-Simple Gameplay Abilities are self-contained units of gameplay logic that define actions or behaviors in your game. They provide a structured way to implement discrete gameplay actions like attacks, spells, skills, or movement abilities.
-
-Key features:
-- Self-contained lifecycle (activation, execution, ending)
-- Networked replication for multiplayer
-- Client prediction support
-- Attribute modification
-- Tag-based requirements and effects
-- Ability instance management
-- Sub-ability support
 
 ## Properties
 

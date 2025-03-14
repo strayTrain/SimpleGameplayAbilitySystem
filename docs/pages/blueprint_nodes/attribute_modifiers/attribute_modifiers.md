@@ -7,291 +7,245 @@ nav_order: 3
 
 # Attribute Modifiers
 
-Attribute Modifiers are the workhorses of SimpleGAS - they're how you actually change attributes during gameplay. Need to deal damage, apply a buff, or add a status effect? Attribute Modifiers are your go-to tool.
-Think of Attribute Modifiers as specialized tools that can read, change, and track changes to attributes. They come in two flavors:
+## Overview
 
-- **Instant Modifiers**: Apply their changes immediately and are done (like dealing damage)
-- **Duration Modifiers**: Stick around for a while, doing their thing repeatedly (like poison damage over time)
-
-At their core, Attribute Modifiers take an attribute and say "change this value in this way." They can:
-
-- Add or subtract from an attribute
-- Multiply an attribute by some value
-- Override an attribute with a new value
+Attribute Modifiers are specialized abilities that change attributes with sophisticated rules. They're the workhorses of SimpleGAS - the primary mechanism for modifying attributes during gameplay. Need to deal damage, apply a buff, or add a status effect? Attribute Modifiers are your go-to tool.
 
-But they can do much more than just basic math! Modifiers can:
+Attribute Modifiers come in two main types:
+- **Instant Modifiers**: Apply their changes immediately and then end (like damage)
+- **Duration Modifiers**: Persist for a period, potentially applying effects repeatedly (like damage over time)
 
-- Chain together multiple attribute changes
-- Trigger side effects like visual effects or sounds
-- Activate other abilities
-- Apply gameplay tags to mark states
-- Remove or cancel other modifiers
-
-<details markdown="1">
-  <summary>Variables</summary>
-
-| Name        | Type |Description |
-|:-------------|:------------------|:------------------|
-| OwningAbilityComponent| Actor Reference | A reference to the ability component that owns this ability. This is set when the ability is activated and can be used to access the component's attributes and other functions. |
-| CanTick| Bool | a boolean that determines if the ability should tick every frame and call `OnTick`. If set to false, the ability will not tick. |
-| Activation Policy| Enum | An enum that controls where the ability can be activated: <br> - `LocalOnly`: Can be activated on client or server, not replicated. Useful for local effects or single player games. <br> - `ClientOnly`: Can be activated only on clients, if the server tries to activate this ability, it will fail. <br> - `ServerOnly`: Can be activated only on the server. The ability will not replicate to clients. <br> - `ClientPredicted`: When activated on the client, the ability will run on the client immediately and then a request to activate it is sent to the server. When activated on the server, the rules of ServerAuthority apply. <br> - `ServerInitiatedFromClient`: Client can request activation, server activates first and then replicates to clients. If called on the server, the rules of ServerAuthority apply. <br> - `ServerAuthority`: Can only be activated on the server but will replicate activation to clients |
-| Instancing Policy| Enum | Controls how the ability object is created and managed <br> - `SingleInstance`: Only one instance of the ability object can exist <br> - This is better for performance and memory usage but you need to remember to reset any variables between activations because the same instance is reused. <br> - `MultipleInstances`: A new ability object is created each time the ability is activated |
-| Activation Required Tags | Gameplay Tag Container | Tags that must be present on the ability component for the ability to be activated. |
-| Activation Blocking Tags | Gameplay Tag Container | Tags that will block the ability from being activated if they are present on the ability component. |
-| AbilityTags | Gameplay Tag Container | Categorizes the ability (e.g., "Ability.Attack.Melee") <br> - You can use this to cancel groups abilities with the same tags by calling `CancelAbilitiesWithTags`|
-| TemporarilyAppliedTags | Gameplay Tag Container | Tags to add to the activating ability component when this ability is activated and remove when this ability ends (e.g., "PlayerState.Attacking") |
-| PermanentlyAppliedTags | Gameplay Tag Container | Tags to add to the activating ability component when this ability is activated. Not automatically removed. |
-| Cooldown | Float | A float that determines how long the ability is on cooldown after activation. <br> - If <= 0, the ability can be activated again immediately. |
-| Required Context Type | StructType | The context passed to the ability must be of this struct type for the ability to activate. If left empty, any (or no) context type is accepted. |
-| Avatar Type Filter | Actor Class Array | The avatar of the owning ability component must be of this type for the ability to activate. If left empty, any (or no) avatar type is accepted. <br> - This is useful for abilities that are only available to certain characters or classes. |
-| Require Grant To Activate | Bool | If true, the ability must be granted to the ability component before it can be activated. If false, any ability component can activate this ability. |
-
-</details>
-
-<details markdown="1">
-  <summary>Implementable Functions</summary>
+Beyond simply changing values, Attribute Modifiers can:
+- Chain multiple attribute modifications in a single operation
+- Trigger side effects like visual effects, sounds, or animations
+- Activate other abilities as side effects
+- Apply or remove gameplay tags
+- Cancel conflicting modifiers
 
-<details markdown="1">
-  <summary>CanActivate</summary>
+## Table of contents
+{: .no_toc .text-delta }
 
-Use this to check costs, cooldowns, or other conditions.  
+1. TOC
+{:toc}
 
-- Inputs: 
-  - `ActivationContext`: Context passed to the ability when it was activated
-- Outputs: 
-  - `bool` (true if the ability can be activated, false otherwise)
-- Example:  
-  ![a screenshot of the CanActivate function](gameplay_abilities_1.png)
-
-</details>
-
-<details markdown="1">
-  <summary>PreActivate</summary>
+<div class="api-docs" markdown="1">
 
-Called before `OnActivate` if `CanActivate` returns true. Use this for ability setup and modifying resource attributes like Mana/Stamina/Energy etc.  
-
-- Inputs: 
-  - `ActivationContext`: Context passed to the ability when it was activated
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the PreActivate function](gameplay_abilities_2.png)
-
-</details>
-
-<details markdown="1">
-  <summary>OnActivate</summary>
-
-Main execution point for the ability. Remember to call `EndAbility` or `CancelAbility` when the ability is complete/cancelled.
-
-- Inputs: 
-  - `ActivationContext`: Context passed to the ability when it was activated
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnActivate function](gameplay_abilities_3.png)
-
-</details>
-
-<details markdown="1">
-  <summary>OnTick</summary>
-
-Called every frame while the ability is active if `CanTick` is true. Use this to update the ability's state or perform actions over time.
-  - Inputs: 
-  - `DeltaTime`: A float representing the time since the last tick
-- Outputs: 
-  - none
-
-</details>
-
-<details markdown="1">
-  <summary>CanCancel</summary>
-
-Determines if the ability can be cancelled when CancelAbility is called. Use this for things like uninterruptible abilities.
-- Inputs: 
-  - none
-- Outputs: 
-  - bool (true if the ability can be cancelled, false otherwise)
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_5.png)
-
-</details>
-
-<details markdown="1">
-  <summary>OnEnd</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - `EndingStatus`: The gameplay tag passed to the `EndAbility` or `CancelAbility` function
-  - `EndingContext`: Context that was passed to the `EndAbility` or `CancelAbility` function
-  - `WasCancelled`: Boolean indicating if the ability if `OnEnd` was triggered by `CancelAbility`. If false it was triggered by `EndAbility`.
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-</details>
-
-<details markdown="1">
-  <summary>Callable Functions</summary>
-
-<details markdown="1">
-  <summary>ActivateSubAbility</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>TakeStateSnapshot</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>GetAvatarActor</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>GetAvatarActorAs</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>ApplyAttributeModifierToTarget</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>IsAbilityActive</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>GetActivationTime</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>GetActivationDelay</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>GetActivationContext</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>WasActivatedOnServer</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>WasActivatedOnClient</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-<details markdown="1">
-  <summary>GetServerRole</summary>
-
-Called when the ability ends (normally or cancelled). Use this to clean up any event listeners or effects that were created while the ability was active.
-  - Inputs: 
-  - none
-- Outputs: 
-  - none
-- Example:  
-  ![a screenshot of the OnEnd function](gameplay_abilities_4.png)
-
-</details>
-
-
-</details>
+## Properties
+
+### General Configuration
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Modifier Type | EAttributeModifierType | The behavior type: <br> - `Instant`: Apply modifications immediately and end <br> - `Duration`: Apply modifications over time |
+| Modifier Application Policy | EAttributeModifierApplicationPolicy | Controls how the modifier is applied in multiplayer: <br> - `ApplyServerOnly`: Runs only on server with replicated results <br> - `ApplyServerOnlyButReplicateSideEffects`: Runs on server but side effects visible to clients <br> - `ApplyClientPredicted`: Runs immediately on client, then verified by server |
+| Modifier Tags | FGameplayTagContainer | Tags that categorize this modifier (e.g., "DamageOverTime", "StatusEffect") |
+
+### Duration Configuration 
+*(Only used when Modifier Type is Duration)*
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Has Infinite Duration | bool | If true, the modifier will not expire until explicitly removed |
+| Duration | float | How long the modifier persists (in seconds) if not infinite |
+| Tick On Apply | bool | Whether to apply effects immediately when the modifier is first applied |
+| Tick Interval | float | How often the modifier applies its effects (in seconds) |
+| Tick Tag Requirement Behaviour | EDurationTickTagRequirementBehaviour | How to handle ticks when tag requirements aren't met: <br> - `SkipOnTagRequirementFailed`: Skip the tick but continue timer <br> - `PauseOnTagRequirementFailed`: Pause timer until requirements are met again <br> - `CancelOnTagRequirementFailed`: End the modifier entirely |
+
+### Stacking Configuration 
+*(Only used when Modifier Type is Duration and CanStack is true)*
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Can Stack | bool | Whether multiple instances combine (e.g., stacking poison) |
+| Stacks | int32 | Initial stack count (usually 1) |
+| Has Max Stacks | bool | Whether there's a limit to how many stacks can be applied |
+| Max Stacks | int32 | Maximum allowed stacks if Has Max Stacks is true |
+
+### Tag Requirements
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Target Required Tags | FGameplayTagContainer | Tags that must be present on the target for the modifier to apply |
+| Target Blocking Tags | FGameplayTagContainer | Tags that prevent the modifier from applying if present on the target |
+| Target Blocking Modifier Tags | FGameplayTagContainer | If another modifier with these tags is already applied, this modifier won't apply |
+
+### Application Effects
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Cancel Abilities | TArray&lt;TSubclassOf&lt;USimpleGameplayAbility&gt;&gt; | Ability classes to cancel when this modifier is applied |
+| Cancel Abilities With Ability Tags | FGameplayTagContainer | Cancel abilities with any of these tags when this modifier is applied |
+| Cancel Modifiers With Tag | FGameplayTagContainer | Cancel other modifiers with these tags when this modifier is applied |
+| Temporarily Applied Tags | FGameplayTagContainer | Tags added to the target when this modifier is active and removed when it ends |
+| Permanently Applied Tags | FGameplayTagContainer | Tags added to the target when this modifier is applied (not automatically removed) |
+| Remove Gameplay Tags | FGameplayTagContainer | Tags to remove from the target when this modifier is applied |
+
+### Attribute Modifications
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Float Attribute Modifications | TArray&lt;FFloatAttributeModifier&gt; | Configuration for modifying float attributes |
+| Struct Attribute Modifications | TArray&lt;FStructAttributeModifier&gt; | Configuration for modifying struct attributes |
+
+### Side Effects
+
+| Name | Type | Description |
+|:-----|:-----|:------------|
+| Ability Side Effects | TArray&lt;FAbilitySideEffect&gt; | Abilities to activate as side effects |
+| Event Side Effects | TArray&lt;FEventSideEffect&gt; | Events to send as side effects |
+| Attribute Modifier Side Effects | TArray&lt;FAttributeModifierSideEffect&gt; | Additional attribute modifiers to apply as side effects |
+
+## Blueprint Implementable Events
+
+### CanApplyModifier
+
+Override this function to add custom validation rules for when the modifier can be applied.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| ModifierContext | FInstancedStruct | Context data passed during modifier application |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the modifier can be applied, false otherwise |
+
+### OnPreApplyModifier
+
+Called just before the modifier's effects are applied. Use this for setup or pre-application logic.
+
+**Parameters:**
+*No parameters*
+
+### OnPostApplyModifier
+
+Called immediately after the modifier's effects are applied. Use for post-application logic or effects.
+
+**Parameters:**
+*No parameters*
+
+### OnModifierEnded
+
+Called when the modifier ends, either by completing its duration or being cancelled.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| EndingStatus | FGameplayTag | Tag indicating how the modifier ended |
+| EndingContext | FInstancedStruct | Context data related to how the modifier ended |
+
+### OnStacksAdded
+
+Called when stacks are added to a duration modifier.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| AddedStacks | int32 | Number of stacks that were just added |
+| CurrentStacks | int32 | Total number of stacks after addition |
+
+### OnMaxStacksReached
+
+Called when a duration modifier reaches its maximum stack count.
+
+**Parameters:**
+*No parameters*
+
+## Callable Functions
+
+### ApplyModifier
+
+Applies this modifier to a target, making all configured attribute changes.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Instigator | USimpleGameplayAbilityComponent* | The component that's applying the modifier |
+| Target | USimpleGameplayAbilityComponent* | The component receiving the modification |
+| ModifierContext | FInstancedStruct | Context data for the modification |
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the modifier was successfully applied |
+
+### ApplySideEffects
+
+Applies all configured side effects (abilities, events, other modifiers).
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| Instigator | USimpleGameplayAbilityComponent* | The component that originated the side effects |
+| Target | USimpleGameplayAbilityComponent* | The component receiving the side effects |
+| EffectPhase | EAttributeModifierSideEffectTrigger | Which phase of effects to apply: <br> - `OnInstantModifierEndedSuccess`: When an instant modifier completes successfully <br> - `OnInstantModifierEndedCancel`: When an instant modifier is cancelled <br> - `OnDurationModifierInitiallyAppliedSuccess`: When a duration modifier first applies <br> - `OnDurationModifierEndedSuccess`: When a duration modifier ends normally <br> - `OnDurationModifierEndedCancel`: When a duration modifier is cancelled <br> - `OnDurationModifierTickSuccess`: When a duration modifier ticks successfully <br> - `OnDurationModifierTickCancel`: When a duration modifier tick is cancelled |
+
+### EndModifier
+
+Ends the modifier, cleaning up any temporary effects.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| EndingStatus | FGameplayTag | Tag indicating why the modifier is ending |
+| EndingContext | FInstancedStruct | Optional context data for the ending |
+
+### AddModifierStack
+
+Adds stacks to a duration modifier.
+
+**Parameters:**
+
+| Input | Type | Description |
+|:-------------|:------------------|:------|
+| StackCount | int32 | Number of stacks to add |
+
+### IsModifierActive
+
+Checks if the modifier is currently active.
+
+**Parameters:**
+
+| Output | Type | Description |
+|:-------------|:------------------|:------|
+| Return Value | bool | True if the modifier is active |
+
+## How Attribute Modification Works
+
+### Float Attribute Modifiers
+
+Each float attribute modifier specifies:
+1. Which attribute to modify (by tag)
+2. What part of the attribute to change (current value, base value, etc.)
+3. The operation to perform (add, subtract, multiply, etc.)
+4. Where to get the input value from (fixed value, another attribute, overflow, etc.)
+5. How to handle attribute limits (min/max values)
+
+Operations include:
+- Add: Output = A + B
+- Subtract: Output = A - B
+- Multiply: Output = A * B
+- Divide: Output = A / B
+- Power: Output = A^B
+- Override: Output = B
+- Custom: Call a blueprint function to calculate the output
+
+### Struct Attribute Modifiers
+
+Struct attribute modifiers work by calling a blueprint function you define. This gives you complete control over how to modify complex data structures.
+
+### Integration with Prediction
+
+For multiplayer games, attribute modifiers support client prediction to create responsive gameplay:
+
+1. Client applies the modifier immediately
+2. Server validates and applies its authoritative version
+3. Client compares its prediction with server's result
+4. Client automatically corrects any differences
+
+</div>

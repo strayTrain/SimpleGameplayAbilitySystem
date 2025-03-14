@@ -1043,64 +1043,6 @@ void USimpleGameplayAbilityComponent::CompareSnapshots(const FAbilityState& Auth
 	}
 }
 
-void USimpleGameplayAbilityComponent::OnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute)
-{
-	LocalFloatAttributes.AddUnique(NewFloatAttribute);
-	SendEvent(FDefaultTags::FloatAttributeAdded(), NewFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
-}
-
-void USimpleGameplayAbilityComponent::OnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute)
-{
-	for (FFloatAttribute& LocalFloatAttribute : LocalFloatAttributes)
-	{
-		if (LocalFloatAttribute.AttributeTag.MatchesTagExact(ChangedFloatAttribute.AttributeTag))
-		{
-			CompareFloatAttributesAndSendEvents(LocalFloatAttribute, ChangedFloatAttribute);
-			LocalFloatAttribute = ChangedFloatAttribute;
-			return;
-		}
-	}
-
-	LocalFloatAttributes.AddUnique(ChangedFloatAttribute);
-	SendEvent(FDefaultTags::FloatAttributeAdded(), ChangedFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
-}
-
-void USimpleGameplayAbilityComponent::OnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute)
-{
-	LocalFloatAttributes.Remove(RemovedFloatAttribute);
-	SendEvent(FDefaultTags::FloatAttributeRemoved(), RemovedFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
-}
-
-void USimpleGameplayAbilityComponent::OnStructAttributeAdded(const FStructAttribute& NewStructAttribute)
-{
-	if (!LocalStructAttributes.Contains(NewStructAttribute))
-	{
-		LocalStructAttributes.Add(NewStructAttribute);
-		SendEvent(FDefaultTags::StructAttributeAdded(), NewStructAttribute.AttributeTag, NewStructAttribute.AttributeValue, GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
-	}
-}
-
-void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute)
-{
-	for (FStructAttribute& LocalStructAttribute : LocalStructAttributes)
-	{
-		if (LocalStructAttribute.AttributeTag.MatchesTagExact(ChangedStructAttribute.AttributeTag))
-		{
-			LocalStructAttribute = ChangedStructAttribute;
-			return;
-		}
-	}
-
-	LocalStructAttributes.Add(ChangedStructAttribute);
-	SendEvent(FDefaultTags::StructAttributeAdded(), ChangedStructAttribute.AttributeTag, ChangedStructAttribute.AttributeValue, GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
-}
-
-void USimpleGameplayAbilityComponent::OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute)
-{
-	LocalStructAttributes.Remove(RemovedStructAttribute);
-	SendEvent(FDefaultTags::StructAttributeRemoved(), RemovedStructAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
-}
-
 void USimpleGameplayAbilityComponent::OnGameplayTagAdded(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
