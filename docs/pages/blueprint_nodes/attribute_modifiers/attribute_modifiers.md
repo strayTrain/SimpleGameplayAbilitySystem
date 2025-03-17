@@ -6,8 +6,18 @@ nav_order: 3
 ---
 
 # Attribute Modifiers
+{: .no_toc }
+
+<details close markdown="block">
+<summary> Table of contents </summary>
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+</details>
 
 ## Overview
+{: .no_toc }
 
 Attribute Modifiers are specialized abilities that change attributes with sophisticated rules. They're the workhorses of SimpleGAS - the primary mechanism for modifying attributes during gameplay. Need to deal damage, apply a buff, or add a status effect? Attribute Modifiers are your go-to tool.
 
@@ -21,12 +31,6 @@ Beyond simply changing values, Attribute Modifiers can:
 - Activate other abilities as side effects
 - Apply or remove gameplay tags
 - Cancel conflicting modifiers
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 <div class="api-docs" markdown="1">
 

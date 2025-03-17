@@ -6,8 +6,18 @@ nav_order: 2
 ---
 
 # Simple Gameplay Ability Component
+{: .no_toc }
+
+<details close markdown="block">
+<summary> Table of contents </summary>
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+</details>
 
 ## Overview
+{: .no_toc }
 
 The Simple Gameplay Ability Component is the core manager for your game's ability system. It ties together abilities, attributes, and gameplay tags, serving as the central hub for gameplay mechanics. This component can be attached to any actor that needs to use abilities or have attributes.
 
@@ -17,12 +27,6 @@ Think of it as the "character sheet" for your actors that:
 - Maintains the actor's gameplay tags (states and properties)
 - Handles ability activation and networking
 - Provides an event system for gameplay communication
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 <div class="api-docs" markdown="1">
 

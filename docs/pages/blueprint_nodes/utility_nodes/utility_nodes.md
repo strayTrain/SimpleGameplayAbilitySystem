@@ -5,7 +5,10 @@ parent: Blueprint Reference
 nav_order: 4
 ---
 
-<details open markdown="block">
+# Utility Nodes
+{: .no_toc }
+
+<details close markdown="block">
   <summary>
     Table of contents
   </summary>
