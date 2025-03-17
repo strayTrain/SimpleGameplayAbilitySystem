@@ -116,22 +116,6 @@ void UWaitForAbility::Activate()
 		EAbilityActivationPolicy::LocalOnly);
 }
 
-void UWaitForAbility::SetReadyToDestroy()
-{
-	// Clean up event tasks
-	if (AbilityEndedEventTask)
-	{
-		AbilityEndedEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForAbility::OnAbilityEndedEventReceived);
-	}
-	
-	if (WaitAbilityEndedEventTask)
-	{
-		WaitAbilityEndedEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForAbility::OnWaitAbilityEndedEventReceived);
-	}
-	
-	Super::SetReadyToDestroy();
-}
-
 void UWaitForAbility::OnAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, FGuid EventSubscriptionID)
 {
 	FSimpleAbilityEndedEvent EndedEvent = Payload.Get<FSimpleAbilityEndedEvent>();
@@ -166,6 +150,22 @@ void UWaitForAbility::OnWaitAbilityEndedEventReceived(FGameplayTag EventTag, FGa
 		return;
 	}
 	
-	OnAbilityEnded.Broadcast(DomainTag, Payload);
+	OnAbilityEnded.Broadcast(DomainTag, Payload, EndedEvent->WasCancelled);
 	SetReadyToDestroy();
+}
+
+void UWaitForAbility::SetReadyToDestroy()
+{
+	// Clean up event tasks
+	if (AbilityEndedEventTask)
+	{
+		AbilityEndedEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForAbility::OnAbilityEndedEventReceived);
+	}
+	
+	if (WaitAbilityEndedEventTask)
+	{
+		WaitAbilityEndedEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForAbility::OnWaitAbilityEndedEventReceived);
+	}
+	
+	Super::SetReadyToDestroy();
 }

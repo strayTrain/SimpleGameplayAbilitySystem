@@ -24,7 +24,7 @@ enum class EEventInitiator : uint8
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FEventSenderDelegate, FInstancedStruct, Payload);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FEventAbilitySenderDelegate, FGameplayTag, EndStatus, FInstancedStruct, EndContext);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FEventAbilitySenderDelegate, FGameplayTag, EndStatus, FInstancedStruct, EndContext, bool, WasCancelled);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FSimpleFloatAttributeChangedDelegate, EAttributeValueType, ChangedValueType, float, NewValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FSimpleStructAttributeChangedDelegate, FGameplayTagContainer, ModificationTags, FInstancedStruct, NewValue, FInstancedStruct, OldValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSimpleGameplayTagEventDelegate);

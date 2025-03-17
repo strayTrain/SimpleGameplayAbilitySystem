@@ -87,6 +87,10 @@ You can find a list of the available events on the [Event Reference page](../../
 2. Use the `WaitForStructAttributeChanged` latent node:
     ![a screenshot of the WaitForStructAttributeChanged node](attributes_9.png)
 
+</details>
+
+### Struct Attribute Handlers
+
 Struct attributes are a bit different from float attributes when it comes to the event that gets sent.  
 
 When a struct attribute changes, the entire struct is replaced. This presents a problem for when we are modifying the struct. 
@@ -97,9 +101,6 @@ To create a struct attribute handler, create a new blueprint class that inherits
 ![a screenshot of a struct attribute handler implementation](attributes_10.png)  
 The `GetModificationEvents` function will be  called whenever the struct attribute changes and you can use it to determine which fields in the struct changed.  
 You can then listen for the corresponding struct member events. If no `StructAttributeHandler` is set on the struct attribute definition, you'll still receive an event when the struct changes, but it won't have any `ModificationTags` in it.
-
-</details>
-
 
 ## Attribute Sets
 
