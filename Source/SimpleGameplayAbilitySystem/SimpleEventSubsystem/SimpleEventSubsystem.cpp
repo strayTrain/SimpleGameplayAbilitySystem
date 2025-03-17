@@ -1,7 +1,7 @@
 #include "SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 
-void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, TArray<UObject*> ListenerFilter)
+void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, TArray<UObject*> ListenerFilter)
 {
 	// If we come across an invalid listener on a subscription (e.g. the listener was garbage collected and forgot to unsubscribe)
 	// we'll remove that subscription. We store the indexes of the invalid listeners here.
@@ -120,9 +120,9 @@ void USimpleEventSubsystem::SendEvent(FGameplayTag EventTag, FGameplayTag Domain
 }
 
 FGuid USimpleEventSubsystem::ListenForEvent(UObject* Listener, bool OnlyTriggerOnce, FGameplayTagContainer EventFilter,
-	FGameplayTagContainer DomainFilter, const FSimpleEventDelegate& EventReceivedDelegate,
-	TArray<UScriptStruct*> PayloadFilter, TArray<AActor*> SenderFilter, bool OnlyMatchExactEvent,
-	bool OnlyMatchExactDomain)
+                                            FGameplayTagContainer DomainFilter, const FSimpleEventDelegate& EventReceivedDelegate,
+                                            TArray<UScriptStruct*> PayloadFilter, TArray<UObject*> SenderFilter, bool OnlyMatchExactEvent,
+                                            bool OnlyMatchExactDomain)
 {
 	FEventSubscription Subscription;
 

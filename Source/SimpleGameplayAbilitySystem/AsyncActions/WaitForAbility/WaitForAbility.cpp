@@ -1,22 +1,21 @@
 #include "WaitForAbility.h"
 
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
-#include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
-#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
 
 using enum ESimpleEventReplicationPolicy;
 using enum EEventInitiator;
 
+// Factory methods remain the same
 UWaitForAbility* UWaitForAbility::WaitForClientSubAbilityEnd(UObject* WorldContextObject,
 	USimpleGameplayAbility* ActivatingAbility, const TSubclassOf<USimpleGameplayAbility> AbilityToActivate,
-	const FInstancedStruct Payload)
+	const FInstancedStruct Context)
 {
 	UWaitForAbility* Node = NewObject<UWaitForAbility>();
 	Node->ActivatorAbility = ActivatingAbility;
 	Node->WorldContext = WorldContextObject->GetWorld();
-	Node->AbilityPayload = Payload;
+	Node->AbilityPayload = Context;
 	Node->AbilityClass = AbilityToActivate;
 	Node->Activator = Client;
 	return Node;
@@ -55,30 +54,29 @@ void UWaitForAbility::Activate()
 		SetReadyToDestroy();
 		return;
 	}
-
-	USimpleEventSubsystem* EventSubsystem = WorldContext->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>();
-
-	if (!EventSubsystem)
+	
+	// Listen for WaitForAbility node to end
+	// Use WaitForSimpleEvent instead of direct event system calls
+	WaitAbilityEndedEventTask = UWaitForSimpleEvent::WaitForSimpleEvent(
+		WorldContext.Get(),
+		this,
+		true,
+		FGameplayTagContainer(FDefaultTags::WaitForAbilityEnded()),
+		FGameplayTagContainer(),
+		TArray<UScriptStruct*>({FSimpleAbilityEndedEvent::StaticStruct()}),
+		TArray<UObject*>({ActivatorAbility->OwningAbilityComponent->GetAvatarActor()}),
+		false,
+		false);
+	
+	if (WaitAbilityEndedEventTask)
 	{
-		SIMPLE_LOG(ActivatorAbility->OwningAbilityComponent, FString::Printf(TEXT("[UWaitForAbility::Activate]: EventSubsystem not found")));
-		SetReadyToDestroy();
-		return;
+		WaitAbilityEndedEventTask->OnEventReceived.AddDynamic(this, &UWaitForAbility::OnWaitAbilityEndedEventReceived);
+		WaitAbilityEndedEventTask->Activate();
 	}
 	
-	// The Activator is the one who should activate the ability and then tell the other side about the result
 	const bool IsDedicatedServer = ActivatorAbility->OwningAbilityComponent->GetNetMode() == NM_DedicatedServer;
 	const bool IsListenServer = ActivatorAbility->OwningAbilityComponent->GetNetMode() == NM_ListenServer;
 	const bool IsClient = ActivatorAbility->OwningAbilityComponent->GetNetMode() == NM_Client;
-	
-	// Listen for WaitForAbility node to end
-	WaitForAbilityEndedDelegate.BindDynamic(this, &UWaitForAbility::OnWaitAbilityEndedEventReceived);
-	EventSubsystem->ListenForEvent(
-		this,true,
-		FGameplayTagContainer(FDefaultTags::WaitForAbilityEnded()),
-		FGameplayTagContainer(),
-		WaitForAbilityEndedDelegate,
-		TArray<UScriptStruct*>({FSimpleAbilityEndedEvent::StaticStruct()}),
-		TArray<AActor*>({ActivatorAbility->OwningAbilityComponent->GetAvatarActor()}));
 	
 	if (Activator == Client && (IsDedicatedServer || IsListenServer))
 	{
@@ -90,16 +88,25 @@ void UWaitForAbility::Activate()
 		return;
 	}
 	
-	// Activate the sub ability and listen for it's ending
-	AbilityEndedDelegate.BindDynamic(this, &UWaitForAbility::OnAbilityEndedEventReceived);
-	EventSubsystem->ListenForEvent(
-		this,true,
+	// Listen for the ability's end event
+	AbilityEndedEventTask = UWaitForSimpleEvent::WaitForSimpleEvent(
+		WorldContext.Get(),
+		this,
+		true,
 		FGameplayTagContainer(FDefaultTags::AbilityEnded()),
 		FGameplayTagContainer(),
-		AbilityEndedDelegate,
 		TArray<UScriptStruct*>({FSimpleAbilityEndedEvent::StaticStruct()}),
-		TArray<AActor*>({ActivatorAbility->OwningAbilityComponent->GetAvatarActor()}));
+		TArray<UObject*>({ActivatorAbility->OwningAbilityComponent->GetAvatarActor()}),
+		false,
+		false);
+	
+	if (AbilityEndedEventTask)
+	{
+		AbilityEndedEventTask->OnEventReceived.AddDynamic(this, &UWaitForAbility::OnAbilityEndedEventReceived);
+		AbilityEndedEventTask->Activate();
+	}
 
+	// Activate the sub ability
 	ActivatedAbilityID = FGuid::NewGuid();
 	ActivatorAbility->OwningAbilityComponent->ActivateAbilityWithID(
 		ActivatedAbilityID,
@@ -109,7 +116,23 @@ void UWaitForAbility::Activate()
 		EAbilityActivationPolicy::LocalOnly);
 }
 
-void UWaitForAbility::OnAbilityEndedEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender)
+void UWaitForAbility::SetReadyToDestroy()
+{
+	// Clean up event tasks
+	if (AbilityEndedEventTask)
+	{
+		AbilityEndedEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForAbility::OnAbilityEndedEventReceived);
+	}
+	
+	if (WaitAbilityEndedEventTask)
+	{
+		WaitAbilityEndedEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForAbility::OnWaitAbilityEndedEventReceived);
+	}
+	
+	Super::SetReadyToDestroy();
+}
+
+void UWaitForAbility::OnAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, FGuid EventSubscriptionID)
 {
 	FSimpleAbilityEndedEvent EndedEvent = Payload.Get<FSimpleAbilityEndedEvent>();
 	
@@ -118,11 +141,12 @@ void UWaitForAbility::OnAbilityEndedEventReceived(FGameplayTag AbilityTag, FGame
 		return;	
 	}
 
-	// The activated ability ID exists only for the one who activated the ability. So, to make sure both client and
-	// server know the ability has ended, we use the activating ability's ID as it is the same on both sides
+	// The activated ability ID exists only for the one who activated the ability
+	// Use the activating ability's ID as it is the same on both sides
 	EndedEvent.AbilityID = ActivatorAbility->AbilityInstanceID;
 
-	const ESimpleEventReplicationPolicy ReplicationPolicy = Activator == LocalOnly ? NoReplication : AllConnectedClientsPredicted;
+	const ESimpleEventReplicationPolicy ReplicationPolicy = 
+		Activator == LocalOnly ? NoReplication : AllConnectedClientsPredicted;
 	
 	USimpleGameplayAbilityComponent* OwningAbilityComponent = ActivatorAbility->OwningAbilityComponent;
 	OwningAbilityComponent->SendEvent(
@@ -133,7 +157,7 @@ void UWaitForAbility::OnAbilityEndedEventReceived(FGameplayTag AbilityTag, FGame
 		{}, ReplicationPolicy);
 }
 
-void UWaitForAbility::OnWaitAbilityEndedEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender)
+void UWaitForAbility::OnWaitAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, FGuid EventSubscriptionID)
 {
 	const FSimpleAbilityEndedEvent* EndedEvent = Payload.GetPtr<FSimpleAbilityEndedEvent>();
 

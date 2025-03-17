@@ -13,7 +13,6 @@ class UAbilityOverrideSet;
 class UAbilitySet;
 class UAttributeSet;
 class USimpleGameplayAbility;
-class USimpleStructAttributeHandler;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public UActorComponent
@@ -48,24 +47,24 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FStructAttribute> StructAttributes;
 	
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State", meta = (TitleProperty = "Attributes.AttributeName"))
 	FFloatAttributeContainer AuthorityFloatAttributes;
-	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"), Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State", meta = (TitleProperty = "AttributeName"))
 	TArray<FFloatAttribute> LocalFloatAttributes;
 	
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State", meta = (TitleProperty = "Attributes.AttributeName"))
 	FStructAttributeContainer AuthorityStructAttributes;
 	UPROPERTY(VisibleAnywhere, meta = (TitleProperty = "AttributeName"), Category = "AbilityComponent|State")
 	TArray<FStructAttribute> LocalStructAttributes;
 	
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State", meta = (TitleProperty = "AbilityStates.AbilityClass"))
 	FAbilityStateContainer AuthorityAbilityStates;
-	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State", meta = (TitleProperty = "AbilityClass"))
 	TArray<FAbilityState> LocalAbilityStates;
 	
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State", meta = (TitleProperty = "AbilityStates.AbilityClass"))
 	FAbilityStateContainer AuthorityAttributeStates;
-	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State", meta = (TitleProperty = "AbilityClass"))
 	TArray<FAbilityState> LocalAttributeStates;
 
 	/* Avatar Actor Functions */
@@ -112,8 +111,8 @@ public:
 	void ServerActivateAbility(const FGuid AbilityID, TSubclassOf<USimpleGameplayAbility> AbilityClass,
 	                           const FInstancedStruct& AbilityContext, EAbilityActivationPolicy ActivationPolicy, float ActivationTime);
 
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
-	bool CancelAbility(FGuid AbilityInstanceID, FInstancedStruct CancellationContext);
+	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
+	bool CancelAbility(FGuid AbilityInstanceID, FInstancedStruct CancellationContext, bool ForceCancel);
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
 	TArray<FGuid> CancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
@@ -155,7 +154,7 @@ public:
 	FInstancedStruct GetStructAttributeValue(FGameplayTag AttributeTag, bool& WasFound);
 	
 	UFUNCTION(BlueprintCallable)
-	bool SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue, FGameplayTagContainer ModificationEvents);
+	bool SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue);
 
 	UFUNCTION()
 	float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EAttributeValueType ValueType, float NewValue, float& Overflow);
@@ -229,26 +228,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events", meta=(AutoCreateRefTerm = "ListenerFilter"))
 	void SendEvent(
 		FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		AActor* Sender, TArray<UObject*> ListenerFilter, ESimpleEventReplicationPolicy ReplicationPolicy);
+		UObject* Sender, TArray<UObject*> ListenerFilter, ESimpleEventReplicationPolicy ReplicationPolicy);
 	
 	void SendEventInternal(
 		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, const FInstancedStruct& Payload,
-		AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
+		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSendEvent(
 		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
+		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
 
 	UFUNCTION(Client, Reliable)
 	void ClientSendEvent(
 		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
+		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastSendEvent(
 		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
+		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
 	
 	/* Utility Functions */
 
@@ -294,7 +293,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	void OnAbilityEnded(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, AActor* Sender);
+	void OnAbilityEnded(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender);
 
 	bool ActivateAbilityInternal(const FGuid AbilityID, TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		const FInstancedStruct& AbilityContext, EAbilityActivationPolicy ActivationPolicy,
@@ -318,12 +317,16 @@ protected:
 	USimpleAttributeModifier* GetAttributeModifierInstance(FGuid AttributeInstanceID);
 	TArray<FSimpleAbilitySnapshot>* GetLocalAttributeStateSnapshots(FGuid AttributeInstanceID);
 	USimpleGameplayAbility* GetAbilityInstance(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+	USimpleAttributeHandler* GetStructAttributeHandlerInstance(TSubclassOf<USimpleAttributeHandler> HandlerClass);
 
 	UPROPERTY()
 	TArray<USimpleGameplayAbility*> InstancedAbilities;
 	
 	UPROPERTY()
 	TArray<USimpleAttributeModifier*> InstancedAttributes;
+
+	UPROPERTY()
+	TArray<USimpleAttributeHandler*> InstancedAttributeHandlers;
 	
 	// Used to keep track of which events have been handled locally to avoid double event sending with multicast
 	TArray<FGuid> HandledEventIDs;

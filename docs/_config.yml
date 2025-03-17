@@ -1,19 +1,18 @@
 title: SimpleGAS
 description: The Simple Gameplay Ability System plugin documentation.
 theme: just-the-docs
+color_scheme: dark
 
 url: https://straytrain.github.io/SimpleGAS/
-
-mermaid:
-  # Version of mermaid library
-  # Pick an available version from https://cdn.jsdelivr.net/npm/mermaid/
-  version: "11.4.1"
 
 aux_links:
   SimpleGAS on GitHub:
     - https://github.com/strayTrain/SimpleGameplayAbilitySystem
 
-color_scheme: dark
+aux_links_new_tab: true
+
+mermaid:
+  version: "11.4.1"
 
 callouts:
   warning:
@@ -25,6 +24,3 @@ callouts:
   tip:
     title: Tip
     color: blue
-
-# Add this to your existing _config.yml file
-aux_links_new_tab: true

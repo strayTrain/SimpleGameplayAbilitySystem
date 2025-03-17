@@ -10,7 +10,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(
 	FGameplayTag, EventTag,
 	FGameplayTag, Domain,
 	FInstancedStruct, Payload,
-	AActor*, Sender,
+	UObject*, Sender,
 	FGuid, EventSubscriptionID
 );
 
@@ -28,7 +28,7 @@ public:
 		FGameplayTagContainer EventFilter,
 		FGameplayTagContainer DomainFilter,
 		TArray<UScriptStruct*> PayloadFilter,
-		TArray<AActor*> SenderFilter,
+		TArray<UObject*> SenderFilter,
 		bool OnlyMatchExactEvent = true,
 		bool OnlyMatchExactDomain = true);
 
@@ -39,7 +39,7 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender = nullptr);
+	void OnSimpleEventReceived(FGameplayTag AbilityTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender = nullptr);
 
 	UFUNCTION()
 	void OnEventSubscriptionRemoved(FGuid SubscriptionID);
@@ -52,7 +52,7 @@ protected:
 	FGameplayTagContainer EventFilter;
 	FGameplayTagContainer DomainFilter;
 	TArray<UScriptStruct*> PayloadFilter;
-	TArray<AActor*> SenderFilter;
+	TArray<UObject*> SenderFilter;
 	bool OnlyMatchExactEvent = true;
 	bool OnlyMatchExactDomain = true;
 	FSimpleEventDelegate EventCallbackDelegate;

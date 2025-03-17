@@ -122,13 +122,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierDescription"))
 	TArray<FStructAttributeModifier> StructAttributeModifications;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects", meta = (TitleProperty = "SideEffectDescription"))
 	TArray<FAbilitySideEffect> AbilitySideEffects;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects", meta = (TitleProperty = "SideEffectDescription"))
 	TArray<FEventSideEffect> EventSideEffects;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects", meta = (TitleProperty = "SideEffectDescription"))
 	TArray<FAttributeModifierSideEffect> AttributeModifierSideEffects;
 
 	/* Modifier Lifecycle Functions */
@@ -178,7 +178,7 @@ protected:
 	USimpleGameplayAbilityComponent* TargetAbilityComponent;
 
 	UFUNCTION()
-	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, AActor* Sender = nullptr);
+	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender = nullptr);
 	
 	bool ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const;
 	bool ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes) const;

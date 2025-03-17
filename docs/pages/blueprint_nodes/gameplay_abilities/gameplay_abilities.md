@@ -11,11 +11,15 @@ nav_order: 1
 
 Simple Gameplay Abilities are self-contained units of gameplay logic that define actions or behaviors in your game. They provide a structured way to implement discrete gameplay actions like attacks, spells, skills, or movement abilities.
 
-## Table of contents
+<details open markdown="block">
+  <summary>
+    Table of contents
+  </summary>
 {: .no_toc .text-delta }
 
 1. TOC
 {:toc}
+</details>
 
 <div class="api-docs" markdown="1">
 

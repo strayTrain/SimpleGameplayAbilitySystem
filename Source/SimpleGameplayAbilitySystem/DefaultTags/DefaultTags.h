@@ -29,12 +29,12 @@ class FDefaultTags
 		static FGameplayTag AttributeModifierEnded() { return FindTag("SimpleGAS.Events.AttributeModifer.Ended"); }
 	
 		static FGameplayTag FloatAttributeAdded() { return FindTag("SimpleGAS.Events.Attributes.Added.Float"); }
-		static FGameplayTag FloatAttributeBaseValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.FloatBaseValue"); }
-		static FGameplayTag FloatAttributeMinBaseValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.FloatMinBaseValue"); }
-		static FGameplayTag FloatAttributeMaxBaseValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.FloatMaxBaseValue"); }
-		static FGameplayTag FloatAttributeCurrentValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.FloatCurrentValue"); }
-		static FGameplayTag FloatAttributeMinCurrentValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.FloatMinCurrentValue"); }
-		static FGameplayTag FloatAttributeMaxCurrentValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.FloatMaxCurrentValue"); }
+		static FGameplayTag FloatAttributeBaseValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.Float.BaseValue"); }
+		static FGameplayTag FloatAttributeMinBaseValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.Float.MinBaseValue"); }
+		static FGameplayTag FloatAttributeMaxBaseValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.Float.MaxBaseValue"); }
+		static FGameplayTag FloatAttributeCurrentValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.Float.CurrentValue"); }
+		static FGameplayTag FloatAttributeMinCurrentValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.Float.MinCurrentValue"); }
+		static FGameplayTag FloatAttributeMaxCurrentValueChanged() { return FindTag("SimpleGAS.Events.Attributes.Changed.Float.MaxCurrentValue"); }
 		static FGameplayTag FloatAttributeRemoved() { return FindTag("SimpleGAS.Events.Attributes.Removed.Float"); }
 	
 		static FGameplayTag StructAttributeAdded() { return FindTag("SimpleGAS.Events.Attributes.Added.Struct"); }

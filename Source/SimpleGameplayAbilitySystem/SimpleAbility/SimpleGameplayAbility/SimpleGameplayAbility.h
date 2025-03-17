@@ -154,8 +154,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void ApplyAttributeModifierToTarget(USimpleGameplayAbilityComponent* TargetComponent,
-	                                    TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct Context,
-	                                    FGuid& ModifierID);
+	    TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct Context,
+	    FGuid& ModifierID);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool IsAbilityActive() const;

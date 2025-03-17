@@ -43,7 +43,7 @@ Attributes can be modified by:
 
 1. Calling a function on the `AbilitySystemComponent`  
     ![a screenshot of the SetStructAttributeValue function](attributes_3.png)
-2. [Attribute Modifiers](../../blueprint_nodes/attribute_modifiers.html)
+2. [Attribute Modifiers](../../blueprint_nodes/attribute_modifiers/attribute_modifiers.html)
 
 When an attribute changes, SimpleGAS automatically sends an event so other systems (like your UI) can react to the change.  
 You can find a list of the available events on the [Event Reference page](../../event_reference/event_reference.html).

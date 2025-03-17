@@ -10,7 +10,7 @@ DECLARE_DYNAMIC_DELEGATE_FourParams(
 	FGameplayTag, EventTag,
 	FGameplayTag, Domain,
 	FInstancedStruct, Payload,
-	AActor*, Sender);
+	UObject*, Sender);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEventSubscriptionRemoved, FGuid, EventSubscriptionID);
 
@@ -62,7 +62,7 @@ struct FEventSubscription
 	 * Note: Sender actors are an optional parameter when sending events which means that some events might not have a sender actor.
 	 */
 	UPROPERTY()
-	TArray<TWeakObjectPtr<AActor>> SenderFilter;
+	TArray<TWeakObjectPtr<UObject>> SenderFilter;
 	
 	/**
 	 * Only trigger the delegate once. After the first event is received, the listener is removed.

@@ -10,12 +10,14 @@
 #endif
 
 #include "Net/Serialization/FastArraySerializer.h"
+#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/AttributeHandler/SimpleAttributeHandler.h"
 #include "SimpleAbilityComponentTypes.generated.h"
+
 
 /* Enums */
 
+class USimpleGameplayAbilityComponent;
 struct FFloatAttribute;
-class USimpleStructAttributeHandler;
 
 UENUM(BlueprintType)
 enum class ESimpleEventReplicationPolicy : uint8
@@ -143,6 +145,9 @@ struct FFloatAttributeModification
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USimpleGameplayAbilityComponent* AttributeOwner;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag AttributeTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -158,10 +163,20 @@ struct FStructAttributeModification
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USimpleGameplayAbilityComponent* AttributeOwner;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag AttributeTag;
 
+	// Use these tags to indicate which members of the struct have changed
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct Value;
+	FGameplayTagContainer ModificationTags;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct NewValue;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct OldValue;
 };
 
 // Float attribute 
@@ -249,6 +264,9 @@ struct FStructAttribute : public FFastArraySerializerItem
 
 	UPROPERTY(BlueprintReadWrite)
 	FInstancedStruct AttributeValue;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<USimpleAttributeHandler> StructAttributeHandler;
 
 	bool operator==(const FStructAttribute& Other) const
 	{

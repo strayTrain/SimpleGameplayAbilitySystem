@@ -21,7 +21,7 @@ public:
 	 * @param ListenerFilter Only send the event to listeners in this list. If not set, the event will be sent to all listeners.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SimpleEventSubsystem", meta=(AdvancedDisplay=4, AutoCreateRefTerm = "ListenerFilter"))
-	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor* Sender, TArray<UObject*> ListenerFilter);
+	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, TArray<UObject*> ListenerFilter);
 
 	/**
 	 * Register a listener to receive events. The listener will be notified when an event is sent that matches the provided filters.
@@ -44,7 +44,7 @@ public:
 		FGameplayTagContainer DomainFilter,
 		const FSimpleEventDelegate& EventReceivedDelegate,
 		TArray<UScriptStruct*> PayloadFilter,
-		TArray<AActor*> SenderFilter,
+		TArray<UObject*> SenderFilter,
 		bool OnlyMatchExactEvent = true,
 		bool OnlyMatchExactDomain = true);
 

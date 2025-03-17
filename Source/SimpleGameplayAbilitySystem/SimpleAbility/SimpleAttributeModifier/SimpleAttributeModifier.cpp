@@ -98,7 +98,7 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 			FSimpleEventDelegate EventDelegate;
 			EventDelegate.BindDynamic(this, &USimpleAttributeModifier::OnTagsChanged);
 		
-			TArray<AActor*> SenderFilter;
+			TArray<UObject*> SenderFilter;
 			SenderFilter.Add(Target->GetAvatarActor());
     
 			EventSubsystem->ListenForEvent(this, false, EventTags, FGameplayTagContainer(), EventDelegate, TArray<UScriptStruct*>(), SenderFilter);
@@ -240,7 +240,7 @@ bool USimpleAttributeModifier::ApplyModifiersInternal(const EAttributeModifierSi
 		{
 			if (ModifiedStructAttributes.Contains(Attribute.AttributeTag))
 			{
-				TargetAbilityComponent->SetStructAttributeValue(Attribute.AttributeTag, Attribute.AttributeValue, FGameplayTagContainer());
+				TargetAbilityComponent->SetStructAttributeValue(Attribute.AttributeTag, Attribute.AttributeValue);
 			}
 		}
 	}
@@ -717,7 +717,7 @@ FStructAttribute* USimpleAttributeModifier::GetTempStructAttribute(const FGamepl
 	return nullptr;
 }
 
-void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, AActor* Sender)
+void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
 {
 	if (ModifierType == EAttributeModifierType::Duration && bIsModifierActive)
 	{
@@ -786,9 +786,7 @@ void USimpleAttributeModifier::ClientResolvePastState(FGameplayTag StateTag, FSi
         if (!bFound)
         {
             // Activate the side effect that was not predicted
-        	SIMPLE_LOG(this, FString::Printf(TEXT("ClientResolvePastState: Activating ability side effect %s"), *AuthoritySideEffect.AbilityClass->GetName()));
             USimpleGameplayAbilityComponent* ActivatingAbilityComponent = AuthoritySideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? InstigatorAbilityComponent : TargetAbilityComponent;
-        	
             ActivatingAbilityComponent->ActivateAbilityWithID(FGuid::NewGuid(), AuthoritySideEffect.AbilityClass, AuthoritySideEffect.AbilityContext, true, AuthoritySideEffect.ActivationPolicy);
         }
     }
@@ -810,7 +808,7 @@ void USimpleAttributeModifier::ClientResolvePastState(FGameplayTag StateTag, FSi
         {
             // Cancel the side effect that was predicted but not run on the server
             USimpleGameplayAbilityComponent* ActivatingAbilityComponent = PredictedSideEffect.ActivatingAbilityComponent == EAttributeModifierSideEffectTarget::Instigator ? InstigatorAbilityComponent : TargetAbilityComponent;
-            //ActivatingAbilityComponent->CancelAbility(PredictedSideEffect.AbilityClass, PredictedSideEffect.AbilityContext);
+            ActivatingAbilityComponent->CancelAbility(PredictedSideEffect.AbilityInstanceID, PredictedSideEffect.AbilityContext, true);
         }
     }
 	

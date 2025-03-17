@@ -65,10 +65,4 @@ That's it! SimpleGAS is now installed and ready to use in your project.
 
 ## Having Trouble?
 
-Here are some common issues and solutions:
-
-- **Compile errors**: Make sure you're using Unreal Engine 5.2 or later
-- **Plugin not found**: Double-check that you've placed the plugin in the correct folder structure
-- **Missing dependencies**: SimpleGAS requires the StructUtils plugin, which should be automatically enabled
-
-If you're still having issues, drop a question on the [discussions page](https://github.com/strayTrain/SimpleGameplayAbilitySystem/discussions).
+If you're encountering issues, drop a question on the [discussions page](https://github.com/strayTrain/SimpleGameplayAbilitySystem/discussions).

@@ -171,7 +171,7 @@ void USimpleGameplayAbility::EndAbilityInternal(FGameplayTag Status, FInstancedS
 
 	for (const FGuid& SubAbilityID : AbilitiesToCancel)
 	{
-		OwningAbilityComponent->CancelAbility(SubAbilityID, Context);
+		OwningAbilityComponent->CancelAbility(SubAbilityID, Context, true);
 	}
 
 	

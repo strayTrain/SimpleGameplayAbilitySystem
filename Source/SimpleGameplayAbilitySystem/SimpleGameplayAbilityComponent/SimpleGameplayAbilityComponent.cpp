@@ -255,7 +255,7 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(const
 	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, true, ActivationTime);
 }
 
-void USimpleGameplayAbilityComponent::OnAbilityEnded(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, AActor* Sender)
+void USimpleGameplayAbilityComponent::OnAbilityEnded(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
 {
 	const FSimpleAbilityEndedEvent* EndedEvent = Payload.GetPtr<FSimpleAbilityEndedEvent>();
 
@@ -362,7 +362,7 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(TSub
 	return InstancedAbilities.Last();	
 }
 
-bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext)
+bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext, const bool ForceCancel = false)
 {
 	if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilityInstanceID))
 	{
@@ -371,13 +371,13 @@ bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceI
 			return true;
 		}
 		
-		if (!AbilityInstance->CanCancel())
+		if (!ForceCancel && !AbilityInstance->CanCancel())
 		{
 			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CancelAbility]: Ability %s CanCancel() returned false"), *AbilityInstance->GetName()));
 			return false;
 		}
 		
-		AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), CancellationContext);
+		AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), CancellationContext, ForceCancel);
 		return true;
 	}
 
@@ -505,7 +505,7 @@ void USimpleGameplayAbilityComponent::AddGameplayTag(FGameplayTag Tag, FInstance
 		AuthorityGameplayTags.MarkArrayDirty();
 	}
 	
-	SendEvent(FDefaultTags::GameplayTagAdded(), Tag, Payload, GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
+	SendEvent(FDefaultTags::GameplayTagAdded(), Tag, Payload, this, {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
 void USimpleGameplayAbilityComponent::RemoveGameplayTag(FGameplayTag Tag, FInstancedStruct Payload)
@@ -532,7 +532,7 @@ void USimpleGameplayAbilityComponent::RemoveGameplayTag(FGameplayTag Tag, FInsta
 		AuthorityGameplayTags.MarkArrayDirty();
 	}
 	
-	SendEvent(FDefaultTags::GameplayTagRemoved(), Tag, Payload, GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
+	SendEvent(FDefaultTags::GameplayTagRemoved(), Tag, Payload, this, {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
 bool USimpleGameplayAbilityComponent::HasGameplayTag(FGameplayTag Tag)
@@ -575,7 +575,7 @@ bool USimpleGameplayAbilityComponent::HasAnyGameplayTags(FGameplayTagContainer T
 /* Event Functions */
 
 void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-                                                AActor* Sender, TArray<UObject*> ListenerFilter, ESimpleEventReplicationPolicy ReplicationPolicy)
+                                                UObject* Sender, TArray<UObject*> ListenerFilter, ESimpleEventReplicationPolicy ReplicationPolicy)
 {
 	const FGuid EventID = FGuid::NewGuid();
 
@@ -639,7 +639,7 @@ void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplay
 }
 
 void USimpleGameplayAbilityComponent::SendEventInternal(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag,
-	const FInstancedStruct& Payload, AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy,
+	const FInstancedStruct& Payload, UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy,
 	const TArray<UObject*>& ListenerFilter)
 {
 	USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>();
@@ -669,12 +669,12 @@ void USimpleGameplayAbilityComponent::SendEventInternal(FGuid EventID, FGameplay
 
 void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(
 	FGuid EventID,
-    FGameplayTag EventTag,
-    FGameplayTag DomainTag,
-    FInstancedStruct Payload,
-    AActor* Sender,
-    ESimpleEventReplicationPolicy ReplicationPolicy,
-    const TArray<UObject*>& ListenerFilter)
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	ESimpleEventReplicationPolicy ReplicationPolicy,
+	const TArray<UObject*>& ListenerFilter)
 {
 	switch (ReplicationPolicy)
 	{
@@ -702,13 +702,13 @@ void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(
 
 void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(FGuid EventID,
                                                                      FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-                                                                     AActor* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter)
+                                                                     UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter)
 {
 	SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy, {});
 }
 
 void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(FGuid EventID,
-                                                                        FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, AActor*Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const
+                                                                        FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const
                                                                         TArray<UObject*>& ListenerFilter)
 {
 	SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy, {});
@@ -930,9 +930,26 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Author
 		});
 
 		// If the ability doesn't exist locally, we don't need to do anything
+		// Unless the ability we got from the server is still running
 		if (!LocalAbilityState)
 		{
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Ability with ID %s not found in LocalAbilityStates array"), *AuthorityAbilityState.AbilityID.ToString()));
+			if (AuthorityAbilityState.AbilityStatus != ActivationSuccess)
+			{
+				return;
+			}
+			
+			const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(AuthorityAbilityState.AbilityClass);
+
+			LocalAbilityStates.AddUnique(AuthorityAbilityState);
+			USimpleGameplayAbility* NewAbilityInstance = GetAbilityInstance(AbilityClass);
+
+			if (NewAbilityInstance->IsAbilityActive())
+			{
+				NewAbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct(), true);
+			}
+		
+			NewAbilityInstance->InitializeAbility(this, AuthorityAbilityState.AbilityID, true);
+			NewAbilityInstance->ActivateAbility(AuthorityAbilityState.AbilityID, AuthorityAbilityState.ActivationContext);
 			return;
 		}
 
@@ -945,7 +962,7 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Author
 		// Check if the server cancelled the ability
 		if (AuthorityAbilityState.AbilityStatus == EndedCancelled && LocalAbilityState->AbilityStatus != EndedCancelled)
 		{
-			CancelAbility(AuthorityAbilityState.AbilityID, AuthorityAbilityState.EndingContext);
+			CancelAbility(AuthorityAbilityState.AbilityID, AuthorityAbilityState.EndingContext, true);
 		}
 	}
 
@@ -1054,7 +1071,7 @@ void USimpleGameplayAbilityComponent::OnGameplayTagAdded(const FGameplayTagCount
 	if (!LocalTagCounter)
 	{
 		LocalGameplayTags.AddUnique(GameplayTag);
-		SendEvent(FDefaultTags::GameplayTagAdded(), GameplayTag.GameplayTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
+		SendEvent(FDefaultTags::GameplayTagAdded(), GameplayTag.GameplayTag, FInstancedStruct(), this, {}, ESimpleEventReplicationPolicy::NoReplication);
 		return;
 	}
 
@@ -1072,7 +1089,7 @@ void USimpleGameplayAbilityComponent::OnGameplayTagChanged(const FGameplayTagCou
 	if (!LocalTagCounter)
 	{
 		LocalGameplayTags.AddUnique(GameplayTag);
-		SendEvent(FDefaultTags::GameplayTagAdded(), GameplayTag.GameplayTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
+		SendEvent(FDefaultTags::GameplayTagAdded(), GameplayTag.GameplayTag, FInstancedStruct(), this, {}, ESimpleEventReplicationPolicy::NoReplication);
 		return;
 	}
 
@@ -1090,7 +1107,7 @@ void USimpleGameplayAbilityComponent::OnGameplayTagRemoved(const FGameplayTagCou
 	if (LocalTagCounter)
 	{
 		LocalGameplayTags.RemoveSingle(GameplayTag);
-		SendEvent(FDefaultTags::GameplayTagRemoved(), GameplayTag.GameplayTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
+		SendEvent(FDefaultTags::GameplayTagRemoved(), GameplayTag.GameplayTag, FInstancedStruct(), this, {}, ESimpleEventReplicationPolicy::NoReplication);
 	}
 }
 
