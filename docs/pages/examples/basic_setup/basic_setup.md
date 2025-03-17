@@ -12,7 +12,7 @@ In this example we're going to
 - Create a non replicated ability that launches the player into the air and gets activated from player input.
 
 <video width="320" height="240" controls>
-    <source src="/videos/LaunchPlayerResult.mp4" type="video/mp4">
+    <source src="LaunchPlayerResult.mp4" type="video/mp4">
     Your browser does not support the video tag.
 </video>
 
