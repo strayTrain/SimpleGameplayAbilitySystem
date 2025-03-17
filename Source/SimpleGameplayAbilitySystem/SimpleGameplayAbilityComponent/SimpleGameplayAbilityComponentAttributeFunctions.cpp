@@ -328,7 +328,7 @@ bool USimpleGameplayAbilityComponent::SetFloatAttributeValue(EAttributeValueType
 	
 	if (!Attribute)
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeFunctionLibrary::SetFloatAttributeValue]: Attribute %s not found."), *AttributeTag.ToString());
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleAttributeFunctionLibrary::SetFloatAttributeValue]: Attribute %s not found."), *AttributeTag.ToString()));
 		return false;
 	}
 	
@@ -441,7 +441,7 @@ bool USimpleGameplayAbilityComponent::SetStructAttributeValue(const FGameplayTag
 	
 	if (!Attribute)
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeFunctionLibrary::SetStructAttributeValue]: Attribute %s not found."), *AttributeTag.ToString());
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleAttributeFunctionLibrary::SetStructAttributeValue]: Attribute %s not found."), *AttributeTag.ToString()));
 		return false;
 	}
 
@@ -507,7 +507,7 @@ float USimpleGameplayAbilityComponent::ClampFloatAttributeValue(
 			return NewValue;
 				
 		default:
-			UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleGameplayAttributes::ClampValue: Invalid attribute value type."));
+			SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::ClampFloatAttributeValue]: ValueType not supported."));
 			return 0.0f;
 	}
 }
@@ -562,7 +562,7 @@ void USimpleGameplayAbilityComponent::SendFloatAttributeChangedEvent(FGameplayTa
 	}
 	else
 	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleGameplayAttributes::SendFloatAttributeChangedEvent: No event subsystem found."));
+		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::SendFloatAttributeChangedEvent]: No SimpleEventSubsystem found."));
 	}
 }
 

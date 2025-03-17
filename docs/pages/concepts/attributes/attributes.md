@@ -33,20 +33,73 @@ Struct Attributes have:
 - `Attribute Name`: A friendly label to help you identify the attribute in the editor
 - `Attribute Tag`: A unique gameplay tag that identifies this attribute
 - `StructType`: The struct type this attribute represents
+- `StructAttributeHandler`: On optional handler object class reference that you can use to send fine grained events when the attribute changes
 
 Here's an example of a Struct Attribute in the editor:
 ![Struct attribute in the editor](attributes_2.png)
 
-## How Attributes Are Updated
+## How To Modify Attributes
 
-Attributes can be modified by:
+<details markdown="1">
+<summary>Float Attributes</summary>
 
-1. Calling a function on the `AbilitySystemComponent`  
-    ![a screenshot of the SetStructAttributeValue function](attributes_3.png)
-2. [Attribute Modifiers](../../blueprint_nodes/attribute_modifiers/attribute_modifiers.html)
+1. Calling the [`SetFloatAttribute`](../../blueprint_nodes/ability_component/gameplay_ability_component.html#setfloatattributevalue) function on the `GamplayAbilitySystemComponent` that owns the attribute:  
+    ![a screenshot of the SetFloatAttributeValue function](attributes_3.png)
 
-When an attribute changes, SimpleGAS automatically sends an event so other systems (like your UI) can react to the change.  
-You can find a list of the available events on the [Event Reference page](../../event_reference/event_reference.html).
+2. Using an [`Attribute Modifier`](../../blueprint_nodes/attribute_modifiers/attribute_modifiers.html):  
+    ![a screenshot of a simple attribute modifier changing a float](attributes_11.png)  
+
+</details>
+
+<details markdown="1">
+<summary>Struct Attributes</summary>
+
+1. Calling the [`SetStructAttribute`](../../blueprint_nodes/ability_component/gameplay_ability_component.html#setstructattributevalue) function on the `GamplayAbilitySystemComponent` that owns the attribute:  
+    ![a screenshot of the SetStructAttributeValue function](attributes_12.png)
+
+2. Using an [`Attribute Modifier`](../../blueprint_nodes/attribute_modifiers/attribute_modifiers.html):  
+    ![a screenshot of a simple attribute modifier changing a struct](attributes_13.png)  
+    Inside the struct modification function:  
+    ![a screenshot of a function callback when modifying a struct attribute with an attribute modifier](attributes_14.png)
+
+</details>
+
+## How To Listen For Changes
+
+When an attribute changes, SimpleGAS automatically sends an event through the [Simple Event Subsystem](../event_system/event_subsystem.html) so other systems (like your UI) can react to the change.  
+You can find a list of the available events on the [Event Reference page](../../event_reference/event_reference.html). 
+
+<details markdown="1">
+<summary>Float Attributes</summary>
+
+1. Listen for the appropriate event in the Simple Event Subsystem:
+    ![a screenshot of listening for a change in float attribute value](attributes_6.png)
+2. Use the `WaitForFloatAttributeChanged` latent node:
+    ![a screenshot of the WaitForFloatAttributeChanged node](attributes_7.png)
+
+</details>
+
+<details markdown="1">
+<summary>Struct Attributes</summary>
+
+1. Listen for the appropriate event in the Simple Event Subsystem:
+    ![a screenshot of listening for a change in struct attribute value](attributes_8.png)
+2. Use the `WaitForStructAttributeChanged` latent node:
+    ![a screenshot of the WaitForStructAttributeChanged node](attributes_9.png)
+
+Struct attributes are a bit different from float attributes when it comes to the event that gets sent.  
+
+When a struct attribute changes, the entire struct is replaced. This presents a problem for when we are modifying the struct. 
+Even though we know which struct members changed there is no easy way to automatically send an event for each member that changed.  
+To get around this, you can create a `StructAttributeHandler` class to send fine-grained events when the attribute changes.  
+
+To create a struct attribute handler, create a new blueprint class that inherits from `UStructAttributeHandler`. This class only has a single function to implement called `GetModificationEvents`. It takes as input two `FInstancedStruct` parameters (the old struct and the new one) and returns an `FGameplayTagContainer` with the tags representing the members of the struct that changed:
+![a screenshot of a struct attribute handler implementation](attributes_10.png)  
+The `GetModificationEvents` function will be  called whenever the struct attribute changes and you can use it to determine which fields in the struct changed.  
+You can then listen for the corresponding struct member events. If no `StructAttributeHandler` is set on the struct attribute definition, you'll still receive an event when the struct changes, but it won't have any `ModificationTags` in it.
+
+</details>
+
 
 ## Attribute Sets
 

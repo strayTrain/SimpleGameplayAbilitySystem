@@ -56,17 +56,18 @@ bool UFunctionSelectors::ApplyFloatAttributeOperation(
 
 bool UFunctionSelectors::ModifyStructAttributeValue(
 	const USimpleAttributeModifier* OwningModifier,
-	const FMemberReference& DynamicFunction, const FGameplayTag AttributeTag, const FInstancedStruct& InStruct,
-	FGameplayTagContainer& EventTags, FInstancedStruct& OutStruct)
+	const FMemberReference& DynamicFunction,
+	const FGameplayTag AttributeTag,
+	const FInstancedStruct& InStruct,
+	FInstancedStruct& OutStruct)
 {
 	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningModifier->GetClass()))
 	{
 		struct {
 			FGameplayTag AttributeTag;
 			FInstancedStruct InStruct;
-			FGameplayTagContainer EventTags;
 			FInstancedStruct OutStruct;
-		} Params = { AttributeTag, InStruct, EventTags, OutStruct };
+		} Params = { AttributeTag, InStruct, OutStruct };
 
 		OwningModifier->OwningAbilityComponent->ProcessEvent(Function, &Params);
 		OutStruct = Params.OutStruct;

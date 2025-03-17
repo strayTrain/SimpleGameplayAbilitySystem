@@ -355,7 +355,7 @@ Gets the value of a struct attribute.
 
 ### SetStructAttributeValue
 
-Sets the value of a struct attribute. Can optionally trigger events to notify other systems of the change.
+Sets the value of a struct attribute.
 
 **Parameters:**
 
@@ -363,7 +363,6 @@ Sets the value of a struct attribute. Can optionally trigger events to notify ot
 |:-------------|:------------------|:------|
 | Attribute Tag | FGameplayTag | The tag of the attribute to set |
 | New Value | FInstancedStruct | The new value to set |
-| Modification Events | FGameplayTagContainer | Tags for events to fire after modification |
 
 | Output | Type | Description |
 |:-------------|:------------------|:------|

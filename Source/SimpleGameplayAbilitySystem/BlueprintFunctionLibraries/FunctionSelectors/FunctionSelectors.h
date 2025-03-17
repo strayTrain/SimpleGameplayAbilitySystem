@@ -5,6 +5,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "FunctionSelectors.generated.h"
 
+struct FInstancedStruct;
 class USimpleAttributeModifier;
 class USimpleGameplayAbilityComponent;
 
@@ -32,7 +33,6 @@ public:
 	bool Prototype_ModifyStructAttributeValue(
 		FGameplayTag AttributeTag,
 		const FInstancedStruct& InStruct,
-		FGameplayTagContainer& EventTags,
 		FInstancedStruct& OutStruct) { return false; };
 	
 	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "Context"))
@@ -66,7 +66,6 @@ public:
 		const FMemberReference& DynamicFunction,
 		FGameplayTag AttributeTag,
 		const FInstancedStruct& InStruct,
-		FGameplayTagContainer& EventTags,
 		FInstancedStruct& OutStruct);
 	
 	static bool GetStructContext(const USimpleAttributeModifier* OwningModifier, const FMemberReference& DynamicFunction, FInstancedStruct& Context);

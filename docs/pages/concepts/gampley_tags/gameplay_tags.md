@@ -7,7 +7,7 @@ nav_order: 1
 
 # Gameplay Tags
 
-Gameplay tags are a flexible way to label and categorize things in your game. Think of them as keywords or hashtags that you can attach to game elements to give them meaning and make them searchable.
+Gameplay tags give you a clean way to label and categorize things in your game. Think of them like keywords or hashtags that you can attach to game elements to give them meaning and make them searchable.
 
 In SimpleGAS, gameplay tags are used for things like:
 - Controlling when abilities can activate

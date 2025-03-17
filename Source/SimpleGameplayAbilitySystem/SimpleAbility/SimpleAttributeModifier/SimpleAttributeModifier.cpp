@@ -524,7 +524,6 @@ bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FStructAttribu
 		return false;
 	}
 
-	FGameplayTagContainer EventTags;
 	FInstancedStruct OutStruct;
 	
 	if (!UFunctionSelectors::ModifyStructAttributeValue(
@@ -532,7 +531,6 @@ bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FStructAttribu
 		StructModifier.StructModificationFunction,
 		AttributeToModify->AttributeTag,
 		AttributeToModify->AttributeValue,
-		EventTags,
 		OutStruct))
 	{
 		SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyStructAttributeModifier]: Struct modifier %s failed to apply."), *StructModifier.ModifierDescription));

@@ -142,7 +142,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
 	float GetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, meta = (ReturnDisplayName = "WasFound"), Category = "AbilityComponent|Attributes")
 	bool SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
 
 	bool IncrementFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow);
@@ -153,7 +153,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FInstancedStruct GetStructAttributeValue(FGameplayTag AttributeTag, bool& WasFound);
 	
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, meta = (ReturnDisplayName = "WasFound"), Category = "AbilityComponent|Attributes")
 	bool SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue);
 
 	UFUNCTION()
