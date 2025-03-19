@@ -29,13 +29,13 @@ Simple Gameplay Abilities are self-contained units of gameplay logic that define
 |:-------------|:------------------|:------------------|
 | CanTick | Bool | When enabled, the ability will receive OnTick events every frame. |
 | ActivationPolicy | Enum | Controls where and how the ability can be activated: <br> - `LocalOnly`: Activates on client or server but doesn't replicate (best for single-player or cosmetic effects). <br> - `ClientOnly`: Only activates on clients (for client-side effects). <br> - `ServerOnly`: Only activates on server without replicating to clients. <br> - `ClientPredicted`: Client activates immediately then sends request to server; supports state snapshots and prediction. <br> - `ServerInitiatedFromClient`: Client requests activation, server runs first, then replicates to client. <br> - `ServerAuthority`: Only activates on server but replicates to clients. |
-| InstancingPolicy | Enum | Controls ability instance management: <br> - `SingleInstance`: Only one instance exists; reused for each activation (better performance). <br> - `MultipleInstances`: New instance created for each activation (easier state management). |
+| InstancingPolicy | Enum | Controls ability instance management: <br> - `SingleInstance`: Only one instance exists; reused for each activation (better performance). When activating the ability again, the previous instance will be cancelled if its `CanCancel` function returns true <br> - `MultipleInstances`: New instance created for each activation (easier state management). |
 | ActivationRequiredTags | GameplayTagContainer | Tags that must be present on the ability component for activation to succeed. |
 | ActivationBlockingTags | GameplayTagContainer | Tags that will block the ability from activating if present on the ability component. |
 | Cooldown | Float | Time in seconds before the ability can be activated again (0 = no cooldown). |
 | RequiredContextType | UScriptStruct* | If set, ability will only activate if given an activation context of this struct type. |
 | AvatarTypeFilter | TArray<TSubclassOf<AActor>> | Avatar actor must be one of these types for activation to succeed. If empty, any avatar type is allowed. |
-| bRequireGrantToActivate | Bool | If true, the ability component must have this ability granted to it before activation. |
+| RequireGrantToActivate | Bool | If true, the ability component must have this ability granted to it before activation. |
 | AbilityTags | GameplayTagContainer | Tags that classify this ability (e.g., "Ability.Attack.Melee", "Ability.Movement.Dash"). |
 | TemporarilyAppliedTags | GameplayTagContainer | Tags applied to the ability component when activated and automatically removed when the ability ends. |
 | PermanentlyAppliedTags | GameplayTagContainer | Tags applied to the ability component when activated but not automatically removed when the ability ends. |
