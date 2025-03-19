@@ -7,8 +7,6 @@ nav_order: 9
 
 # Replication and Prediction in SimpleGAS
 
-Let's break down how SimpleGAS handles multiplayer gameplay through replication and prediction.
-
 ## The Golden Rule: Server Authority
 
 In SimpleGAS, the server is always the ultimate authority. This means:
@@ -44,7 +42,7 @@ For server-initiated abilities, the flow works like this:
 3. This AbilityState gets replicated to clients via `AuthorityAbilityStates` 
 4. Clients receive the AbilityState and activate their local version
 
-The beauty is that SimpleGAS handles all this synchronization automatically. Your ability classes define the behavior, and the AbilityComponent manages the replication.
+SimpleGAS handles all this synchronization automatically. Your ability classes define the behavior, and the AbilityComponent manages the replication.
 
 ### Client Prediction: Instant Feedback
 
@@ -60,48 +58,23 @@ But waiting for the server feels sluggish, especially with high ping. That's why
 This is controlled through the `ActivationPolicy` property on abilities:
 
 ```
+Replicated:
 ClientPredicted: Run on client immediately, correct if server disagrees
-ServerInitiatedFromClient: Request from client, but wait for server 
-ServerAuthority: Only run on server, then replicate to clients
+ServerInitiatedFromClient: Request from client, but wait for server to activate first  
+ServerAuthority: Can only activate on server but still replicate to clients
+
+Non Replicated:
+LocalOnly: Can activate on client or server, but no replication
+ClientOnly: Can only activate on client
+ServerOnly: Can only activate on server
 ```
 
 ### State Snapshots: Tracking What's Important
 
-During an ability's lifecycle, important moments can be captured as "snapshots" with `TakeStateSnapshot()`:
+During an ability's lifecycle, important moments can be captured as "snapshots" with `TakeStateSnapshot()` and a custom struct:  
 
-```cpp
-// Inside your ability code:
-FMyHitResult HitResult = DoSomeCheck();
-TakeStateSnapshot(FDefaultTags::HitResult, FInstancedStruct::Make(HitResult));
-```
-
-The snapshot system helps with:
-- Recording important state (hit enemies, random values, etc.)
-- Comparing client predictions with server reality
-- Correcting differences only where they matter
-
-For example, in a shooting ability:
-1. Client predicts hitting an enemy
-2. Server determines the shot actually missed
-3. SimpleGAS automatically reconciles this difference
-
-When a replicated snapshot arrives from the server, your ability can override `ClientResolvePastState()` to handle any corrections:
-
-```cpp
-void UMyAbility::ClientResolvePastState(FGameplayTag StateTag, 
-    FSimpleAbilitySnapshot AuthorityState, 
-    FSimpleAbilitySnapshot PredictedState)
-{
-    // Server says we missed, but we predicted a hit
-    if (StateTag == FDefaultTags::HitResult)
-    {
-        // Undo local hit effects
-        RemoveHitParticles();
-        // Apply server's "miss" effect instead
-        PlayMissSound();
-    }
-}
-```
+![alt text](../../../images/index_4.png) 
+![alt text](../../../images/index_5.png) 
 
 ## Attributes: Synchronized Stats
 
@@ -139,27 +112,14 @@ This automatic handling means you don't need to manually reconcile prediction er
 
 ## FInstancedStruct: Flexible Data Replication
 
-SimpleGAS uses `FInstancedStruct` to replicate dynamic data. This powerful mechanism:
+SimpleGAS uses `FInstancedStruct` to replicate dynamic data:
 - Allows arbitrary structs to be replicated
-- Gives type safety with runtime flexibility
 - Lets you pass any data structure through the network
 
 However, keep these things in mind:
-1. Struct properties must be marked for replication
+1. Struct properties must be replicable types
 2. Complex nested structs can be bandwidth-intensive
-3. Custom structs need to be registered properly
 
 When using `FInstancedStruct` in your abilities:
 - Keep payloads as small as practical
 - Use basic types where possible
-- Remember all replicated structs need valid serialization code
-
-## Key Takeaways
-
-1. **Server Authority**: The server is always right, but SimpleGAS makes this transparent
-2. **Smart Prediction**: Get responsive gameplay but with eventual consistency
-3. **Flexible Replication**: Attributes, abilities, and modifiers all share similar strategies
-4. **Automatic Reconciliation**: SimpleGAS handles most prediction errors automatically
-5. **Bandwidth Efficiency**: Only relevant changes get replicated
-
-This framework gives you responsive gameplay without sacrificing security or consistency - the best of both worlds!

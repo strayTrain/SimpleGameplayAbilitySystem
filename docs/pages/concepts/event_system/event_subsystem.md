@@ -9,7 +9,7 @@ nav_order: 3
 
 ## What is the Simple Event Subsystem?
 
-The Simple Event Subsystem is a subsystem that lets different parts of your game talk to each other using gameplay tags with arbitrary struct payloads.  
+The [Simple Event Subsystem](https://github.com/strayTrain/SimpleEventSubsystemPlugin) is a subsystem that lets different parts of your game talk to each other using gameplay tags with arbitrary struct payloads.  
 It's like a message board where game systems can post updates and others can listen for specific types of messages they care about.
 
 ## Why Use an Event System?

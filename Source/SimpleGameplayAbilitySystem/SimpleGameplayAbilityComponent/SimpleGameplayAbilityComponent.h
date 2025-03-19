@@ -145,6 +145,7 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (ReturnDisplayName = "WasFound"), Category = "AbilityComponent|Attributes")
 	bool SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
 
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
 	bool IncrementFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow);
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)

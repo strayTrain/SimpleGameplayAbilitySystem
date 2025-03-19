@@ -14,7 +14,7 @@ e.g. Imagine we had a function that processes an event. For each event type we n
 ![a screenshot demonstrating how FInstancedStruct can be used to make functions that take arbitrary struct as input](instanced_struct_1.png)
 </a>
 
-Instanced struct are usually used in SimpleGAS to pass in context data for Abilities, Events, and Effects. e.g. If we have a `LaunchPlayer` ability we create a `LaunchPlayerParams` struct that contains the direction and force to launch the player with and then pass that into the ability.  
+Instanced Structs are usually used in SimpleGAS to pass in context data for Abilities, Events, and Effects. e.g. If we have a `LaunchPlayer` ability we create a `LaunchPlayerParams` struct that contains the direction and force to launch the player with and then pass that into the ability.  
 <a href="instanced_struct_2.png" target="_blank">
     ![a screenshot of a blueprint function that takes an FInstancedStruct as input](instanced_struct_2.png)
 </a>

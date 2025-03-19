@@ -373,7 +373,7 @@ bool USimpleGameplayAbilityComponent::SetFloatAttributeValue(EAttributeValueType
 bool USimpleGameplayAbilityComponent::IncrementFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow)
 {
 	bool WasFound = false;
-	float CurrentValue = GetFloatAttributeValue(ValueType, AttributeTag, WasFound);
+	const float CurrentValue = GetFloatAttributeValue(ValueType, AttributeTag, WasFound);
 
 	if (!WasFound)
 	{
