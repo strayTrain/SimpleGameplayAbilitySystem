@@ -7,7 +7,7 @@ nav_order: 4
 # SimpleGAS Event Reference
 
 This page documents all built-in events that SimpleGAS broadcasts through the `SimpleEventSubsystem`. You can listen for these events in your game to respond to various system changes.  
-You can read about how to listen for events on the [Event Reference page](../concepts/event_system/event_subsystem.html#listening-for-events){:target="_blank"}.
+You can read about how to listen for events on the [event system concept page](../concepts/event_system/event_subsystem.html#listening-for-events){:target="_blank"}.
 
 
 ## Ability Component Events
