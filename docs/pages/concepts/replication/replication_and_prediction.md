@@ -73,8 +73,12 @@ ServerOnly: Can only activate on server
 
 During an ability's lifecycle, important moments can be captured as "snapshots" with `TakeStateSnapshot()` and a custom struct:  
 
-![alt text](../../../images/index_4.png) 
-![alt text](../../../images/index_5.png) 
+<a href="../../../images/index_4.png" target="_blank">
+![\alt text](\../../../images/index_4.png)
+</a> 
+<a href="../../../images/index_5.png" target="_blank">
+![\alt text](\../../../images/index_5.png)
+</a> 
 
 ## Attributes: Synchronized Stats
 

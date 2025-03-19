@@ -22,9 +22,13 @@ In SimpleGAS, gameplay tags are used for things like:
     - Useful for answering questions like "What type of movement disable is this?" or "Is this a movement disable tag?"
 2. **Optimized Queries**: The gameplay tag system is optimized for container operations and hierarchical queries that would be a hassle to implement with plain strings
     - For example, you can easily check if a tag is a child of another tag
+        <a href="gameplay_tags_1.png" target="_blank">
         ![a screenshot of FGameplayTag comparison in blueprints](gameplay_tags_1.png)
+        </a>
 3. **Editor Support**: The tag picker UI prevents typos and makes it easy to see which tags are used throughout the project for future you who totally remembers what they were doing when they added that tag months ago  
+    <a href="gameplay_tags_2.png" target="_blank">
     ![Gameplay tags in the editor](gameplay_tags_2.png)
+    </a>
 
 ## Want to Learn More?
 

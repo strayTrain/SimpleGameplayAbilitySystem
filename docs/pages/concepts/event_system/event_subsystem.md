@@ -36,7 +36,9 @@ Do this by right-clicking in the blueprint editor and searching for `GetSimpleEv
     - (optional) `Sender`: an actor reference representing the source of the event
     - (optional) `ListenerFilter`: an actor array representing the listeners that should receive the event
 
+<a href="events_1.png" target="_blank">
 ![a screenshot of the SendEvent function and its inputs](events_1.png)
+</a>
 
 ### Listening for Events
 
@@ -52,17 +54,25 @@ Do this by right-clicking in the blueprint editor and searching for `GetSimpleEv
     - `OnlyMatchExactDomain`: a boolean that determines if the listener should only trigger if the domain tag matches exactly or if it can match any parent tags.
 - Calling `ListenForEvent` will return a GUID that identifies the event subscription. You can use this GUID to stop listening for the event later.
 
+<a href="events_3.png" target="_blank">
 ![a screenshot of the ListenForEventFunction](events_3.png)
+</a>
 
 For convenience there is also an async version of the `ListenForEvent` function:
-![a screenshot of the WaitForSimpleEvent async node](events_5.png) 
+<a href="events_5.png" target="_blank">
+![a screenshot of the WaitForSimpleEvent async node](events_5.png)
+</a> 
 
 ### Stopping Listening
 
 When you're no longer interested in events, you can stop listening by calling one of these functions:
+<a href="events_4.png" target="_blank">
 ![a screenshot of the 3 functions you can call for stopping listening for an event](events_4.png)
+</a>
 
 ### Tips
 
 - To make creating callback functions in `ListenForEvent` easier, drag off the `EventReceivedDelegate` pin and select `Create Event` to create or select an event function
-    ![a screenshot of Create Event](events_2.png)
+    <a href="events_2.png" target="_blank">
+![a screenshot of Create Event](events_2.png)
+</a>

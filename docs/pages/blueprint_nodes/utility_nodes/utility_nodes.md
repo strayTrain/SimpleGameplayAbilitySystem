@@ -23,16 +23,22 @@ nav_order: 4
 ### ToInstancedStruct
 
 A pure style function that takes in a struct and returns an `FInstancedStruct` of that struct type. This can look a bit cleaner than using the `MakeInstancedStruct` node in some cases.
+<a href="ToInstancedStruct.png" target="_blank">
 ![a screenshot of the ToInstancedStruct utility node](ToInstancedStruct.png)
+</a>
 
 ### ISimpleAbilitySystemComponent interface
 
 This is an interface that you can implement on the actor that owns the `SimpleGameplayAbilityComponent`. It has a single function called `GetSimpleAbilitySystemComponent` that returns the `SimpleGameplayAbilityComponent` of the actor. This way, you don't need to get the component from the actor every time you want to use it.  
 In addition, any function that requires a `SimpleGameplayAbilityComponent` as input can now take an actor as input instead and a `GetSimpleAbilitySystemComponent` node will be created automatically:  
-    ![a screenshot of the ISimpleAbilitySystemComponent interface](ISimpleAbilitySystemComponent.png)
+    <a href="ISimpleAbilitySystemComponent.png" target="_blank">
+![a screenshot of the ISimpleAbilitySystemComponent interface](ISimpleAbilitySystemComponent.png)
+</a>
 
 To add this interface to your actor, go to the actor's class settings and add the `ISimpleAbilitySystemComponent` interface:  
-    ![a screenshot of adding the ISimpleAbilitySystemComponent interface to an actor](ISimpleAbilitySystemComponent2.png)
+    <a href="ISimpleAbilitySystemComponent2.png" target="_blank">
+![a screenshot of adding the ISimpleAbilitySystemComponent interface to an actor](ISimpleAbilitySystemComponent2.png)
+</a>
 
 ## Abilities
 
@@ -60,7 +66,9 @@ Example use case:
 | WasCancelled | Bool | True if the sub ability was cancelled, false if ended normally. |
 
 **Example:**
+<a href="WaitForClientSubAbilityEnd.png" target="_blank">
 ![an example of WaitForClientSubAbilityEnd node](WaitForClientSubAbilityEnd.png)
+</a>
 
 ### WaitForServerSubAbilityEnd
 
@@ -124,7 +132,9 @@ Waits for a float attribute to change before proceeding. Useful for updating you
 | NewValue | Float | The new value of the float e.g. `ChangedValueType` = `CurrentValue` then `NewValue` = the new `CurrentValue` |
 
 **Example:**
+<a href="WaitForFloatAttributeChange.png" target="_blank">
 ![an example of WaitForFloatAttributeChange node](WaitForFloatAttributeChange.png)
+</a>
 
 ### WaitForStructAttributeChange
 
@@ -145,7 +155,9 @@ Waits for a struct attribute to change before proceeding. Useful for updating yo
 | OldValue | FInstancedStruct | The value of the struct attribute before being modified |
 
 **Example:**
+<a href="WaitForStructAttributeChange.png" target="_blank">
 ![an example of WaitForStructAttributeChange node](WaitForStructAttributeChange.png)
+</a>
 
 ## Gameplay Tags
 
@@ -164,4 +176,6 @@ Waits for a gameplay tag to be added or removed from a `GameplayAbilityComponent
 There is no output for this node. It will trigger a `TagAdded` or `TagRemoved` exec pin.
 
 **Example:**
+<a href="WaitForGameplayTag.png" target="_blank">
 ![an example of WaitForGameplayTag node](WaitForGameplayTag.png)
+</a>

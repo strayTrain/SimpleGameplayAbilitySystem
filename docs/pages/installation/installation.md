@@ -51,7 +51,9 @@ Blueprint projects don't come with Visual Studio solution files or C++ support b
 1. [Download or clone the SimpleGAS repository](https://github.com/strayTrain/SimpleGameplayAbilitySystem) and place it in your project's Plugins folder
    - If your project doesn't have a Plugins folder yet, create one
    - For example, if your project is at `C:\Projects\MyGame`, place SimpleGAS in `C:\Projects\MyGame\Plugins\SimpleGameplayAbilitySystem`
-   - ![windows example of the project folder](installed_plugin_directory.png)
+      <a href="installed_plugin_directory.png" target="_blank">
+      ![windows example of the project folder](installed_plugin_directory.png)
+      </a>
 2. Rebuild your project and launch the editor
 3. The plugin should be enabled by default, but you can verify by going to **Edit** > **Plugins** and searching for "SimpleGameplayAbilitySystem"
 
