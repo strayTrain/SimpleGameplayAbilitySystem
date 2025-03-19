@@ -73,7 +73,7 @@ Beyond simply changing values, Attribute Modifiers can:
 | Target Blocking Tags | FGameplayTagContainer | Tags that prevent the modifier from applying if present on the target |
 | Target Blocking Modifier Tags | FGameplayTagContainer | If another modifier with these tags is already applied, this modifier won't apply |
 
-### Application Effects
+### After passing tag requirements
 
 | Name | Type | Description |
 |:-----|:-----|:------------|
@@ -85,6 +85,8 @@ Beyond simply changing values, Attribute Modifiers can:
 | Remove Gameplay Tags | FGameplayTagContainer | Tags to remove from the target when this modifier is applied |
 
 ### Attribute Modifications
+
+This section defines how the modifier changes attributes. You can [modify both float and struct attributes](../../concepts/attributes/attributes.html#attributes).
 
 | Name | Type | Description |
 |:-----|:-----|:------------|
@@ -117,7 +119,7 @@ Override this function to add custom validation rules for when the modifier can 
 
 ### OnPreApplyModifier
 
-Called just before the modifier's effects are applied. Use this for setup or pre-application logic.
+Called after passing tag requirements and `CanApplyModifier` checks but before the modifier's effects are applied. Use this for setup or pre-application logic e.g. Applying resource costs.
 
 **Parameters:**
 *No parameters*
@@ -153,71 +155,10 @@ Called when stacks are added to a duration modifier.
 
 ### OnMaxStacksReached
 
-Called when a duration modifier reaches its maximum stack count.
+Called when a duration modifier reaches its maximum stack count. This will only be called if `HasMaxStacks` is true.
 
 **Parameters:**
 *No parameters*
-
-## Callable Functions
-
-### ApplyModifier
-
-Applies this modifier to a target, making all configured attribute changes.
-
-**Parameters:**
-
-| Input | Type | Description |
-|:-------------|:------------------|:------|
-| Instigator | USimpleGameplayAbilityComponent* | The component that's applying the modifier |
-| Target | USimpleGameplayAbilityComponent* | The component receiving the modification |
-| ModifierContext | FInstancedStruct | Context data for the modification |
-
-| Output | Type | Description |
-|:-------------|:------------------|:------|
-| Return Value | bool | True if the modifier was successfully applied |
-
-### ApplySideEffects
-
-Applies all configured side effects (abilities, events, other modifiers).
-
-**Parameters:**
-
-| Input | Type | Description |
-|:-------------|:------------------|:------|
-| Instigator | USimpleGameplayAbilityComponent* | The component that originated the side effects |
-| Target | USimpleGameplayAbilityComponent* | The component receiving the side effects |
-| EffectPhase | EAttributeModifierSideEffectTrigger | Which phase of effects to apply: <br> - `OnInstantModifierEndedSuccess`: When an instant modifier completes successfully <br> - `OnInstantModifierEndedCancel`: When an instant modifier is cancelled <br> - `OnDurationModifierInitiallyAppliedSuccess`: When a duration modifier first applies <br> - `OnDurationModifierEndedSuccess`: When a duration modifier ends normally <br> - `OnDurationModifierEndedCancel`: When a duration modifier is cancelled <br> - `OnDurationModifierTickSuccess`: When a duration modifier ticks successfully <br> - `OnDurationModifierTickCancel`: When a duration modifier tick is cancelled |
-
-### EndModifier
-
-Ends the modifier, cleaning up any temporary effects.
-
-**Parameters:**
-
-| Input | Type | Description |
-|:-------------|:------------------|:------|
-| EndingStatus | FGameplayTag | Tag indicating why the modifier is ending |
-| EndingContext | FInstancedStruct | Optional context data for the ending |
-
-### AddModifierStack
-
-Adds stacks to a duration modifier.
-
-**Parameters:**
-
-| Input | Type | Description |
-|:-------------|:------------------|:------|
-| StackCount | int32 | Number of stacks to add |
-
-### IsModifierActive
-
-Checks if the modifier is currently active.
-
-**Parameters:**
-
-| Output | Type | Description |
-|:-------------|:------------------|:------|
-| Return Value | bool | True if the modifier is active |
 
 ## How Attribute Modification Works
 
@@ -241,15 +182,7 @@ Operations include:
 
 ### Struct Attribute Modifiers
 
-Struct attribute modifiers work by calling a blueprint function you define. This gives you complete control over how to modify complex data structures.
+Struct attribute modifiers work by calling a blueprint function you define. This gives you complete control over how to modify complex data structures. If you've set up a [`StructAttributeHandler`](../../concepts/attributes/attributes.html#struct-attribute-handlers), you will get events for each member of the struct that gets changed.
 
-### Integration with Prediction
-
-For multiplayer games, attribute modifiers support client prediction to create responsive gameplay:
-
-1. Client applies the modifier immediately
-2. Server validates and applies its authoritative version
-3. Client compares its prediction with server's result
-4. Client automatically corrects any differences
 
 </div>

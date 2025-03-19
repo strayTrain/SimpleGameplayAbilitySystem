@@ -238,6 +238,16 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 	if (WasActivated)
 	{
 		LastActivatedAbilityTimeStamps.Add(AbilityClass, GetServerTime());
+
+		FAbilityActivationEvent ActivationEvent;
+		ActivationEvent.AbilityID = AbilityID;
+		ActivationEvent.AbilityClass = AbilityClass;
+		ActivationEvent.AbilityContext = AbilityContext;
+		ActivationEvent.WasActivatedSuccessfully = WasActivated;
+		ActivationEvent.ActivationTimeStamp = GetServerTime();
+		
+		const FGameplayTag DomainTag = HasAuthority() ? FDefaultTags::AuthorityAbilityDomain() : FDefaultTags::LocalAbilityDomain();
+		SendEvent(FDefaultTags::AbilityActivated(), DomainTag, FInstancedStruct::Make(ActivationEvent), this, {}, ESimpleEventReplicationPolicy::NoReplication);
 	}
 	
 	return WasActivated;

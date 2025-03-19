@@ -143,8 +143,7 @@ public:
 
 	/* Utility functions */
 	UFUNCTION(BlueprintCallable)
-	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct EventContext, ESimpleEventReplicationPolicy
-	                      ReplicationPolicy) const;
+	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct EventContext, ESimpleEventReplicationPolicy ReplicationPolicy);
 
 	UFUNCTION(BlueprintCallable)
 	AActor* GetAvatarActor() const;
@@ -197,7 +196,7 @@ public:
 	bool WasActivatedOnClient() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	EAbilityServerRole GetServerRole() const;
+	EAbilityServerRole GetServerRole(bool& IsListenServer) const;
 
 protected:
 	virtual UWorld* GetWorld() const override;

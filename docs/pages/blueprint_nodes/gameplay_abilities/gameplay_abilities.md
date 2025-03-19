@@ -58,8 +58,6 @@ Use this function to add custom requirements for ability activation such as reso
 |:-------------|:------------------|:------|
 | Return Value | bool | True if the ability can activate, false otherwise |
 
-**Example:**
-![a screenshot of the CanActivate function](gameplay_abilities_1.png)
 
 ### PreActivate
 
@@ -71,8 +69,6 @@ Called before OnActivate if CanActivate returns true. Use this for setup or to c
 |:-------------|:------------------|:------|
 | ActivationContext | FInstancedStruct | The context data passed during activation |
 
-**Example:**
-![a screenshot of the PreActivate function](gameplay_abilities_2.png)
 
 ### OnActivate
 
@@ -84,8 +80,6 @@ The main execution function for the ability. Define your ability's core behavior
 |:-------------|:------------------|:------|
 | ActivationContext | FInstancedStruct | The context data passed during activation |
 
-**Example:**
-![a screenshot of the OnActivate function](gameplay_abilities_3.png)
 
 ### OnTick
 
@@ -107,8 +101,6 @@ Check if the ability can be cancelled when requested.
 |:-------------|:------------------|:------|
 | Return Value | bool | True if the ability can be cancelled, false otherwise |
 
-**Example:**
-![a screenshot of the CanCancel function](gameplay_abilities_5.png)
 
 ### OnEnd
 
@@ -122,8 +114,6 @@ Called when the ability ends, either normally or through cancellation.
 | EndingContext | FInstancedStruct | Context data for the ending |
 | WasCancelled | bool | True if ended by cancellation, false if ended normally |
 
-**Example:**
-![a screenshot of the OnEnd function](gameplay_abilities_4.png)
 
 ## Callable Functions
 
@@ -141,7 +131,7 @@ Activates another ability as a child of this ability.
 | ActivationContext | FInstancedStruct | Context data to pass to the sub-ability |
 | CancelIfParentEnds | bool | If true, sub-ability is cancelled when this ability ends |
 | CancelIfParentCancels | bool | If true, sub-ability is cancelled when this ability is cancelled |
-| SubAbilityActivationPolicy | ESubAbilityActivationPolicy | Controls how the sub-ability is replicated |
+| SubAbilityActivationPolicy | ESubAbilityActivationPolicy | Controls how the sub-ability is replicated <br> - `NoReplication` The sub ability will activate locally on both the server and client version of the ability but won't replicate. Useful for cosmetic abilities or abilities that don't need to be checked for server/client desync e.g. a `PlayMontage` sub ability <br> - `ClientOnly` The sub ability will activate only on the client and not replicate <br> - `ServerOnly` The sub ability will activate only on the server and not replicate <br> - `InitiateFromClient` The sub ability will activate on the client version of the ability and will replicate to everyone (i.e. `ClientPredicted`) <br> - `InitiateFromServer` The sub ability will activate on the server version of the ability but will replicate to all clients i.e. `ServerAuthority` |
 
 | Output | Type | Description |
 |:-------------|:------------------|:------|
@@ -172,7 +162,7 @@ Attempts to cancel the ability.
 
 ### SendEvent
 
-Sends a gameplay event from this ability.
+Sends a gameplay event from this ability. The sender is always the calling ability
 
 **Parameters:**
 
@@ -292,6 +282,7 @@ Gets the current server role for this ability.
 
 | Output | Type | Description |
 |:-------------|:------------------|:------|
+| IsListenServer | Bool | True if this is a listen server, false otherwise. |
 | Return Value | EAbilityServerRole | Either Server or Client depending on where the code is running |
 
 </div>

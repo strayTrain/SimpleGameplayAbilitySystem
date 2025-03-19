@@ -12,15 +12,10 @@ class FDefaultTags
 		static FGameplayTag GameplayTagAdded() { return FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagAdded"); }
 		static FGameplayTag GameplayTagRemoved() { return FindTag("SimpleGAS.Events.AbilityComponent.GameplayTagRemoved"); }
 	
-		static FGameplayTag AbilityAdded() { return FindTag("SimpleGAS.Events.Ability.Added"); }
-		static FGameplayTag AbilityRemoved() { return FindTag("SimpleGAS.Events.Ability.Removed"); }
-	
 		static FGameplayTag AbilityActivated() { return FindTag("SimpleGAS.Events.Ability.Activated"); }
 		static FGameplayTag AbilityEnded() { return FindTag("SimpleGAS.Events.Ability.Ended"); }
 		static FGameplayTag AbilityEndedSuccessfully() { return FindTag("SimpleGAS.Events.Ability.Ended.Success"); }
 		static FGameplayTag AbilityCancelled() { return FindTag("SimpleGAS.Events.Ability.Ended.Cancel"); }
-	
-		static FGameplayTag AbilitySnapshotTaken() { return FindTag("SimpleGAS.Events.Ability.SnapshotTaken"); }
 	
 		static FGameplayTag WaitForAbilityEnded() { return FindTag("SimpleGAS.Events.Ability.WaitForAbilityEnded"); }
 	

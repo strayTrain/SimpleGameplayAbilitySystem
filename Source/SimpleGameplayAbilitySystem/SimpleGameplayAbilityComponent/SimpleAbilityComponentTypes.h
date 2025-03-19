@@ -16,6 +16,7 @@
 
 /* Enums */
 
+class USimpleGameplayAbility;
 class USimpleGameplayAbilityComponent;
 struct FFloatAttribute;
 
@@ -455,4 +456,25 @@ struct FEventContextCollection
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FEventContext> EventContexts;
+};
+
+USTRUCT(BlueprintType)
+struct FAbilityActivationEvent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGuid AbilityID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<USimpleGameplayAbility> AbilityClass;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct AbilityContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool WasActivatedSuccessfully;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float ActivationTimeStamp;
 };

@@ -24,3 +24,5 @@ That said, here's a list of things I plan to work on in the future:
     - Add a way for the amount of replicated data to be configurable (currently all attributes are replicated)
     - Add a way to set the replication frequency of attributes
     - Improve performance of various systems (there is always room for improvement)
+- [ ] **Events**:  
+    - Add more built-in events that are broadcasted by the system e.g. Adding/Removing abilities etc.

@@ -104,6 +104,7 @@ Revokes a previously granted ability from this component. This function is avail
 ### AddAbilityOverride
 
 Defines an ability override, which replaces one ability with another. Useful for equipment or status effects that modify abilities. This function is available only on the server.
+The way an ability override works is that when you activate an ability, the system checks if there is an override for it. If there is, it uses the override instead of the original ability. This allows you to change the behavior of abilities without modifying their original code.
 
 **Parameters:**
 
@@ -514,7 +515,7 @@ Sends a gameplay event from this component. Events can be used for communication
 
 ### GetServerTime
 
-Returns the current server time. On the server this is the actual server time, on clients it's their estimation of the server time.
+Returns the current server time. On the server this is the actual server time, on clients it's their estimation of the server time. You can override this function in child classes to provide a time implementation that suits your needs.
 
 **Parameters:**
 

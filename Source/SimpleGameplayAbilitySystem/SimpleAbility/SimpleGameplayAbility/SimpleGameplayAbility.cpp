@@ -282,8 +282,10 @@ bool USimpleGameplayAbility::WasActivatedOnClient() const
 		IsProxyAbility;
 }
 
-EAbilityServerRole USimpleGameplayAbility::GetServerRole() const
+EAbilityServerRole USimpleGameplayAbility::GetServerRole(bool& IsListenServer) const
 {
+	IsListenServer = OwningAbilityComponent->GetNetMode() == NM_ListenServer;
+	
 	// Check if we're on a server
 	if (OwningAbilityComponent->GetNetMode() < NM_Client)
 	{
@@ -433,7 +435,7 @@ void USimpleGameplayAbility::SendEvent(
 	const FGameplayTag EventTag,
 	const FGameplayTag DomainTag,
 	const FInstancedStruct EventContext,
-	const ESimpleEventReplicationPolicy ReplicationPolicy) const
+	const ESimpleEventReplicationPolicy ReplicationPolicy)
 {
-	OwningAbilityComponent->SendEvent(EventTag, DomainTag, EventContext, GetAvatarActor(), {}, ReplicationPolicy);
+	OwningAbilityComponent->SendEvent(EventTag, DomainTag, EventContext, this, {}, ReplicationPolicy);
 }
