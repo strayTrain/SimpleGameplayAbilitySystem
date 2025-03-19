@@ -432,7 +432,7 @@ Cancels all attribute modifiers that have any of the specified tags. Useful for 
 
 ### AddGameplayTag
 
-Adds a gameplay tag to this component. If the tag already exists, its reference counter is incremented.
+Adds a gameplay tag to this component. If the tag is already present, its counter is incremented.
 
 **Parameters:**
 
@@ -443,7 +443,10 @@ Adds a gameplay tag to this component. If the tag already exists, its reference 
 
 ### RemoveGameplayTag
 
-Removes a gameplay tag from this component. If the tag is referenced multiple times, its counter is decremented.
+Removes a gameplay tag from this component. 
+Gameplay tags use reference counting, so if you add the same tag multiple times, it will only be removed when all references are removed.
+
+e.g. You have two abilities (A and B) that temporarily add the same gameplay tag and we activate both of them at the same time. If ability A ends before ability B it will try to remove the temporary tag that it added. But since ability B is still active, the tag will not be removed, instead its reference counter will be decremented. The tag will only be removed when ability B ends and the tag reference counter is 0.
 
 **Parameters:**
 
