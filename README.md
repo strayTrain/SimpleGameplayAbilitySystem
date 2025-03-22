@@ -5,4 +5,6 @@ A streamlined, flexible, and network‐friendly alternative to Unreal Engine’s
 ## [Check out the docs here](https://straytrain.github.io/SimpleGameplayAbilitySystem/)
 
 I hope this plugin helps you have more fun while making your game!  
-If you have any questions, suggestions, or encounter issues, please open an issue create a discussion. Contributions are also very welcome!
+If you have any questions, suggestions, or encounter issues, please open an [issue](https://github.com/strayTrain/SimpleGameplayAbilitySystem/issues) or create a [discussion](https://github.com/strayTrain/SimpleGameplayAbilitySystem/discussions).  
+
+Contributions are also very welcome.
