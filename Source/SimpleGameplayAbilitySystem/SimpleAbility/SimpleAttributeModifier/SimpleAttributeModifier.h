@@ -180,8 +180,8 @@ protected:
 	UFUNCTION()
 	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender = nullptr);
 	
-	bool ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const;
-	bool ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes) const;
+	bool ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow);
+	bool ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes);
 	bool ApplyModifiersInternal(const EAttributeModifierSideEffectTrigger TriggerPhase);
 
 private:
