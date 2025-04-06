@@ -64,7 +64,7 @@ void UWaitForAbility::Activate()
 		FGameplayTagContainer(FDefaultTags::WaitForAbilityEnded()),
 		FGameplayTagContainer(),
 		TArray<UScriptStruct*>({FSimpleAbilityEndedEvent::StaticStruct()}),
-		TArray<UObject*>({ActivatorAbility->OwningAbilityComponent->GetAvatarActor()}),
+		TArray<UObject*>({ ActivatorAbility->OwningAbilityComponent->GetAvatarActor() }),
 		false,
 		false);
 	

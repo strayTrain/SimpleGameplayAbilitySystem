@@ -188,7 +188,7 @@ void USimpleGameplayAbility::EndAbilityInternal(FGameplayTag Status, FInstancedS
 	EndEvent.EndingContext = Context;
 	EndEvent.WasCancelled = WasCancelled;
 	
-	OwningAbilityComponent->SendEvent(FDefaultTags::AbilityEnded(), Status, FInstancedStruct::Make(EndEvent), GetAvatarActor(), { OwningAbilityComponent }, ESimpleEventReplicationPolicy::NoReplication);
+	OwningAbilityComponent->SendEvent(FDefaultTags::AbilityEnded(), Status, FInstancedStruct::Make(EndEvent), GetAvatarActor(), { }, ESimpleEventReplicationPolicy::NoReplication);
 }
 
 AActor* USimpleGameplayAbility::GetAvatarActor() const
