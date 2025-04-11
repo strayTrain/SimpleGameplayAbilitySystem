@@ -313,6 +313,7 @@ FAbilityState& USimpleGameplayAbilityComponent::CreateAbilityState(
 {
 	FAbilityState NewAbilityState;
 	NewAbilityState.AbilityID = AbilityID;
+	NewAbilityState.ActivationPolicy = ActivationPolicy;
 	NewAbilityState.AbilityClass = AbilityClass;
 	NewAbilityState.ActivationTimeStamp = ActivationTime > 0 ? ActivationTime : GetServerTime();
 	NewAbilityState.ActivationContext = ActivationContext;
@@ -903,10 +904,7 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 		// If the NewAbilityState doesn't exist locally, we activate it
 		if (!LocalStateArrayIndexMap.Contains(NewAbilityState.AbilityID))
 		{
-			// Avoid activating ServerOnly abilities on the client
-			TArray ValidActicationPolicies = { EAbilityActivationPolicy::ServerAuthority, EAbilityActivationPolicy::ServerInitiatedFromClient };
-
-			if (!ValidActicationPolicies.Contains(NewAbilityState.ActivationPolicy))
+			if (NewAbilityState.ActivationPolicy == EAbilityActivationPolicy::ServerOnly)
 			{
 				return;
 			}
@@ -1008,9 +1006,7 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Author
 				return;
 			}
 
-			TArray ValidActicationPolicies = { EAbilityActivationPolicy::ServerAuthority, EAbilityActivationPolicy::ServerInitiatedFromClient };
-
-			if (!ValidActicationPolicies.Contains(AuthorityAbilityState.ActivationPolicy))
+			if (AuthorityAbilityState.ActivationPolicy == EAbilityActivationPolicy::ServerOnly)
 			{
 				return;
 			}
