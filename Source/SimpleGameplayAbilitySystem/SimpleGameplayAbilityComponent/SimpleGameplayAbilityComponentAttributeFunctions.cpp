@@ -418,7 +418,9 @@ USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHand
 	}
 
 	USimpleAttributeHandler* NewHandlerInstance = NewObject<USimpleAttributeHandler>(this, HandlerClass);
+	NewHandlerInstance->AttributeOwner = this;
 	InstancedAttributeHandlers.Add(NewHandlerInstance);
+	
 	return NewHandlerInstance;
 }
 
@@ -453,7 +455,7 @@ bool USimpleGameplayAbilityComponent::SetStructAttributeValue(const FGameplayTag
 
 	if (Attribute->StructAttributeHandler)
 	{
-		Payload.ModificationTags = GetStructAttributeHandlerInstance(Attribute->StructAttributeHandler)->GetModificationEvents(Payload.OldValue, Payload.NewValue);
+		Payload.ModificationTags = GetStructAttributeHandlerInstance(Attribute->StructAttributeHandler)->GetModificationEvents(AttributeTag, Payload.OldValue, Payload.NewValue);
 	}
 	
 	Attribute->AttributeValue = NewValue;
@@ -464,6 +466,8 @@ bool USimpleGameplayAbilityComponent::SetStructAttributeValue(const FGameplayTag
 	}
 	
 	SendEvent(FDefaultTags::StructAttributeValueChanged(), AttributeTag, FInstancedStruct::Make(Payload), this, { }, ESimpleEventReplicationPolicy::NoReplication);
+
+	Attribute->OnValueChanged.ExecuteIfBound();
 	
 	return true;
 }
@@ -679,10 +683,10 @@ void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttr
 
 			if (LocalStructAttribute.StructAttributeHandler)
 			{
-				Payload.ModificationTags = GetStructAttributeHandlerInstance(LocalStructAttribute.StructAttributeHandler)->GetModificationEvents(Payload.OldValue, Payload.NewValue);
+				Payload.ModificationTags = GetStructAttributeHandlerInstance(LocalStructAttribute.StructAttributeHandler)->GetModificationEvents(ChangedStructAttribute.AttributeTag, Payload.OldValue, Payload.NewValue);
 			}
 			
-			SendEvent(FDefaultTags::StructAttributeValueChanged(), ChangedStructAttribute.AttributeTag, FInstancedStruct::Make(Payload), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
+			SendEvent(FDefaultTags::StructAttributeValueChanged(), ChangedStructAttribute.AttributeTag, FInstancedStruct::Make(Payload), this, {}, ESimpleEventReplicationPolicy::NoReplication);
 			return;
 		}
 	}

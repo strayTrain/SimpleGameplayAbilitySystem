@@ -173,7 +173,6 @@ void USimpleGameplayAbility::EndAbilityInternal(FGameplayTag Status, FInstancedS
 	{
 		OwningAbilityComponent->CancelAbility(SubAbilityID, Context, true);
 	}
-
 	
 	bIsAbilityActive = false;
 
@@ -406,6 +405,8 @@ bool USimpleGameplayAbility::MeetsActivationRequirements(FInstancedStruct& Activ
 
 	return true;
 }
+
+void USimpleGameplayAbility::OnEnd_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext, bool WasCancelled) { }
 
 void USimpleGameplayAbility::ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState)
 {

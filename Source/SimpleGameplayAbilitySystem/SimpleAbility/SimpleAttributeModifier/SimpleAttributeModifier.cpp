@@ -667,6 +667,13 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 			ModifierResult.AppliedAttributeModifierSideEffects.Add(AttributeSideEffect);
 		}
 	}
+
+	// We only want to take a snapshot if the modifier is client predicted
+
+	if (ModifierApplicationPolicy != EAttributeModifierApplicationPolicy::ApplyClientPredicted)
+	{
+		return;
+	}
 	
 	FSimpleAbilitySnapshot Snapshot;
 	Snapshot.AbilityID = AbilityInstanceID;
@@ -678,7 +685,6 @@ void USimpleAttributeModifier::ApplySideEffects(USimpleGameplayAbilityComponent*
 	{
 		if (ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyServerOnly)
 		{
-			SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplySideEffects]: ModifierApplicationPolicy is ApplyServerOnly. Skipping side effect replication."));
 			ModifierResult = FAttributeModifierResult();
 		}
 	} 

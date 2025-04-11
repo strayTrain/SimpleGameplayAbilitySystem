@@ -35,7 +35,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 		EventTags.AddTag(FDefaultTags::AbilityEnded());
     
 		FSimpleEventDelegate EventDelegate;
-		EventDelegate.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityEnded);
+		EventDelegate.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityEndedEventReceived);
 		
 		EventSubsystem->ListenForEvent(this, false, EventTags, {}, EventDelegate, {}, {});
 	}
@@ -134,7 +134,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityWithID(
 {
 	const EAbilityActivationPolicy ActivationPolicy = OverrideActivationPolicy ? ActivationPolicyOverride : AbilityClass.GetDefaultObject()->ActivationPolicy;
 	
-	const bool IsClient = GetNetMode() == NM_Client;
+	const bool IsClient = GetNetMode() == NM_Client && !HasAuthority();
 	const float ActivationTime = GetServerTime();
 
 	switch (ActivationPolicy)
@@ -188,6 +188,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityWithID(
 	
 	return false;
 }
+
 
 bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 	const FGuid AbilityID,
@@ -264,13 +265,13 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(const
 	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, true, ActivationTime);
 }
 
-void USimpleGameplayAbilityComponent::OnAbilityEnded(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
+void USimpleGameplayAbilityComponent::OnAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
 {
 	const FSimpleAbilityEndedEvent* EndedEvent = Payload.GetPtr<FSimpleAbilityEndedEvent>();
 
 	if (!EndedEvent)
 	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnAbilityEnded]: Ability end event was sent with malformed payload. Payload was not of type FSimpleAbilityEndedEvent.")));
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnAbilityEndedEventReceived]: Ability end event was sent with malformed payload. Payload was not of type FSimpleAbilityEndedEvent.")));
 		return;
 	}
 	
@@ -289,7 +290,14 @@ void USimpleGameplayAbilityComponent::OnAbilityEnded(FGameplayTag EventTag, FGam
 	{
 		AuthorityAbilityStates.MarkItemDirty(*AbilityState);
 	}
+
+	OnAbilityEnded(EndedEvent->AbilityID, EndedEvent->EndStatusTag, EndedEvent->EndingContext, EndedEvent->WasCancelled);
 }
+
+void USimpleGameplayAbilityComponent::OnAbilityEnded_Implementation(FGuid AbilityID, FGameplayTag EndStatus, FInstancedStruct EndContext, bool WasCancelled)
+{
+}
+
 
 FAbilityState& USimpleGameplayAbilityComponent::CreateAbilityState(
 	const FGuid AbilityID,
@@ -328,6 +336,43 @@ FAbilityState* USimpleGameplayAbilityComponent::GetAbilityState(const FGuid Abil
 	}
 
 	return nullptr;
+}
+
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(const FGameplayTag AttributeTag)
+{
+	const FStructAttribute* StructAttribute = GetStructAttribute(AttributeTag);
+
+	if (!StructAttribute)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandler]: Attribute %s not found."), *AttributeTag.ToString()));
+		return nullptr;
+	}
+
+	if (!StructAttribute->StructAttributeHandler)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandler]: Struct attribute %s has no attribute handler class configured."), *AttributeTag.ToString()));
+		return nullptr;
+	}
+
+	return GetStructAttributeHandlerInstance(StructAttribute->StructAttributeHandler);
+}
+
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
+{
+	USimpleAttributeHandler* AttributeHandler = GetAttributeHandler(AttributeTag);
+
+	if (!AttributeHandler)
+	{
+		return nullptr;
+	}
+
+	if (!AttributeHandler->IsA(AttributeHandlerClass))
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandlerAs]: Attribute Handler for attribute %s is not of type %s."), *AttributeTag.ToString(), *AttributeHandlerClass->GetName()));
+		return nullptr;
+	}
+
+	return AttributeHandler;
 }
 
 bool USimpleGameplayAbilityComponent::SetAbilityStatus(const FGuid AbilityID, const EAbilityStatus NewStatus)
@@ -851,6 +896,14 @@ void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbili
 		// If the NewAbilityState doesn't exist locally, we activate it
 		if (!LocalStateArrayIndexMap.Contains(NewAbilityState.AbilityID))
 		{
+			// Avoid activating ServerOnly abilities on the client
+			TArray ValidActicationPolicies = { EAbilityActivationPolicy::ServerAuthority, EAbilityActivationPolicy::ServerInitiatedFromClient };
+
+			if (!ValidActicationPolicies.Contains(NewAbilityState.ActivationPolicy))
+			{
+				return;
+			}
+			
 			const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(NewAbilityState.AbilityClass);
 
 			LocalAbilityStates.AddUnique(NewAbilityState);
@@ -942,7 +995,15 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Author
 		// Unless the ability we got from the server is still running
 		if (!LocalAbilityState)
 		{
+			// Avoid activating ServerOnly abilities on the client
 			if (AuthorityAbilityState.AbilityStatus != ActivationSuccess)
+			{
+				return;
+			}
+
+			TArray ValidActicationPolicies = { EAbilityActivationPolicy::ServerAuthority, EAbilityActivationPolicy::ServerInitiatedFromClient };
+
+			if (!ValidActicationPolicies.Contains(AuthorityAbilityState.ActivationPolicy))
 			{
 				return;
 			}
@@ -984,7 +1045,6 @@ void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& Author
 
 			if (!Modifier)
 			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Attribute modifier with ID %s not found in InstancedAttributes array"), *AuthorityAbilityState.AbilityID.ToString()));
 				return;
 			}
 

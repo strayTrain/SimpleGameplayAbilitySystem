@@ -8,6 +8,7 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
 
+struct FAbilitySideEffect;
 struct FAbilityOverride;
 class UAbilityOverrideSet;
 class UAbilitySet;
@@ -285,6 +286,14 @@ public:
 
 	FAbilityState* GetAbilityState(FGuid AbilityID, bool IsAuthorityState);
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
+	USimpleAttributeHandler* GetAttributeHandler(FGameplayTag AttributeTag);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility", meta = (DeterminesOutputType = "AttributeHandlerClass", HideSelfPin))
+	USimpleAttributeHandler* GetAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass);
+	
+	USimpleAttributeHandler* GetStructAttributeHandlerInstance(TSubclassOf<USimpleAttributeHandler> HandlerClass);
+
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Utility")
 	bool SetAbilityStatus(FGuid AbilityID, EAbilityStatus NewStatus);
 
@@ -294,8 +303,12 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	void OnAbilityEnded(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender);
+	void OnAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender);
 
+	UFUNCTION(BlueprintNativeEvent, Category = "AbilityComponent|Utility")
+	void OnAbilityEnded(FGuid AbilityID, FGameplayTag EndStatus, FInstancedStruct EndContext, bool WasCancelled);
+	virtual void OnAbilityEnded_Implementation(FGuid AbilityID, FGameplayTag EndStatus, FInstancedStruct EndContext, bool WasCancelled);
+	
 	bool ActivateAbilityInternal(const FGuid AbilityID, TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		const FInstancedStruct& AbilityContext, EAbilityActivationPolicy ActivationPolicy,
 		bool TrackState, float ActivationTime = -1);
@@ -318,7 +331,6 @@ protected:
 	USimpleAttributeModifier* GetAttributeModifierInstance(FGuid AttributeInstanceID);
 	TArray<FSimpleAbilitySnapshot>* GetLocalAttributeStateSnapshots(FGuid AttributeInstanceID);
 	USimpleGameplayAbility* GetAbilityInstance(TSubclassOf<USimpleGameplayAbility> AbilityClass);
-	USimpleAttributeHandler* GetStructAttributeHandlerInstance(TSubclassOf<USimpleAttributeHandler> HandlerClass);
 
 	UPROPERTY()
 	TArray<USimpleGameplayAbility*> InstancedAbilities;

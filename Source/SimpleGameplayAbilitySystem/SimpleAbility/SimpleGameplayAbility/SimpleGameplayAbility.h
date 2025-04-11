@@ -135,8 +135,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnActivate(FInstancedStruct ActivationContext);
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintNativeEvent)
 	void OnEnd(FGameplayTag EndingStatus, FInstancedStruct EndingContext, bool WasCancelled);
+	virtual void OnEnd_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext, bool WasCancelled);
 
 	virtual void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState,
 	                                    FSimpleAbilitySnapshot PredictedState) override;

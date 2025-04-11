@@ -249,6 +249,9 @@ struct TStructOpsTypeTraits<FFloatAttributeContainer> : public TStructOpsTypeTra
 
 // Struct attribute
 
+// Add this before the FStructAttribute struct definition
+DECLARE_DELEGATE(FOnStructAttributeValueChanged);
+
 USTRUCT(BlueprintType)
 struct FStructAttribute : public FFastArraySerializerItem
 {
@@ -268,6 +271,9 @@ struct FStructAttribute : public FFastArraySerializerItem
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<USimpleAttributeHandler> StructAttributeHandler;
+
+	// Add this delegate to listen for value changes
+	FOnStructAttributeValueChanged OnValueChanged;
 
 	bool operator==(const FStructAttribute& Other) const
 	{
@@ -309,22 +315,22 @@ struct FStructAttributeContainer : public FFastArraySerializer
 	
 	void PostReplicatedChange(const TArrayView< int32 >& ChangedIndices, int32 FinalSize)
 	{
-		if (OnStructAttributeAdded.IsBound())
+		if (OnStructAttributeChanged.IsBound())
 		{
 			for (const int32 ChangedIndex : ChangedIndices)
 			{
-				OnStructAttributeAdded.Execute(Attributes[ChangedIndex]);
+				OnStructAttributeChanged.Execute(Attributes[ChangedIndex]);
 			}
 		}
 	}
 
 	void PreReplicatedRemove (const TArrayView< int32 >& RemovedIndices, int32 FinalSize)
 	{
-		if (OnStructAttributeAdded.IsBound())
+		if (OnStructAttributeRemoved.IsBound())
 		{
 			for (const int32 RemovedIndex : RemovedIndices)
 			{
-				OnStructAttributeAdded.Execute(Attributes[RemovedIndex]);
+				OnStructAttributeRemoved.Execute(Attributes[RemovedIndex]);
 			}
 		}
 	}
