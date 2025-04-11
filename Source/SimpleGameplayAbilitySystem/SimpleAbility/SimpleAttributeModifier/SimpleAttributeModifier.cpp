@@ -324,7 +324,7 @@ void USimpleAttributeModifier::AddModifierStack(int32 StackCount)
 	OnStacksAdded(StackCount, Stacks);
 }
 
-bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow) const
+bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow)
 {
 	FFloatAttribute* AttributeToModify = GetTempFloatAttribute(FloatModifier.AttributeToModify, TempFloatAttributes);
 	
@@ -514,7 +514,7 @@ bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FFloatAttribute
 	return true;
 }
 
-bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes) const
+bool USimpleAttributeModifier::ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes)
 {
 	FStructAttribute* AttributeToModify = GetTempStructAttribute(StructModifier.AttributeToModify, TempStructAttributes);
 	

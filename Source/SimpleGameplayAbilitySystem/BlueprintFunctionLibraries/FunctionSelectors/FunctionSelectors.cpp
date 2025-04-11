@@ -5,7 +5,7 @@
 
 
 bool UFunctionSelectors::GetCustomFloatInputValue(
-	const USimpleAttributeModifier* OwningModifier,
+	USimpleAttributeModifier* OwningModifier,
 	const FMemberReference& DynamicFunction,
 	const FGameplayTag AttributeTag,
 	float& CustomInputValue)
@@ -17,7 +17,7 @@ bool UFunctionSelectors::GetCustomFloatInputValue(
 			float CustomInputValue;
 		} Params = { AttributeTag, 0.0f };
 
-		OwningModifier->OwningAbilityComponent->ProcessEvent(Function, &Params);
+		OwningModifier->ProcessEvent(Function, &Params);
 		CustomInputValue = Params.CustomInputValue;
 		return true;
 	}
@@ -26,7 +26,7 @@ bool UFunctionSelectors::GetCustomFloatInputValue(
 }
 
 bool UFunctionSelectors::ApplyFloatAttributeOperation(
-	const USimpleAttributeModifier* OwningModifier, const FMemberReference& DynamicFunction, const FGameplayTag AttributeTag,
+	USimpleAttributeModifier* OwningModifier, const FMemberReference& DynamicFunction, const FGameplayTag AttributeTag,
 	const float CurrentAttributeValue, const float OperationInputValue, const float CurrentOverflow,
 	FGameplayTag& EventTagOverride, float& NewAttributeValue, float& NewOverflow)
 {
@@ -44,7 +44,8 @@ bool UFunctionSelectors::ApplyFloatAttributeOperation(
 			float NewOverflow;
 		} Params = { AttributeTag, CurrentAttributeValue, OperationInputValue, CurrentOverflow, EventTagOverride, NewAttributeValue, NewOverflow };
 
-		OwningModifier->OwningAbilityComponent->ProcessEvent(Function, &Params);
+		// Call ProcessEvent on the OwningModifier to set the correct 'this' context
+		OwningModifier->ProcessEvent(Function, &Params);
 		EventTagOverride = Params.EventTagOverride;
 		NewAttributeValue = Params.NewAttributeValue;
 		NewOverflow = Params.NewOverflow;
@@ -55,7 +56,7 @@ bool UFunctionSelectors::ApplyFloatAttributeOperation(
 }
 
 bool UFunctionSelectors::ModifyStructAttributeValue(
-	const USimpleAttributeModifier* OwningModifier,
+	USimpleAttributeModifier* OwningModifier,
 	const FMemberReference& DynamicFunction,
 	const FGameplayTag AttributeTag,
 	const FInstancedStruct& InStruct,
@@ -69,7 +70,7 @@ bool UFunctionSelectors::ModifyStructAttributeValue(
 			FInstancedStruct OutStruct;
 		} Params = { AttributeTag, InStruct, OutStruct };
 
-		OwningModifier->OwningAbilityComponent->ProcessEvent(Function, &Params);
+		OwningModifier->ProcessEvent(Function, &Params);
 		OutStruct = Params.OutStruct;
 		return true;
 	}
@@ -78,7 +79,7 @@ bool UFunctionSelectors::ModifyStructAttributeValue(
 }
 
 bool UFunctionSelectors::GetStructContext(
-	const USimpleAttributeModifier* OwningModifier,
+	USimpleAttributeModifier* OwningModifier,
 	const FMemberReference& DynamicFunction,
 	FInstancedStruct& Context)
 {
@@ -88,7 +89,7 @@ bool UFunctionSelectors::GetStructContext(
 			FInstancedStruct Context;
 		} Params = { Context };
 
-		OwningModifier->OwningAbilityComponent->ProcessEvent(Function, &Params);
+		OwningModifier->ProcessEvent(Function, &Params);
 		Context = Params.Context;
 		return true;
 	}
@@ -97,7 +98,7 @@ bool UFunctionSelectors::GetStructContext(
 }
 
 bool UFunctionSelectors::GetAttributeModifierSideEffectTargets(
-	const USimpleAttributeModifier* OwningModifier,
+	USimpleAttributeModifier* OwningModifier,
 	const FMemberReference& DynamicFunction,
 	USimpleGameplayAbilityComponent*& OutInstigator,
 	USimpleGameplayAbilityComponent*& OutTarget)
@@ -109,7 +110,7 @@ bool UFunctionSelectors::GetAttributeModifierSideEffectTargets(
 			USimpleGameplayAbilityComponent* Target;
 		} Params = { OutInstigator, OutTarget };
 
-		OwningModifier->OwningAbilityComponent->ProcessEvent(Function, &Params);
+		OwningModifier->ProcessEvent(Function, &Params);
 		OutInstigator = Params.Instigator;
 		OutTarget = Params.Target;
 		return true;

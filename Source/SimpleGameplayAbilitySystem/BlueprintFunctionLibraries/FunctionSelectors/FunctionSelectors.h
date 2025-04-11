@@ -45,13 +45,13 @@ public:
 #endif
 
 	static bool GetCustomFloatInputValue(
-		const USimpleAttributeModifier* OwningModifier,
+		USimpleAttributeModifier* OwningModifier,
 		const FMemberReference& DynamicFunction,
 		FGameplayTag AttributeTag,
 		float& CustomInputValue);
 	
 	static bool ApplyFloatAttributeOperation(
-		const USimpleAttributeModifier* OwningModifier,
+		USimpleAttributeModifier* OwningModifier,
 		const FMemberReference& DynamicFunction,
 		FGameplayTag AttributeTag,
 		float CurrentAttributeValue,
@@ -62,16 +62,19 @@ public:
 		float& NewOverflow);
 
 	static bool ModifyStructAttributeValue(
-		const USimpleAttributeModifier* OwningModifier,
+		USimpleAttributeModifier* OwningModifier,
 		const FMemberReference& DynamicFunction,
 		FGameplayTag AttributeTag,
 		const FInstancedStruct& InStruct,
 		FInstancedStruct& OutStruct);
 	
-	static bool GetStructContext(const USimpleAttributeModifier* OwningModifier, const FMemberReference& DynamicFunction, FInstancedStruct& Context);
+	static bool GetStructContext(
+		USimpleAttributeModifier* OwningModifier,
+		const FMemberReference& DynamicFunction,
+		FInstancedStruct& Context);
 
 	static bool GetAttributeModifierSideEffectTargets(
-		const USimpleAttributeModifier* OwningModifier,
+		USimpleAttributeModifier* OwningModifier,
 		const FMemberReference& DynamicFunction,
 		USimpleGameplayAbilityComponent*& OutInstigator,
 		USimpleGameplayAbilityComponent*& OutTarget);

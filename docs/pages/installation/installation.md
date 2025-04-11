@@ -54,6 +54,7 @@ Blueprint projects don't come with Visual Studio solution files or C++ support b
       <a href="installed_plugin_directory.png" target="_blank">
       ![windows example of the project folder](installed_plugin_directory.png)
       </a>
+      - If you downloaded the repo as a ZIP file, the name of the file will have `-main` attached to it. It's important that the folder is named correctly so remember to change that! i.e. `C:\Projects\MyGame\Plugins\SimpleGameplayAbilitySystem-main` should be renamed to `C:\Projects\MyGame\Plugins\SimpleGameplayAbilitySystem`. You don't need to do this if you cloned the repo using Git.
 2. Rebuild your project and launch the editor
 3. The plugin should be enabled by default, but you can verify by going to **Edit** > **Plugins** and searching for "SimpleGameplayAbilitySystem"
 
