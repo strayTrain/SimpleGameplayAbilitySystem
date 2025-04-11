@@ -118,6 +118,14 @@ public:
 
 	/* Override these functions in your ability blueprint */
 
+	UFUNCTION(BlueprintNativeEvent, Category = "Abilities")
+	void OnGranted(USimpleGameplayAbilityComponent* GrantedAbilityComponent);
+	virtual void OnGranted_Implementation(USimpleGameplayAbilityComponent* GrantedAbilityComponent);
+    
+	// Static wrapper to call the function on the CDO
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	static void OnGrantedStatic(TSubclassOf<USimpleGameplayAbility> AbilityClass, USimpleGameplayAbilityComponent* GrantedAbilityComponent);
+	
 	/**
 	 * This function is called if CanActivate returns true and runs before OnActivate is called.
 	 * Use this function to prepare the ability for activation, consume resources, etc.

@@ -160,6 +160,20 @@ void USimpleGameplayAbility::CancelAbility(const FGameplayTag CancelStatus, cons
 	EndAbilityInternal(CancelStatus, CancelContext, true);
 }
 
+void USimpleGameplayAbility::OnGranted_Implementation(USimpleGameplayAbilityComponent* GrantedAbilityComponent)
+{ }
+
+void USimpleGameplayAbility::OnGrantedStatic(TSubclassOf<USimpleGameplayAbility> AbilityClass, USimpleGameplayAbilityComponent* GrantedAbilityComponent)
+{
+	// CDO = Class Default Object
+	USimpleGameplayAbility* CDO = Cast<USimpleGameplayAbility>(AbilityClass->GetDefaultObject());
+    
+	if (CDO)
+	{
+		CDO->OnGranted(GrantedAbilityComponent);
+	}
+}
+
 void USimpleGameplayAbility::EndAbilityInternal(FGameplayTag Status, FInstancedStruct Context, bool WasCancelled)
 {
 	for (const FGameplayTag& TempTag : TemporarilyAppliedTags)

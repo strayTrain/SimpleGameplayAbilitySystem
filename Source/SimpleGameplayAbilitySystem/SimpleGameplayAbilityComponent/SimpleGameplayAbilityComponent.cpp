@@ -42,6 +42,12 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	
 	if (HasAuthority())
 	{
+		// For abilities granted directly through the editor
+		for (const TSubclassOf<USimpleGameplayAbility> AbilityClass : GrantedAbilities)
+		{
+			USimpleGameplayAbility::OnGrantedStatic(AbilityClass, this);
+		}
+		
 		// Grant abilities to the owning actor
 		for (UAbilitySet* AbilitySet : AbilitySets)
 		{
@@ -474,6 +480,7 @@ bool USimpleGameplayAbilityComponent::IsAvatarActorOfType(TSubclassOf<AActor> Av
 void USimpleGameplayAbilityComponent::GrantAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass)
 {
 	GrantedAbilities.AddUnique(AbilityClass);
+	USimpleGameplayAbility::OnGrantedStatic(AbilityClass, this);
 }
 
 void USimpleGameplayAbilityComponent::RevokeAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass)
