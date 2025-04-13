@@ -29,6 +29,15 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, bool IsProxyActivation);
 
+	
+	/**
+	 * Called when the owning ability component is being destroyed.
+	 * This is where you should clean up any references/clear timers/stop listening for events etc.
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	void CleanUpAbility();
+	virtual void CleanUpAbility_Implementation();
+	
 	UFUNCTION(BlueprintCallable, Category = "Ability|Snapshot")
 	void TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved);
 

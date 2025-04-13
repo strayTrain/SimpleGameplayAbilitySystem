@@ -116,6 +116,8 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = 1))
 	void CancelAbility(FGameplayTag CancelStatus, FInstancedStruct CancelContext, bool ForceCancel = false);
 
+	virtual void CleanUpAbility_Implementation() override;
+	
 	/* Override these functions in your ability blueprint */
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Abilities")

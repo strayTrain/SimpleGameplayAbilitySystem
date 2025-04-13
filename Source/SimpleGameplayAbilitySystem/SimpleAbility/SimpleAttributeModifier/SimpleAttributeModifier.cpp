@@ -62,6 +62,12 @@ bool USimpleAttributeModifier::ApplyModifier(USimpleGameplayAbilityComponent* In
 	InstigatorAbilityComponent = Instigator;
 	TargetAbilityComponent = Target;
 	InitialModifierContext = ModifierContext;
+
+	if (!Instigator || !Target)
+	{
+		SIMPLE_LOG(this, TEXT("[USimpleAttributeModifier::ApplyModifier]: Instigator or Target is null."));
+		return false;
+	}
 	
 	// Check if we can apply the modifier
 	if (!CanApplyModifierInternal(ModifierContext) || !CanApplyModifier(ModifierContext))
@@ -300,6 +306,30 @@ void USimpleAttributeModifier::EndModifier(const FGameplayTag EndingStatus, cons
 	
 	OnModifierEnded(EndingStatus, EndingContext);
 	bIsModifierActive = false;
+}
+
+void USimpleAttributeModifier::CleanUpAbility_Implementation()
+{
+	if (IsModifierActive())
+	{
+		EndModifier(FDefaultTags::AbilityCancelled(), FInstancedStruct());
+            
+		if (GetWorld())
+		{
+			GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+		}
+            
+		OwningAbilityComponent = nullptr;
+		InstigatorAbilityComponent = nullptr;
+		TargetAbilityComponent = nullptr;
+	}
+
+	if (USimpleEventSubsystem* EventSubsystem = GetWorld() ? GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>() : nullptr)
+	{
+		EventSubsystem->StopListeningForAllEvents(this);
+	}
+	
+	Super::CleanUpAbility_Implementation();
 }
 
 void USimpleAttributeModifier::AddModifierStack(int32 StackCount)

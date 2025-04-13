@@ -120,6 +120,33 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	LocalGameplayTags = AuthorityGameplayTags.Tags;
 }
 
+void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Clean up attribute modifiers
+	for (USimpleAttributeModifier* AttributeModifier : InstancedAttributes)
+	{
+		AttributeModifier->CleanUpAbility();
+	}
+    
+	// Clean up abilities
+	for (USimpleGameplayAbility* Ability : InstancedAbilities)
+	{
+		Ability->CleanUpAbility();
+	}
+    
+	// Clear collections
+	InstancedAttributes.Empty();
+	InstancedAbilities.Empty();
+    
+	// Unsubscribe from events
+	if (USimpleEventSubsystem* EventSubsystem = GetWorld() ? GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>() : nullptr)
+	{
+		EventSubsystem->StopListeningForAllEvents(this);
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 /* Ability Functions */
 
 bool USimpleGameplayAbilityComponent::ActivateAbility(
@@ -852,6 +879,16 @@ double USimpleGameplayAbilityComponent::GetServerTime_Implementation()
 	}
 	
 	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+}
+
+bool USimpleGameplayAbilityComponent::HasAuthority() const
+{
+	if (GetOwner())
+	{
+		return GetOwner()->HasAuthority();
+	}
+
+	return false;
 }
 
 bool USimpleGameplayAbilityComponent::IsAnyAbilityActive() const

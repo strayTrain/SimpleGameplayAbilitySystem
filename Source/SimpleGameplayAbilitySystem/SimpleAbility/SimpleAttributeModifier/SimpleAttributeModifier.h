@@ -146,6 +146,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
 
+	virtual void CleanUpAbility_Implementation() override;
+	
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void AddModifierStack(int32 StackCount);
 	

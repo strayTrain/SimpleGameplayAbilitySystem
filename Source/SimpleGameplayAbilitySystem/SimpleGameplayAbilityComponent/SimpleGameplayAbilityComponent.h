@@ -254,7 +254,7 @@ public:
 	/* Utility Functions */
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Utility")
-	bool HasAuthority() const { return GetOwner()->HasAuthority(); }
+	bool HasAuthority() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
 	bool IsAnyAbilityActive() const;
@@ -301,6 +301,7 @@ public:
 	void RemoveInstancedAbility(USimpleGameplayAbility* AbilityToRemove);
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
 	void OnAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender);

@@ -2,6 +2,7 @@
 
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
+#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
 bool USimpleGameplayAbility::CanActivate_Implementation(FInstancedStruct ActivationContext)
@@ -158,6 +159,21 @@ void USimpleGameplayAbility::CancelAbility(const FGameplayTag CancelStatus, cons
 
 	OnEnd(CancelStatus, CancelContext, true);
 	EndAbilityInternal(CancelStatus, CancelContext, true);
+}
+
+void USimpleGameplayAbility::CleanUpAbility_Implementation()
+{
+	if (IsAbilityActive())
+	{
+		EndAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct());
+	}
+	
+	if (USimpleEventSubsystem* EventSubsystem = GetWorld() ? GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>() : nullptr)
+	{
+		EventSubsystem->StopListeningForAllEvents(this);
+	}
+	
+	Super::CleanUpAbility_Implementation();
 }
 
 void USimpleGameplayAbility::OnGranted_Implementation(USimpleGameplayAbilityComponent* GrantedAbilityComponent)

@@ -10,6 +10,10 @@ void USimpleAbilityBase::InitializeAbility(USimpleGameplayAbilityComponent* InOw
 	IsProxyAbility = IsProxyActivation;
 }
 
+void USimpleAbilityBase::CleanUpAbility_Implementation()
+{
+}
+
 void USimpleAbilityBase::TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved)
 {
 	if (!OwningAbilityComponent)
