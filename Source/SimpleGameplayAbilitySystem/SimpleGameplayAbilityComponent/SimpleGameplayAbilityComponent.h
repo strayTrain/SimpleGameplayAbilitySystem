@@ -12,7 +12,7 @@ struct FAbilitySideEffect;
 struct FAbilityOverride;
 class UAbilityOverrideSet;
 class UAbilitySet;
-class UAttributeSet;
+class USimpleAttributeSet;
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
@@ -41,7 +41,7 @@ public:
 	TArray<TSubclassOf<USimpleGameplayAbility>> GrantedAbilities;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Attributes")
-	TArray<UAttributeSet*> AttributeSets;
+	TArray<USimpleAttributeSet*> AttributeSets;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FFloatAttribute> FloatAttributes;
@@ -217,13 +217,13 @@ public:
 	void RemoveGameplayTag(FGameplayTag Tag, FInstancedStruct Payload);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Tags")
-	bool HasGameplayTag(FGameplayTag Tag);
+	bool HasGameplayTag(FGameplayTag Tag) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Tags")
-	bool HasAllGameplayTags(FGameplayTagContainer Tags);
+	bool HasAllGameplayTags(FGameplayTagContainer Tags) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Tags")
-	bool HasAnyGameplayTags(FGameplayTagContainer Tags);
+	bool HasAnyGameplayTags(FGameplayTagContainer Tags) const;
 	
 	/* Replicated Event Functions */
 	
@@ -260,7 +260,7 @@ public:
 	bool IsAnyAbilityActive() const;
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
-	bool IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+	bool IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
 
 	/**
 	 * This function checks if an ability has an override set for it on this ability component.
@@ -271,7 +271,7 @@ public:
 	bool DoesAbilityHaveOverride(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
-	float GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+	float GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
 	
 	/**
 	 * Returns the server time if called on the server.
@@ -281,13 +281,13 @@ public:
 	 * @return The current server time in seconds
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
-	double GetServerTime();
-	virtual double GetServerTime_Implementation();
+	double GetServerTime() const;
+	virtual double GetServerTime_Implementation() const;
 
 	FAbilityState* GetAbilityState(FGuid AbilityID, bool IsAuthorityState);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
-	USimpleAttributeHandler* GetAttributeHandler(FGameplayTag AttributeTag);
+	USimpleAttributeHandler* GetAttributeHandler(const FGameplayTag& AttributeTag);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility", meta = (DeterminesOutputType = "AttributeHandlerClass", HideSelfPin))
 	USimpleAttributeHandler* GetAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass);

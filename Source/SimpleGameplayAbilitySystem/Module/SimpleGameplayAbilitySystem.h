@@ -7,7 +7,7 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSimpleGAS, Log, All);
 
-static void SIMPLE_LOG(UObject* WorldContext, FString Msg)
+static void SIMPLE_LOG(const UObject* WorldContext, FString Msg)
 {
 	if (!ensure(WorldContext))
 	{
