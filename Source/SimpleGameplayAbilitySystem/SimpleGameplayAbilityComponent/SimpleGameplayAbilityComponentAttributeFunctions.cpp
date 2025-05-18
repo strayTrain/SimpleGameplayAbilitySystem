@@ -465,7 +465,7 @@ bool USimpleGameplayAbilityComponent::SetStructAttributeValue(const FGameplayTag
 		AuthorityStructAttributes.MarkItemDirty(*Attribute);
 	}
 	
-	SendEvent(FDefaultTags::StructAttributeValueChanged(), AttributeTag, FInstancedStruct::Make(Payload), this, { }, ESimpleEventReplicationPolicy::NoReplication);
+	SendEvent(FDefaultTags::StructAttributeValueChanged(), AttributeTag, FInstancedStruct::Make(Payload), GetOwner(), { }, ESimpleEventReplicationPolicy::NoReplication);
 
 	Attribute->OnValueChanged.ExecuteIfBound();
 	
@@ -504,7 +504,7 @@ float USimpleGameplayAbilityComponent::ClampFloatAttributeValue(
 
 			if (Attribute.ValueLimits.UseMinCurrentValue && NewValue < Attribute.ValueLimits.MinCurrentValue)
 			{
-				Overflow = Attribute.ValueLimits.MinCurrentValue + NewValue;
+				Overflow = NewValue - Attribute.ValueLimits.MinCurrentValue;
 				return Attribute.ValueLimits.MinCurrentValue;
 			}
 
@@ -562,7 +562,7 @@ void USimpleGameplayAbilityComponent::SendFloatAttributeChangedEvent(FGameplayTa
 		const FInstancedStruct EventPayload = FInstancedStruct::Make(Payload);
 		const FGameplayTag DomainTag = HasAuthority() ? FDefaultTags::AuthorityAttributeDomain() : FDefaultTags::LocalAttributeDomain();
 		
-		EventSubsystem->SendEvent(EventTag, DomainTag, EventPayload, this, {});
+		EventSubsystem->SendEvent(EventTag, DomainTag, EventPayload, GetOwner(), {});
 	}
 	else
 	{
