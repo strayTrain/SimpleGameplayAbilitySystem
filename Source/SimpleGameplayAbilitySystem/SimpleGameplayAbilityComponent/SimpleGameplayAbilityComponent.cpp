@@ -3,7 +3,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/AbilitySet.h"
-#include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/AttributeSet.h"
+#include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/SimpleAttributeSet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
@@ -68,7 +68,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 			AddFloatAttribute(Attribute);
 		}
 		
-		for (UAttributeSet* AttributeSet : AttributeSets)
+		for (USimpleAttributeSet* AttributeSet : AttributeSets)
 		{
 			for (const FFloatAttribute Attribute : AttributeSet->FloatAttributes)
 			{
@@ -372,7 +372,7 @@ FAbilityState* USimpleGameplayAbilityComponent::GetAbilityState(const FGuid Abil
 	return nullptr;
 }
 
-USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(const FGameplayTag AttributeTag)
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(const FGameplayTag& AttributeTag)
 {
 	const FStructAttribute* StructAttribute = GetStructAttribute(AttributeTag);
 
@@ -450,7 +450,7 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(TSub
 	return InstancedAbilities.Last();	
 }
 
-bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext, const bool ForceCancel = false)
+bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext, const bool ForceCancel)
 {
 	if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilityInstanceID))
 	{
@@ -624,16 +624,16 @@ void USimpleGameplayAbilityComponent::RemoveGameplayTag(FGameplayTag Tag, FInsta
 	SendEvent(FDefaultTags::GameplayTagRemoved(), Tag, Payload, this, {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
-bool USimpleGameplayAbilityComponent::HasGameplayTag(FGameplayTag Tag)
+bool USimpleGameplayAbilityComponent::HasGameplayTag(FGameplayTag Tag) const
 {
-	TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
+	const TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
 
 	return TagCounters.ContainsByPredicate([Tag](const FGameplayTagCounter& TagCounter) { return TagCounter.GameplayTag.MatchesTagExact(Tag); });
 }
 
-bool USimpleGameplayAbilityComponent::HasAllGameplayTags(FGameplayTagContainer Tags)
+bool USimpleGameplayAbilityComponent::HasAllGameplayTags(FGameplayTagContainer Tags) const
 {
-	TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
+	const TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
 
 	for (const FGameplayTag& Tag : Tags)
 	{
@@ -646,9 +646,9 @@ bool USimpleGameplayAbilityComponent::HasAllGameplayTags(FGameplayTagContainer T
 	return true;
 }
 
-bool USimpleGameplayAbilityComponent::HasAnyGameplayTags(FGameplayTagContainer Tags)
+bool USimpleGameplayAbilityComponent::HasAnyGameplayTags(FGameplayTagContainer Tags) const
 {
-	TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
+	const TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
 
 	for (const FGameplayTag& Tag : Tags)
 	{
@@ -849,12 +849,12 @@ TArray<FSimpleAbilitySnapshot>* USimpleGameplayAbilityComponent::GetLocalAttribu
 	return nullptr;
 }
 
-bool USimpleGameplayAbilityComponent::IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass)
+bool USimpleGameplayAbilityComponent::IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass) const
 {
 	return LastActivatedAbilityTimeStamps.Contains(AbilityClass) && LastActivatedAbilityTimeStamps[AbilityClass] + AbilityClass.GetDefaultObject()->Cooldown > GetServerTime();
 }
 
-float USimpleGameplayAbilityComponent::GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass)
+float USimpleGameplayAbilityComponent::GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass) const
 {
 	if (!LastActivatedAbilityTimeStamps.Contains(AbilityClass))
 	{
@@ -864,7 +864,7 @@ float USimpleGameplayAbilityComponent::GetAbilityCooldownTimeRemaining(TSubclass
 	return FMath::Clamp(LastActivatedAbilityTimeStamps[AbilityClass] + AbilityClass.GetDefaultObject()->Cooldown - GetServerTime(), 0.0f, AbilityClass.GetDefaultObject()->Cooldown);
 }
 
-double USimpleGameplayAbilityComponent::GetServerTime_Implementation()
+double USimpleGameplayAbilityComponent::GetServerTime_Implementation() const
 {
 	if (!GetWorld())
 	{

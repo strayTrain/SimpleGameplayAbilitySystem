@@ -2,13 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "AttributeSet.generated.h"
+#include "SimpleAttributeSet.generated.h"
 
 struct FStructAttribute;
 struct FFloatAttribute;
 
 UCLASS()
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UAttributeSet : public UDataAsset
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeSet : public UDataAsset
 {
 	GENERATED_BODY()
 
