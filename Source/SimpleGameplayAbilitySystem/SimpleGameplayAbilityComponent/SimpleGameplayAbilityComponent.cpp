@@ -661,6 +661,22 @@ bool USimpleGameplayAbilityComponent::HasAnyGameplayTags(FGameplayTagContainer T
 	return false;
 }
 
+FGameplayTagContainer USimpleGameplayAbilityComponent::GetActiveGameplayTags() const
+{
+	FGameplayTagContainer ActiveGameplayTags;
+	
+	const TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
+	for (const FGameplayTagCounter& TagCounter : TagCounters)
+	{
+		if (TagCounter.ReferenceCounter > 0)
+		{
+			ActiveGameplayTags.AddTag(TagCounter.GameplayTag);
+		}
+	}
+
+	return ActiveGameplayTags;
+}
+
 /* Event Functions */
 
 void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,

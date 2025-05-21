@@ -224,6 +224,14 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Tags")
 	bool HasAnyGameplayTags(FGameplayTagContainer Tags);
+
+	/**
+	 * This function returns all the gameplay tags that are currently active on this component as a GameplayTagContainer.
+	 * Changing the tags in the GameplayTagContainer will not affect the tags on this component.
+	 * @return A GameplayTagContainer with all the gameplay tags that are currently active on this component.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Tags")
+	FGameplayTagContainer GetActiveGameplayTags() const;
 	
 	/* Replicated Event Functions */
 	
