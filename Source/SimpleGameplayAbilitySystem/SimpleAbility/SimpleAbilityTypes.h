@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Net/Serialization/FastArraySerializer.h"
+#include "SimpleGameplayAbilitySystem/UtilityClasses/FastArraySerializerMacros.h"
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
 	#include "StructUtils/InstancedStruct.h"
@@ -48,28 +49,38 @@ enum class EAbilityActivationPolicy :uint8
 	/**
 	 * The ability can be requested to be activated by a client, but it will always run on the server first.
 	 * i.e. Request activate on client -> reliable RPC sent to server -> Activates on server -> replicate AbilityState to client -> Activate on client
-	 * If called from the server (e.g. a listen server), it behaves the same as ServerAuthority
+	 * If called from the server (e.g. a listen server), it behaves the same as ServerInitiated
 	 */
 	ServerInitiatedFromClient,
 	/**
 	 * The ability can only be activated on the server/listen server but will replicate to clients.
 	 */
-	ServerAuthority,
+	ServerInitiated,
 };
 
 UENUM(BlueprintType)
-enum class ESubAbilityActivationPolicy :uint8
+enum class EAbilityActivationPolicyOverride :uint8
 {
-	/** The sub ability will activate locally on both the server and client version of the parent ability */
-	NoReplication,
-	/** The sub ability will activate only on the client with a replication policy of ClientOnly */
-	ClientOnly,
-	/** The sub ability will activate only on the client  with a replication policy of ClientPredicted */
-	InitiateFromClient,
-	/** The sub ability will activate only on the server with a replication policy of ServerOnly */
-	ServerOnly,
-	/** The sub ability will activate only on the server with a replication policy of ServerAuthority */
-	InitiateFromServer,
+	DontOverride,
+	ForceLocalOnly,
+	ForceClientOnly,
+	ForceServerOnly,
+	ForceClientPredicted,
+	ForceServerInitiatedFromClient,
+	ForceServerInitiated,
+};
+
+UENUM(BlueprintType)
+enum class ESubAbilityCancellationPolicy :uint8
+{
+	/** If the parent ability stops running for any reason, cancel this sub ability */
+	CancelOnParentAbilityEndedOrCancelled,
+	/** Cancel only if the parent ability is canceled */
+	CancelOnParentAbilityCancelled,
+	/** Cancel when the parent ability ends */
+	CancelOnParentAbilityEnded,
+	/** Won't cancel if the parent ability stops running */
+	IgnoreParentAbility,
 };
 
 UENUM(BlueprintType)
@@ -96,17 +107,15 @@ enum class EAbilityStatus :uint8
 	/* The ability passed all activation requirements and is running */
 	ActivationSuccess,
 	/* The ability failed to activate because of missing requirements (tags, USimpleGameplayAbility::CanActivate etc.) */
-	EndedActivationFailed,
+	ActivationFailed,
 	/* The ability ran to completion and ended successfully */
-	EndedSuccessfully,
+	Ended,
 	/* The ability was cancelled */
-	EndedCancelled,
-	/* The ability was ended with a custom status */
-	EndedCustomStatus,
+	Cancelled,
 };
 
 UENUM(BlueprintType)
-enum class EAbilityServerRole :uint8
+enum class EAbilityNetworkRole :uint8
 {
 	/* This ability is running on either a dedicated server or a listen server or a single player game */
 	Server,
@@ -115,6 +124,36 @@ enum class EAbilityServerRole :uint8
 };
 
 /* Structs */
+
+USTRUCT(BlueprintType)
+struct FAbilityContext
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Ability|Context")
+	FGameplayTag ContextTag;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Ability|Context")
+	FInstancedStruct ContextData;
+};
+
+USTRUCT(BlueprintType)
+struct FAbilityContextCollection
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Ability|Context")
+	TArray<FAbilityContext> Contexts;
+};
+
+USTRUCT()
+struct FActivatedSubAbility
+{
+	GENERATED_BODY()
+
+	FGuid AbilityID;
+	ESubAbilityCancellationPolicy CancellationPolicy;
+};
 
 USTRUCT(BlueprintType)
 struct FAbilityEventActivationConfig
@@ -140,42 +179,49 @@ struct FAbilityEventActivationConfig
 	UScriptStruct* RequiredContextType;
 };
 
-USTRUCT(BlueprintType)
-struct FSimpleAbilitySnapshot
-{
-	GENERATED_BODY()
+/* Delegates */
 
-	// Used to keep track of the order of snapshots so we can select the correct one when resolving mispredictions
-	UPROPERTY()
-	int32 SequenceNumber = 0;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FGuid AbilityID;
-	
-	UPROPERTY(BlueprintReadWrite)
-	FGameplayTag SnapshotTag;
+// Called by an ability instance when it is activated or failed to activate
+DECLARE_DYNAMIC_DELEGATE_OneParam(
+	FAbilityActivationDelegate,
+	FGuid, AbilityID);
 
-	UPROPERTY(BlueprintReadWrite)
-	double TimeStamp;
+// Called by an ability instance when the ability ends (either normally or canceled)
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(
+	FAbilityStoppedDelegate,
+	FGuid, AbilityID,
+	FGameplayTag, StopStatus,
+	FInstancedStruct, StopContext);
 
-	UPROPERTY(BlueprintReadWrite)
-	FInstancedStruct StateData;
+DECLARE_DYNAMIC_DELEGATE_FourParams(
+	FResolveStateMispredictionDelegate,
+	FInstancedStruct, AuthorityStateData,
+	double, AuthorityTimeStamp,
+	FInstancedStruct, PredictedStateData,
+	double, PredictedTimeStamp);
 
-	UPROPERTY()
-	bool WasClientSnapshotResolved = false;
-};
+DECLARE_DYNAMIC_DELEGATE_TwoParams(
+	FOnSnapshotResolved,
+	FInstancedStruct, AuthoritySnapshotData,
+	FInstancedStruct, ClientSnapshotData);
 
+/* FFastArraySerializer Structs */
+
+// AbilityState
 USTRUCT(BlueprintType)
 struct FAbilityState : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TSubclassOf<USimpleAbilityBase> AbilityClass;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid AbilityID;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TSubclassOf<USimpleAbilityBase> AbilityClass;
-
+	EAbilityStatus AbilityStatus = EAbilityStatus::PreActivation;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EAbilityActivationPolicy ActivationPolicy;
 	
@@ -183,26 +229,26 @@ struct FAbilityState : public FFastArraySerializerItem
 	double ActivationTimeStamp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	FInstancedStruct ActivationContext;
+	FAbilityContextCollection ActivationContexts;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FInstancedStruct EndingContext;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	EAbilityStatus AbilityStatus = EAbilityStatus::PreActivation;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<FSimpleAbilitySnapshot> SnapshotHistory;
+	double EndingTimeStamp;
 
 	bool operator==(const FAbilityState& Other) const
 	{
 		return AbilityID == Other.AbilityID;
 	}
+
+	friend uint32 GetTypeHash(const FAbilityState& State)
+	{
+		return GetTypeHash(State.AbilityID);
+	}
 };
 
-DECLARE_DELEGATE_OneParam(FOnAbilityStateAdded, const FAbilityState&);
-DECLARE_DELEGATE_OneParam(FOnAbilityStateChanged, const FAbilityState&);
-DECLARE_DELEGATE_OneParam(FOnAbilityStateRemoved, const FAbilityState&);
+DECLARE_FAST_ARRAY_SERIALIZER_DELEGATES(FAbilityState, AbilityState)
 
 USTRUCT()
 struct FAbilityStateContainer : public FFastArraySerializer
@@ -212,39 +258,39 @@ struct FAbilityStateContainer : public FFastArraySerializer
 	UPROPERTY(VisibleAnywhere)
 	TArray<FAbilityState> AbilityStates;
 
-	FOnAbilityStateAdded   OnAbilityStateAdded;
-	FOnAbilityStateChanged OnAbilityStateChanged;
-	FOnAbilityStateRemoved OnAbilityStateRemoved;
+	FOnAbilityStateAdded   OnStateAdded;
+	FOnAbilityStateChanged OnStateChanged;
+	FOnAbilityStateRemoved OnStateRemoved;
 	
 	void PostReplicatedAdd(const TArrayView< int32 >& AddedIndices, int32 FinalSize)
 	{
-		if (OnAbilityStateAdded.IsBound())
+		if (OnStateAdded.IsBound())
 		{
 			for (const int32 AddedIndex : AddedIndices)
 			{
-				OnAbilityStateAdded.Execute(AbilityStates[AddedIndex]);
+				OnStateAdded.Execute(AbilityStates[AddedIndex]);
 			}
 		}
 	}
 	
 	void PostReplicatedChange(const TArrayView< int32 >& ChangedIndices, int32 FinalSize)
 	{
-		if (OnAbilityStateChanged.IsBound())
+		if (OnStateChanged.IsBound())
 		{
 			for (const int32 ChangedIndex : ChangedIndices)
 			{
-				OnAbilityStateChanged.Execute(AbilityStates[ChangedIndex]);
+				OnStateChanged.Execute(AbilityStates[ChangedIndex]);
 			}
 		}
 	}
 
 	void PreReplicatedRemove (const TArrayView< int32 >& RemovedIndices, int32 FinalSize)
 	{
-		if (OnAbilityStateRemoved.IsBound())
+		if (OnStateRemoved.IsBound())
 		{
 			for (const int32 RemovedIndex : RemovedIndices)
 			{
-				OnAbilityStateRemoved.Execute(AbilityStates[RemovedIndex]);
+				OnStateRemoved.Execute(AbilityStates[RemovedIndex]);
 			}
 		}
 	}
@@ -255,47 +301,86 @@ struct FAbilityStateContainer : public FFastArraySerializer
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FAbilityStateContainer> : public TStructOpsTypeTraitsBase2<FAbilityStateContainer>
-{
-	enum 
-	{
-		WithNetDeltaSerializer = true,
-	};
-};
+DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FAbilityStateContainer)
 
+// AbilitySnapshot
 USTRUCT(BlueprintType)
-struct FSimpleAbilityEndedEvent
+struct FAbilitySnapshot : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY()
+	int32 SnapshotCounter = 0;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid AbilityID;
 	
 	UPROPERTY(BlueprintReadWrite)
-	FGameplayTag EndStatusTag;
+	double TimeStamp;
 
 	UPROPERTY(BlueprintReadWrite)
-	FInstancedStruct EndingContext;
-	
-	UPROPERTY(BlueprintReadWrite)
-	EAbilityStatus NewAbilityStatus = EAbilityStatus::EndedCustomStatus;
+	FInstancedStruct SnapshotData;
 
-	UPROPERTY(BlueprintReadWrite)
-	bool WasCancelled;
+	bool operator==(const FAbilitySnapshot& Other) const
+	{
+		return AbilityID == Other.AbilityID && SnapshotCounter == Other.SnapshotCounter;
+	}
 };
 
-/* Delegates */
+DECLARE_FAST_ARRAY_SERIALIZER_DELEGATES(FAbilitySnapshot, AbilitySnapshot)
 
-DECLARE_DYNAMIC_DELEGATE_FourParams(
-	FResolveStateMispredictionDelegate,
-	FInstancedStruct, AuthorityStateData,
-	double, AuthorityTimeStamp,
-	FInstancedStruct, PredictedStateData,
-	double, PredictedTimeStamp);
+USTRUCT()
+struct FAbilitySnapshotContainer : public FFastArraySerializer
+{
+	GENERATED_BODY()
 
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(
-	FOnSnapshotResolved,
-	FGameplayTag, StateTag,
-	FSimpleAbilitySnapshot, AuthoritySnapshot,
-	FSimpleAbilitySnapshot, ClientSnapshot);
+	UPROPERTY(EditAnywhere, SaveGame, meta=(TitleProperty="GameplayTag"))
+	TArray<FAbilitySnapshot> Snapshots;
+
+	FOnAbilitySnapshotAdded   OnSnapshotAdded;
+	FOnAbilitySnapshotChanged OnSnapshotChanged;
+	FOnAbilitySnapshotRemoved OnSnapshotRemoved;
+
+	/** Called after new items are added on clients */
+	void PostReplicatedAdd(const TArrayView<int32>& AddedIndices, int32 FinalSize)
+	{
+		if (OnSnapshotAdded.IsBound())
+		{
+			for (int32 Index : AddedIndices)
+			{
+				OnSnapshotAdded.ExecuteIfBound(Snapshots[Index]);
+			}
+		}
+	}
+
+	/** Called when existing items change on clients */
+	void PostReplicatedChange(const TArrayView<int32>& ChangedIndices, int32 FinalSize)
+	{
+		if (OnSnapshotChanged.IsBound())
+		{
+			for (int32 Index : ChangedIndices)
+			{
+				OnSnapshotChanged.ExecuteIfBound(Snapshots[Index]);
+			}
+		}
+	}
+
+	/** Called before items are removed on clients */
+	void PreReplicatedRemove(const TArrayView<int32>& RemovedIndices, int32 FinalSize)
+	{
+		if (OnSnapshotRemoved.IsBound())
+		{
+			for (int32 Index : RemovedIndices)
+			{
+				OnSnapshotRemoved.ExecuteIfBound(Snapshots[Index]);
+			}
+		}
+	}
+
+	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
+	{
+		return FFastArraySerializer::FastArrayDeltaSerialize<FAbilitySnapshot, FAbilitySnapshotContainer>(Snapshots, DeltaParms, *this);
+	}
+};
+
+DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FAbilitySnapshotContainer)

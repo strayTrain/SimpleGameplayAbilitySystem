@@ -8,7 +8,7 @@ using enum ESimpleEventReplicationPolicy;
 using enum EEventInitiator;
 
 // Factory methods remain the same
-UWaitForAbility* UWaitForAbility::WaitForClientSubAbilityEnd(UObject* WorldContextObject,
+/*UWaitForAbility* UWaitForAbility::WaitForClientSubAbilityEnd(UObject* WorldContextObject,
 	USimpleGameplayAbility* ActivatingAbility, const TSubclassOf<USimpleGameplayAbility> AbilityToActivate,
 	const FInstancedStruct Context)
 {
@@ -112,7 +112,6 @@ void UWaitForAbility::Activate()
 		ActivatedAbilityID,
 		AbilityClass,
 		AbilityPayload,
-		true,
 		EAbilityActivationPolicy::LocalOnly);
 }
 
@@ -168,4 +167,4 @@ void UWaitForAbility::SetReadyToDestroy()
 	}
 	
 	Super::SetReadyToDestroy();
-}
+}*/
