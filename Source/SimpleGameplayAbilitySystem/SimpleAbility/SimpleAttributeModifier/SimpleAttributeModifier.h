@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
+#include "ModifierActions/Base/ModifierAction.h"
 #include "SimpleAttributeModifier.generated.h"
 
 class USimpleGameplayAbility;
@@ -14,53 +15,64 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeModifier : public USimpleA
 
 public:
 	/* Properties */
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
-	EAttributeModifierType ModifierType = EAttributeModifierType::Instant;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
-	EAttributeModifierApplicationPolicy ModifierApplicationPolicy;
+	EAttributeModifierType DurationType = EAttributeModifierType::Instant;
 	
-	/**
-	 * Tags that can be used to classify this modifier. e.g. "DamageOverTime", "StatusEffect" etc.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
-	FGameplayTagContainer ModifierTags;
-
-	/**
-	 * If true, the modifier will not be removed until explicitly removed.
-	 * If false, the modifier has a duration and will be removed after the duration has elapsed.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	bool HasInfiniteDuration = false;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && !HasInfiniteDuration"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType == EAttributeModifierType::SetDuration"))
 	float Duration = 1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	bool TickOnApply = true;
 	
 	/**
 	 * How often the modifier ticks. If 0 the modifier will only tick once when applied.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType != EAttributeModifierType::Instant"))
 	float TickInterval = 1;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType != EAttributeModifierType::Instant"))
 	EDurationTickTagRequirementBehaviour TickTagRequirementBehaviour;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	bool CanStack;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType != EAttributeModifierType::Instant"))
+	EDurationModifierReApplicationConfig OnReapplication;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && CanStack"))
-	int32 Stacks = 1;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && CanStack"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType != EAttributeModifierType::Instant && OnReapplication == EDurationModifierReApplicationConfig::AddStack"))
 	bool HasMaxStacks;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Duration Config|Stacking Config", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration && CanStack && HasMaxStacks"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "HasMaxStacks && DurationType != EAttributeModifierType::Instant && OnReapplication == EDurationModifierReApplicationConfig::AddStack"))
 	int32 MaxStacks;
 
+	/**
+	 * Tags that can be used to classify this modifier. e.g. "DamageOverTime", "StatusEffect" etc.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Tags")
+	FGameplayTagContainer ModifierTags;
+
+	/**
+	 * These tags are applied to the target ability component when this modifier is applied and removed when it ends.
+	 * Only applies to duration type modifiers.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Tags", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType != EAttributeModifierType::Instant"))
+	FGameplayTagContainer TemporarilyAppliedTags;
+
+	/**
+	 * These tags are applied to the target ability component when this modifier is applied and must be removed manually.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Tags")
+	FGameplayTagContainer PermanentlyAppliedTags;
+	
 	/**
 	 * These tags must be present on the target ability component for this modifier to apply.
 	 */
@@ -79,119 +91,71 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Requirements")
 	FGameplayTagContainer TargetBlockingModifierTags;
 	
-	/**
-	 * Cancel abilities of these classes when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	TArray<TSubclassOf<USimpleGameplayAbility>> CancelAbilities;
+	UPROPERTY(EditAnywhere, Instanced, Category = "Attribute Modifier|Actions", meta = (TitleProperty = "Description"))
+	TArray<TObjectPtr<UModifierAction>> ModifierActions;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
+	float Magnitude = 0;
 	
-	/**
-	 * Cancel abilities with these AbilityTags in their tag config when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer CancelAbilitiesWithAbilityTags;
-
-	/**
-	 * Cancel other duration modifiers with these tags when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer CancelModifiersWithTag;
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
+	int32 Stacks = 1;
 	
-	/**
-	 * These tags are applied to the target ability component when this modifier is applied and removed when it ends.
-	 * Only applies to duration type modifiers.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application", meta = (EditCondition = "ModifierType == EAttributeModifierType::Duration"))
-	FGameplayTagContainer TemporarilyAppliedTags;
-
-	/**
-	 * These tags are applied to the target ability component when this modifier is applied and must be removed manually.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer PermanentlyAppliedTags;
+	/* SimpleAbilityBase overrides */
+	void InitializeModifier(USimpleGameplayAbilityComponent* Target, const float ModifierMagnitude);
+	virtual bool CanActivate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FAbilityContextCollection ActivationContext) override;
+	virtual bool Activate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FGuid NewAbilityID, const FAbilityContextCollection ActivationContext) override;
+	virtual void Cancel(FGameplayTag CancelStatus, FInstancedStruct CancelContext) override;
+	virtual void End(FGameplayTag EndStatus, FInstancedStruct EndContext) override;
+	virtual void TakeSnapshotInternal(const FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved) override;
 	
-	/**
-	 * These tags are removed from the target ability component when this modifier is applied.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Application")
-	FGameplayTagContainer RemoveGameplayTags;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierDescription"))
-	TArray<FFloatAttributeModifier> FloatAttributeModifications;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Modifiers", meta = (TitleProperty = "ModifierDescription"))
-	TArray<FStructAttributeModifier> StructAttributeModifications;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects", meta = (TitleProperty = "SideEffectDescription"))
-	TArray<FAbilitySideEffect> AbilitySideEffects;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects", meta = (TitleProperty = "SideEffectDescription"))
-	TArray<FEventSideEffect> EventSideEffects;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Side Effects", meta = (TitleProperty = "SideEffectDescription"))
-	TArray<FAttributeModifierSideEffect> AttributeModifierSideEffects;
-
 	/* Modifier Lifecycle Functions */
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Application")
-	bool CanApplyModifier(FInstancedStruct ModifierContext) const;
-	bool CanApplyModifierInternal(FInstancedStruct ModifierContext) const;
-	
-	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
-	bool ApplyModifier(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, FInstancedStruct ModifierContext);
-
-	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
-	void ApplySideEffects(USimpleGameplayAbilityComponent* Instigator, USimpleGameplayAbilityComponent* Target, EAttributeModifierSideEffectTrigger EffectPhase);
-
-	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
-
-	virtual void CleanUpAbility_Implementation() override;
+	bool CanApplyModifier() const;
+	virtual bool CanApplyModifier_Implementation() const { return true; }
+	bool CanApplyModifierInternal() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void AddModifierStack(int32 StackCount);
 	
 	/* Blueprint Implementable Events */
 	
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnPreApplyModifier();
+	void OnPreApplyModifier_Implementation() {}
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnPostApplyModifier();
+	void OnPostApplyModifier_Implementation() {}
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnModifierEnded(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
+	void OnModifierEnded_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext) {}
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnStacksAdded(int32 AddedStacks, int32 CurrentStacks);
+	void OnStacksAdded_Implementation(int32 AddedStacks, int32 CurrentStacks) {}
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnMaxStacksReached();
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Utility")
-	bool IsModifierActive() const { return bIsModifierActive; }
-
-	virtual void ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot LatestAuthorityState) override;
-	virtual void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState) override;
+	void OnMaxStacksReached_Implementation() {}
+	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attribute Modifier|State")
 	USimpleGameplayAbilityComponent* InstigatorAbilityComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attribute Modifier|State")
 	USimpleGameplayAbilityComponent* TargetAbilityComponent;
 
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
+	FAttributeModifierActionScratchPad ModifierActionScratchPad;	
+	
 	UFUNCTION()
 	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender = nullptr);
 	
-	bool ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow);
-	bool ApplyStructAttributeModifier(const FStructAttributeModifier& StructModifier, TArray<FStructAttribute>& TempStructAttributes);
-	bool ApplyModifiersInternal(const EAttributeModifierSideEffectTrigger TriggerPhase);
+	// No tick function calls needed for attribute modifiers as they're based on timers
+	virtual bool IsTickable() const override { return false; }
 
 private:
-	bool bIsModifierActive = false;
-	FInstancedStruct InitialModifierContext;
-	FFloatAttribute* GetTempFloatAttribute(const FGameplayTag AttributeTag, TArray<FFloatAttribute>& TempFloatAttributes) const;
-	FStructAttribute* GetTempStructAttribute(const FGameplayTag AttributeTag, TArray<FStructAttribute>& TempStructAttributes) const;
-	
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
 };

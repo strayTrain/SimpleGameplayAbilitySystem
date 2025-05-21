@@ -8,6 +8,7 @@
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
+#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilityOverrideSet/AbilityOverrideSet.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
@@ -27,18 +28,6 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	UActorComponent::BeginPlay();
 
 	SetIsReplicated(true);
-
-	// Listen for ability ended event
-	if (USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
-	{
-		FGameplayTagContainer EventTags;
-		EventTags.AddTag(FDefaultTags::AbilityEnded());
-    
-		FSimpleEventDelegate EventDelegate;
-		EventDelegate.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityEndedEventReceived);
-		
-		EventSubsystem->ListenForEvent(this, false, EventTags, {}, EventDelegate, {}, {});
-	}
 	
 	if (HasAuthority())
 	{
@@ -94,14 +83,17 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	}
 
 	// Delegates called on the client to handle replicated data
-	AuthorityAbilityStates.OnAbilityStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateAdded);
-	AuthorityAbilityStates.OnAbilityStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateChanged);
-	AuthorityAbilityStates.OnAbilityStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateRemoved);
+	AuthorityAbilityStates.OnStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilityStateAdded);
+	AuthorityAbilityStates.OnStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilityStateChanged);
+	AuthorityAbilityStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilityStateRemoved);
 	
-	AuthorityAttributeStates.OnAbilityStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateAdded);
-	AuthorityAttributeStates.OnAbilityStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateChanged);
-	AuthorityAttributeStates.OnAbilityStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStateRemoved);
+	AuthorityAttributeModifierStates.OnStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModiferStateAdded);
+	AuthorityAttributeModifierStates.OnStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModifierStateChanged);
+	AuthorityAttributeModifierStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModiferStateRemoved);
 
+	AuthorityAbilitySnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilitySnapshotAdded);
+	AuthorityAttributeModifierSnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded);
+	
 	AuthorityFloatAttributes.OnFloatAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeAdded);
 	AuthorityFloatAttributes.OnFloatAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeChanged);
 	AuthorityFloatAttributes.OnFloatAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeRemoved);
@@ -123,7 +115,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	// Clean up attribute modifiers
-	for (USimpleAttributeModifier* AttributeModifier : InstancedAttributes)
+	for (USimpleAttributeModifier* AttributeModifier : InstancedAttributeModifiers)
 	{
 		AttributeModifier->CleanUpAbility();
 	}
@@ -135,7 +127,7 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
 	}
     
 	// Clear collections
-	InstancedAttributes.Empty();
+	InstancedAttributeModifiers.Empty();
 	InstancedAbilities.Empty();
     
 	// Unsubscribe from events
@@ -151,63 +143,95 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
 
 bool USimpleGameplayAbilityComponent::ActivateAbility(
 	const TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	const FInstancedStruct AbilityContext,
-	FGuid& AbilityID, const bool OverrideActivationPolicy, const EAbilityActivationPolicy ActivationPolicyOverride)
+	const FAbilityContextCollection AbilityContexts,
+	FGuid& AbilityID,
+	const EAbilityActivationPolicyOverride ActivationPolicyOverride)
 {
 	AbilityID = FGuid::NewGuid();
-	return ActivateAbilityWithID(AbilityID, AbilityClass, AbilityContext, OverrideActivationPolicy, ActivationPolicyOverride);
+	return ActivateAbilityWithID(AbilityID, AbilityClass, AbilityContexts, ActivationPolicyOverride);
 }
 
 bool USimpleGameplayAbilityComponent::ActivateAbilityWithID(
 	const FGuid AbilityID,
-	TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	const FInstancedStruct& AbilityContext,
-	const bool OverrideActivationPolicy,
-	const EAbilityActivationPolicy ActivationPolicyOverride)
+	const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
+	const FAbilityContextCollection& AbilityContexts,
+	const EAbilityActivationPolicyOverride ActivationPolicyOverride)
 {
-	const EAbilityActivationPolicy ActivationPolicy = OverrideActivationPolicy ? ActivationPolicyOverride : AbilityClass.GetDefaultObject()->ActivationPolicy;
+	if (!GrantedAbilities.Contains(AbilityClass) && AbilityClass->GetDefaultObject<USimpleGameplayAbility>()->RequireGrantToActivate)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Ability %s is not granted!"), *AbilityClass->GetName()));	
+		return false;
+	}
+	
+	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
+
+	switch (ActivationPolicyOverride)
+	{
+		case EAbilityActivationPolicyOverride::DontOverride:
+			ActivationPolicy = AbilityClass->GetDefaultObject<USimpleGameplayAbility>()->ActivationPolicy;
+			break;
+		case EAbilityActivationPolicyOverride::ForceLocalOnly:
+			ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
+			break;
+		case EAbilityActivationPolicyOverride::ForceClientOnly:
+			ActivationPolicy = EAbilityActivationPolicy::ClientOnly;
+			break;
+		case EAbilityActivationPolicyOverride::ForceClientPredicted:
+			ActivationPolicy = EAbilityActivationPolicy::ClientPredicted;
+			break;
+		case EAbilityActivationPolicyOverride::ForceServerInitiated:
+			ActivationPolicy = EAbilityActivationPolicy::ServerInitiated;
+			break;
+		case EAbilityActivationPolicyOverride::ForceServerInitiatedFromClient:
+			ActivationPolicy = EAbilityActivationPolicy::ServerInitiatedFromClient;
+			break;
+		case EAbilityActivationPolicyOverride::ForceServerOnly:
+			ActivationPolicy = EAbilityActivationPolicy::ServerOnly;
+			break;
+	}
 	
 	const bool IsClient = GetNetMode() == NM_Client && !HasAuthority();
-	const float ActivationTime = GetServerTime();
+	const double ActivationTime = GetServerTime();
 
 	switch (ActivationPolicy)
 	{
 		case EAbilityActivationPolicy::LocalOnly:
-			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, false, ActivationTime);
+			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, false, ActivationTime);
 		
 		case EAbilityActivationPolicy::ClientOnly:
 			if (!IsClient)
 			{
 				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Can't activate ability %s on server with ClientOnly policy."), *AbilityClass->GetName()));
+				return false;
 			}
 		
-			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, false, ActivationTime);
+			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, false, ActivationTime);
 		
 		case EAbilityActivationPolicy::ServerInitiatedFromClient:
 			if (IsClient)
 			{
-				ServerActivateAbility(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, ActivationTime);
+				ServerActivateAbility(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, ActivationTime);
 				return true;
 			}
 
-			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, true, ActivationTime);
+			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, true, ActivationTime);
 		
 		case EAbilityActivationPolicy::ClientPredicted:
 			if (IsClient)
 			{
-				ServerActivateAbility(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, ActivationTime);
+				ServerActivateAbility(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, ActivationTime);
 			}
 		
-			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, true, ActivationTime);
+			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, true, ActivationTime);;
 
-		case EAbilityActivationPolicy::ServerAuthority:
+		case EAbilityActivationPolicy::ServerInitiated:
 			if (IsClient)
 			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Can't activate ability %s on client with ServerAuthority policy."), *AbilityClass->GetName()));
+				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Can't activate ability %s on client with ServerInitiated policy."), *AbilityClass->GetName()));
 				return false;
 			}
 		
-			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, true, ActivationTime);
+			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, true, ActivationTime);
 
 		case EAbilityActivationPolicy::ServerOnly:
 			if (IsClient)
@@ -216,78 +240,65 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityWithID(
 				return false;
 			}
 		
-			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, false, ActivationTime);
+			return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, false, ActivationTime);
 	}
 	
 	return false;
 }
 
-
 bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 	const FGuid AbilityID,
-	TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	const FInstancedStruct& AbilityContext,
+	const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
+	const FAbilityContextCollection& AbilityContexts,
 	const EAbilityActivationPolicy ActivationPolicy,
-	const bool TrackState, const float ActivationTime)
+	const bool TrackState,
+	const double ActivationTime)
 {
 	if (!AbilityClass)
 	{
 		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::ActivateAbilityInternal]: AbilityClass is null!"));
 		return false;
 	}
-
-	// Check if the ability is on cooldown
-	if (LastActivatedAbilityTimeStamps.Contains(AbilityClass))
-	{
-		const float LastActivatedTime = LastActivatedAbilityTimeStamps[AbilityClass];
-		const float Cooldown = AbilityClass.GetDefaultObject()->Cooldown;
-
-		if (LastActivatedTime + Cooldown > GetServerTime())
-		{
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbilityInternal]: Failed to activate ability %s because it is on cooldown."), *AbilityClass->GetName()));
-			return false;
-		}
-	}
-	
-
-	CreateAbilityState(AbilityID, ActivationPolicy, AbilityClass, AbilityContext, HasAuthority(), ActivationTime);
 	
 	USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AbilityClass);
 	
 	if (AbilityInstance->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance)
 	{
-		if (AbilityInstance->IsAbilityActive() && !AbilityInstance->CanCancel())
+		if (AbilityInstance->IsActive)
 		{
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbilityWithID]: Failed to activate ability %s because it is already running and cannot be cancelled."), *AbilityClass->GetName()));
-			return false;
+			AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct());
 		}
-
-		AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct(), true);
 	}
 	
-	AbilityInstance->InitializeAbility(this, AbilityID, false);
-	const bool WasActivated = AbilityInstance->ActivateAbility(AbilityID, AbilityContext);
-
-	if (WasActivated)
+	if (TrackState)
 	{
-		LastActivatedAbilityTimeStamps.Add(AbilityClass, GetServerTime());
-
-		FAbilityActivationEvent ActivationEvent;
-		ActivationEvent.AbilityID = AbilityID;
-		ActivationEvent.AbilityClass = AbilityClass;
-		ActivationEvent.AbilityContext = AbilityContext;
-		ActivationEvent.WasActivatedSuccessfully = WasActivated;
-		ActivationEvent.ActivationTimeStamp = GetServerTime();
+		FAbilityState NewState;
+		NewState.AbilityID = AbilityID;
+		NewState.AbilityClass = AbilityClass;
+		NewState.ActivationPolicy = ActivationPolicy;
+		NewState.ActivationTimeStamp = ActivationTime;
+		NewState.ActivationContexts = AbilityContexts;
 		
-		const FGameplayTag DomainTag = HasAuthority() ? FDefaultTags::AuthorityAbilityDomain() : FDefaultTags::LocalAbilityDomain();
-		SendEvent(FDefaultTags::AbilityActivated(), DomainTag, FInstancedStruct::Make(ActivationEvent), this, {}, ESimpleEventReplicationPolicy::NoReplication);
+		if (GetNetMode() == NM_Client && !HasAuthority())
+		{
+			LocalAbilityStates.Add(NewState);
+		}
+		else
+		{
+			AuthorityAbilityStates.AbilityStates.Add(NewState);
+			AuthorityAbilityStates.MarkItemDirty(NewState);
+		}
 	}
 	
-	return WasActivated;
+	return AbilityInstance->Activate(this, AbilityID, AbilityContexts);;
 }
 
-void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(const FGuid AbilityID, TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	const FInstancedStruct& AbilityContext, EAbilityActivationPolicy ActivationPolicy, const float ActivationTime)
+void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(
+	const FGuid AbilityID,
+	TSubclassOf<USimpleGameplayAbility> AbilityClass,
+	const FAbilityContextCollection& AbilityContexts,
+	EAbilityActivationPolicy ActivationPolicy,
+	const float ActivationTime)
 {
 	if (!AbilityClass)
 	{
@@ -295,81 +306,7 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(const
 		return;
 	}
 	
-	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, ActivationPolicy, true, ActivationTime);
-}
-
-void USimpleGameplayAbilityComponent::OnAbilityEndedEventReceived(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
-{
-	const FSimpleAbilityEndedEvent* EndedEvent = Payload.GetPtr<FSimpleAbilityEndedEvent>();
-
-	if (!EndedEvent)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnAbilityEndedEventReceived]: Ability end event was sent with malformed payload. Payload was not of type FSimpleAbilityEndedEvent.")));
-		return;
-	}
-	
-	FAbilityState* AbilityState = GetAbilityState(EndedEvent->AbilityID, HasAuthority());
-
-	if (!AbilityState)
-	{
-		return;
-	}
-	
-	const EAbilityStatus StatusToSet = EndedEvent->WasCancelled ? EndedCancelled : EndedSuccessfully;
-	AbilityState->EndingContext = Payload;
-	AbilityState->AbilityStatus = StatusToSet;
-	
-	if (HasAuthority())
-	{
-		AuthorityAbilityStates.MarkItemDirty(*AbilityState);
-	}
-
-	OnAbilityEnded(EndedEvent->AbilityID, EndedEvent->EndStatusTag, EndedEvent->EndingContext, EndedEvent->WasCancelled);
-}
-
-void USimpleGameplayAbilityComponent::OnAbilityEnded_Implementation(FGuid AbilityID, FGameplayTag EndStatus, FInstancedStruct EndContext, bool WasCancelled)
-{
-}
-
-
-FAbilityState& USimpleGameplayAbilityComponent::CreateAbilityState(
-	const FGuid AbilityID,
-	EAbilityActivationPolicy ActivationPolicy,
-	const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
-	const FInstancedStruct& ActivationContext, const bool IsAuthorityState, const float ActivationTime)
-{
-	FAbilityState NewAbilityState;
-	NewAbilityState.AbilityID = AbilityID;
-	NewAbilityState.ActivationPolicy = ActivationPolicy;
-	NewAbilityState.AbilityClass = AbilityClass;
-	NewAbilityState.ActivationTimeStamp = ActivationTime > 0 ? ActivationTime : GetServerTime();
-	NewAbilityState.ActivationContext = ActivationContext;
-	NewAbilityState.AbilityStatus = PreActivation;
-	
-	if (IsAuthorityState)
-	{
-		AuthorityAbilityStates.AbilityStates.Add(NewAbilityState);
-		AuthorityAbilityStates.MarkArrayDirty();
-		return AuthorityAbilityStates.AbilityStates.Last();
-	}
-
-	LocalAbilityStates.Add(NewAbilityState);
-	return LocalAbilityStates.Last();
-}
-
-FAbilityState* USimpleGameplayAbilityComponent::GetAbilityState(const FGuid AbilityID, const bool IsAuthorityState)
-{
-	TArray<FAbilityState>& AbilityStates = IsAuthorityState ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
-	
-	for (FAbilityState& AbilityState : AbilityStates)
-	{
-		if (AbilityState.AbilityID == AbilityID)
-		{
-			return &AbilityState;
-		}
-	}
-
-	return nullptr;
+	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, true, ActivationTime);
 }
 
 USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(const FGameplayTag AttributeTag)
@@ -391,7 +328,7 @@ USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(co
 	return GetStructAttributeHandlerInstance(StructAttribute->StructAttributeHandler);
 }
 
-USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandlerAs(FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
 {
 	USimpleAttributeHandler* AttributeHandler = GetAttributeHandler(AttributeTag);
 
@@ -409,27 +346,7 @@ USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandlerAs(
 	return AttributeHandler;
 }
 
-bool USimpleGameplayAbilityComponent::SetAbilityStatus(const FGuid AbilityID, const EAbilityStatus NewStatus)
-{
-	FAbilityState* AbilityState = GetAbilityState(AbilityID, HasAuthority());
-
-	if (!AbilityState)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::SetAbilityStatus]: Ability with ID %s not found in AbilityState array"), *AbilityID.ToString()));
-		return false;
-	}
-
-	AbilityState->AbilityStatus = NewStatus;
-
-	if (HasAuthority())
-	{
-		AuthorityAbilityStates.MarkItemDirty(*AbilityState);
-	}
-
-	return true;
-}
-
-USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(TSubclassOf<USimpleGameplayAbility> AbilityClass)
+USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(const TSubclassOf<USimpleGameplayAbility>& AbilityClass)
 {
 	if (AbilityClass.GetDefaultObject()->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance)
 	{
@@ -444,33 +361,29 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(TSub
 	}
 
 	// If we don't have an instance of the ability created (or a MultipleInstance policy) we create one
-	USimpleGameplayAbility* NewAbilityInstance = NewObject<USimpleGameplayAbility>(this, AbilityClass);
+	USimpleGameplayAbility* NewAbilityInstance = NewObject<USimpleGameplayAbility>(GetOuter(), AbilityClass);
+	NewAbilityInstance->OwningAbilityComponent = this;
+	NewAbilityInstance->OnActivationSuccess.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityActivationSuccess);
+	NewAbilityInstance->OnActivationFailed.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityActivationFailed);
+	NewAbilityInstance->OnAbilityEnded.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityEnded);
+	NewAbilityInstance->OnAbilityCancelled.BindDynamic(this, &USimpleGameplayAbilityComponent::OnAbilityCancelled);
+	
 	InstancedAbilities.Add(NewAbilityInstance);
 	
-	return InstancedAbilities.Last();	
+	return NewAbilityInstance;	
 }
 
-bool USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext, const bool ForceCancel = false)
+void USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext)
 {
 	if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilityInstanceID))
 	{
-		if (!AbilityInstance->IsAbilityActive())
+		if (!AbilityInstance->IsActive)
 		{
-			return true;
+			return;
 		}
 		
-		if (!ForceCancel && !AbilityInstance->CanCancel())
-		{
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CancelAbility]: Ability %s CanCancel() returned false"), *AbilityInstance->GetName()));
-			return false;
-		}
-		
-		AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), CancellationContext, ForceCancel);
-		return true;
+		AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), CancellationContext);
 	}
-
-	SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CancelAbility]: Ability with ID %s not found in InstancedAbilities array"), *AbilityInstanceID.ToString()));
-	return false;
 }
 
 TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithTags(const FGameplayTagContainer Tags, FInstancedStruct CancellationContext)
@@ -481,14 +394,8 @@ TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithTags(const FGa
 	{
 		if (AbilityInstance->AbilityTags.HasAnyExact(Tags))
 		{
-			if (!AbilityInstance->CanCancel())
-			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::CancelAbilitiesWithTags]: Ability %s CanCancel() returned false"), *AbilityInstance->GetName()));
-				continue;
-			}
-			
 			AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), CancellationContext);
-			CancelledAbilities.Add(AbilityInstance->AbilityInstanceID);
+			CancelledAbilities.Add(AbilityInstance->AbilityID);
 		}
 	}
 	
@@ -535,33 +442,62 @@ void USimpleGameplayAbilityComponent::RemoveAbilityOverride(TSubclassOf<USimpleG
 	}
 }
 
-void USimpleGameplayAbilityComponent::AddAbilityStateSnapshot(FGuid AbilityInstanceID, FSimpleAbilitySnapshot State)
+int32 USimpleGameplayAbilityComponent::AddGameplayAbilitySnapshot(const FGuid AbilityID, FInstancedStruct SnapshotData)
 {
-	if (HasAuthority())
+	TArray<FAbilitySnapshot>& SnapshotArray = HasAuthority() ? AuthorityAbilitySnapshots.Snapshots : LocalPendingAbilitySnapshots;
+	
+	FAbilitySnapshot NewSnapshot;
+	NewSnapshot.AbilityID = AbilityID;
+	NewSnapshot.SnapshotData = SnapshotData;
+	NewSnapshot.TimeStamp = GetServerTime();
+	NewSnapshot.SnapshotCounter = 0;
+
+	// Calculate the snapshot counter in case we have multiple snapshots with the same tag
+	for (FAbilitySnapshot& SnapShot : SnapshotArray)
 	{
-		for (FAbilityState& AuthorityAbilityState : AuthorityAbilityStates.AbilityStates)
+		if (SnapShot.AbilityID == AbilityID)
 		{
-			if (AuthorityAbilityState.AbilityID == AbilityInstanceID)
-			{
-				AuthorityAbilityState.SnapshotHistory.Add(State);
-				AuthorityAbilityStates.MarkItemDirty(AuthorityAbilityState);
-				return;
-			}
-		}	
-	}
-	else
-	{
-		for (FAbilityState& ActiveAbility : LocalAbilityStates)
-		{
-			if (ActiveAbility.AbilityID == AbilityInstanceID)
-			{
-				ActiveAbility.SnapshotHistory.Add(State);
-				return;
-			}
-		}	
+			NewSnapshot.SnapshotCounter += 1;
+		}
 	}
 
-	SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::AddAbilityStateSnapshot]: Ability with ID %s not found in InstancedAbilities array"), *AbilityInstanceID.ToString()));
+	SnapshotArray.Add(NewSnapshot);
+	
+	if (HasAuthority())
+	{
+		AuthorityAbilitySnapshots.MarkItemDirty(NewSnapshot);
+	}
+
+	return NewSnapshot.SnapshotCounter;
+}
+
+int32 USimpleGameplayAbilityComponent::AddAttributeModifierSnapshot(const FGuid AbilityID, FInstancedStruct SnapshotData)
+{
+	TArray<FAbilitySnapshot>& SnapshotArray = HasAuthority() ? AuthorityAttributeModifierSnapshots.Snapshots : LocalPendingAttributeModiferSnapshots;
+	
+	FAbilitySnapshot NewSnapshot;
+	NewSnapshot.AbilityID = AbilityID;
+	NewSnapshot.SnapshotData = SnapshotData;
+	NewSnapshot.TimeStamp = GetServerTime();
+	NewSnapshot.SnapshotCounter = 0;
+
+	// Calculate the snapshot counter in case we have multiple snapshots with the same tag
+	for (FAbilitySnapshot& SnapShot : SnapshotArray)
+	{
+		if (SnapShot.AbilityID == AbilityID)
+		{
+			NewSnapshot.SnapshotCounter += 1;
+		}
+	}
+
+	SnapshotArray.Add(NewSnapshot);
+	
+	if (HasAuthority())
+	{
+		AuthorityAttributeModifierSnapshots.MarkItemDirty(NewSnapshot);
+	}
+
+	return NewSnapshot.SnapshotCounter;
 }
 
 /* Tag Functions */
@@ -591,7 +527,7 @@ void USimpleGameplayAbilityComponent::AddGameplayTag(FGameplayTag Tag, FInstance
 
 	if (HasAuthority())
 	{
-		AuthorityGameplayTags.MarkArrayDirty();
+		AuthorityGameplayTags.MarkItemDirty(NewTagCounter);
 	}
 	
 	SendEvent(FDefaultTags::GameplayTagAdded(), Tag, Payload, this, {}, ESimpleEventReplicationPolicy::NoReplication);
@@ -663,8 +599,13 @@ bool USimpleGameplayAbilityComponent::HasAnyGameplayTags(FGameplayTagContainer T
 
 /* Event Functions */
 
-void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-                                                UObject* Sender, TArray<UObject*> ListenerFilter, ESimpleEventReplicationPolicy ReplicationPolicy)
+void USimpleGameplayAbilityComponent::SendEvent(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	TArray<UObject*> ListenerFilter,
+	ESimpleEventReplicationPolicy ReplicationPolicy)
 {
 	const FGuid EventID = FGuid::NewGuid();
 
@@ -727,8 +668,13 @@ void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGameplay
 	}
 }
 
-void USimpleGameplayAbilityComponent::SendEventInternal(FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag,
-	const FInstancedStruct& Payload, UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy,
+void USimpleGameplayAbilityComponent::SendEventInternal(
+	FGuid EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	ESimpleEventReplicationPolicy ReplicationPolicy,
 	const TArray<UObject*>& ListenerFilter)
 {
 	USimpleEventSubsystem* EventSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>();
@@ -789,32 +735,37 @@ void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(
 	}
 }
 
-void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(FGuid EventID,
-                                                                     FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-                                                                     UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter)
+void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(
+	FGuid EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	ESimpleEventReplicationPolicy ReplicationPolicy,
+	const TArray<UObject*>& ListenerFilter)
 {
 	SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy, {});
 }
 
-void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(FGuid EventID,
-                                                                        FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const
-                                                                        TArray<UObject*>& ListenerFilter)
+void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(
+	FGuid EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	ESimpleEventReplicationPolicy ReplicationPolicy,
+	const TArray<UObject*>& ListenerFilter)
 {
 	SendEventInternal(EventID, EventTag, DomainTag, Payload, Sender, ReplicationPolicy, {});
 }
 
 /* Utility Functions */
 
-void USimpleGameplayAbilityComponent::RemoveInstancedAbility(USimpleGameplayAbility* AbilityToRemove)
-{
-	InstancedAbilities.Remove(AbilityToRemove);
-}
-
 USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetGameplayAbilityInstance(FGuid AbilityInstanceID)
 {
 	for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
 	{
-		if (InstancedAbility->AbilityInstanceID == AbilityInstanceID)
+		if (InstancedAbility->AbilityID == AbilityInstanceID)
 		{
 			return InstancedAbility;
 		}
@@ -825,43 +776,15 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetGameplayAbilityInsta
 
 USimpleAttributeModifier* USimpleGameplayAbilityComponent::GetAttributeModifierInstance(FGuid AttributeInstanceID)
 {
-	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributes)
+	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributeModifiers)
 	{
-		if (InstancedModifier->AbilityInstanceID == AttributeInstanceID)
+		if (InstancedModifier->AbilityID == AttributeInstanceID)
 		{
 			return InstancedModifier;
 		}
 	}
 
 	return nullptr;
-}
-
-TArray<FSimpleAbilitySnapshot>* USimpleGameplayAbilityComponent::GetLocalAttributeStateSnapshots(const FGuid AttributeInstanceID)
-{
-	for (FAbilityState& AttributeState : LocalAttributeStates)
-	{
-		if (AttributeState.AbilityID == AttributeInstanceID)
-		{
-			return &AttributeState.SnapshotHistory;
-		}
-	}
-
-	return nullptr;
-}
-
-bool USimpleGameplayAbilityComponent::IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass)
-{
-	return LastActivatedAbilityTimeStamps.Contains(AbilityClass) && LastActivatedAbilityTimeStamps[AbilityClass] + AbilityClass.GetDefaultObject()->Cooldown > GetServerTime();
-}
-
-float USimpleGameplayAbilityComponent::GetAbilityCooldownTimeRemaining(TSubclassOf<USimpleGameplayAbility> AbilityClass)
-{
-	if (!LastActivatedAbilityTimeStamps.Contains(AbilityClass))
-	{
-		return 0.0f;
-	}
-
-	return FMath::Clamp(LastActivatedAbilityTimeStamps[AbilityClass] + AbilityClass.GetDefaultObject()->Cooldown - GetServerTime(), 0.0f, AbilityClass.GetDefaultObject()->Cooldown);
 }
 
 double USimpleGameplayAbilityComponent::GetServerTime_Implementation()
@@ -895,7 +818,7 @@ bool USimpleGameplayAbilityComponent::IsAnyAbilityActive() const
 {
 	for (const USimpleGameplayAbility* AbilityInstance : InstancedAbilities)
 	{
-		if (AbilityInstance->IsAbilityActive())
+		if (AbilityInstance->IsActive)
 		{
 			return true;
 		}
@@ -917,256 +840,308 @@ bool USimpleGameplayAbilityComponent::DoesAbilityHaveOverride(TSubclassOf<USimpl
 	return false;
 }
 
-/* Replication */
+/* Ability Lifecycle */
 
-void USimpleGameplayAbilityComponent::OnStateAdded(const FAbilityState& NewAbilityState)
+void USimpleGameplayAbilityComponent::OnAbilityActivationSuccess(FGuid AbilityID)
 {
-	if (HasAuthority())
+	TArray<FAbilityState>& AbilityStates = HasAuthority() ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
+
+	for (FAbilityState& AbilityState : AbilityStates)
 	{
-		return;
-	}
-	
-	// A mapping of the local ability states for quick lookups
-	TMap<FGuid, int32> LocalStateArrayIndexMap;
-
-	// Added a new gameplay ability state
-	if (NewAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))
-	{
-		// Get a mapping of the local ability states for quick lookups
-		for (int32 i = 0; i < LocalAbilityStates.Num(); i++)
+		if (AbilityState.AbilityID == AbilityID)
 		{
-			LocalStateArrayIndexMap.Add(LocalAbilityStates[i].AbilityID, i);
-		}
-	
-		// If the NewAbilityState doesn't exist locally, we activate it
-		if (!LocalStateArrayIndexMap.Contains(NewAbilityState.AbilityID))
-		{
-			if (NewAbilityState.ActivationPolicy == EAbilityActivationPolicy::ServerOnly)
+			AbilityState.AbilityStatus = ActivationSuccess;
+
+			if (HasAuthority())
 			{
-				return;
+				AuthorityAbilityStates.MarkItemDirty(AbilityState);
 			}
 			
-			const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(NewAbilityState.AbilityClass);
-
-			LocalAbilityStates.AddUnique(NewAbilityState);
-			LocalStateArrayIndexMap.Add(NewAbilityState.AbilityID, LocalAbilityStates.Num() - 1);
-
-			if (NewAbilityState.AbilityStatus != ActivationSuccess && NewAbilityState.AbilityStatus != EndedSuccessfully)
-			{
-				return;
-			}
-			
-			USimpleGameplayAbility* NewAbilityInstance = GetAbilityInstance(AbilityClass);
-
-			if (NewAbilityInstance->IsAbilityActive())
-			{
-				NewAbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct());
-			}
-			
-			NewAbilityInstance->InitializeAbility(this, NewAbilityState.AbilityID, true);
-			NewAbilityInstance->ActivateAbility(NewAbilityState.AbilityID, NewAbilityState.ActivationContext);
 			return;
 		}
-
-		FAbilityState& LocalState = LocalAbilityStates[LocalStateArrayIndexMap[NewAbilityState.AbilityID]];
-		CompareSnapshots(NewAbilityState, LocalState);
-	}
-
-	// Added a new attribute state
-	if (NewAbilityState.AbilityClass->IsChildOf(USimpleAttributeModifier::StaticClass()))
-	{
-		for (int32 i = 0; i < LocalAttributeStates.Num(); i++)
-		{
-			LocalStateArrayIndexMap.Add(LocalAttributeStates[i].AbilityID, i);
-		}
-
-		// If the NewAbilityState doesn't exist locally, we create a state and apply side effects if the state history is not empty
-		if (!LocalStateArrayIndexMap.Contains(NewAbilityState.AbilityID))
-		{
-			LocalAttributeStates.Add(NewAbilityState);
-
-			if (NewAbilityState.SnapshotHistory.Num() > 0)
-			{
-				USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(NewAbilityState.AbilityID);
-
-				if (!Modifier)
-				{
-					UClass* ParentClassPtr = NewAbilityState.AbilityClass.Get();
-					const TSubclassOf<USimpleAttributeModifier> AbilityClass = Cast<UClass>(ParentClassPtr);
-					Modifier = NewObject<USimpleAttributeModifier>(this, AbilityClass);
-					InstancedAttributes.Add(Modifier);
-				}
-
-				Modifier->InitializeAbility(this, NewAbilityState.AbilityID, true);
-
-				if (Modifier->ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyClientPredicted)
-				{
-					return;
-				}
-				
-				Modifier->ClientFastForwardState(NewAbilityState.SnapshotHistory.Last().SnapshotTag, NewAbilityState.SnapshotHistory.Last());
-			}
-		}
-		
 	}
 }
 
-void USimpleGameplayAbilityComponent::OnStateChanged(const FAbilityState& AuthorityAbilityState)
+void USimpleGameplayAbilityComponent::OnAbilityActivationFailed(FGuid AbilityID)
 {
-	if (HasAuthority())
-	{
-		return;
-	}
-	
-	if (!AuthorityAbilityState.AbilityClass)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Changed ability state with ID %s has an invalid class upon replication."), *AuthorityAbilityState.AbilityID.ToString()));
-		return;
-	}
-	
-	// Changed an ability state
-	if (AuthorityAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))
-	{
-		// Get a reference to the local version of the changed ability on the server
-		FAbilityState* LocalAbilityState = LocalAbilityStates.FindByPredicate([AuthorityAbilityState](const FAbilityState& AbilityState)
-		{
-			return AbilityState.AbilityID == AuthorityAbilityState.AbilityID;
-		});
+	TArray<FAbilityState>& AbilityStates = HasAuthority() ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
 
-		// If the ability doesn't exist locally, we don't need to do anything
-		// Unless the ability we got from the server is still running
-		if (!LocalAbilityState)
+	for (FAbilityState& AbilityState : AbilityStates)
+	{
+		if (AbilityState.AbilityID == AbilityID)
 		{
-			// Avoid activating ServerOnly abilities on the client
-			if (AuthorityAbilityState.AbilityStatus != ActivationSuccess)
-			{
-				return;
-			}
+			AbilityState.AbilityStatus = ActivationFailed;
 
-			if (AuthorityAbilityState.ActivationPolicy == EAbilityActivationPolicy::ServerOnly)
+			if (HasAuthority())
 			{
-				return;
+				AuthorityAbilityStates.MarkItemDirty(AbilityState);
 			}
 			
-			const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(AuthorityAbilityState.AbilityClass);
-
-			LocalAbilityStates.AddUnique(AuthorityAbilityState);
-			USimpleGameplayAbility* NewAbilityInstance = GetAbilityInstance(AbilityClass);
-
-			if (NewAbilityInstance->IsAbilityActive())
-			{
-				NewAbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct(), true);
-			}
-		
-			NewAbilityInstance->InitializeAbility(this, AuthorityAbilityState.AbilityID, true);
-			NewAbilityInstance->ActivateAbility(AuthorityAbilityState.AbilityID, AuthorityAbilityState.ActivationContext);
 			return;
 		}
+	}
+}
 
-		// Check if the latest SnapshotHistory of the ability has changed
-		if (AuthorityAbilityState.SnapshotHistory.Num() > 0)
+void USimpleGameplayAbilityComponent::OnAbilityEnded(FGuid AbilityID, FGameplayTag EndStatus, FInstancedStruct EndingContext)
+{
+	TArray<FAbilityState>& AbilityStates = HasAuthority() ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
+
+	for (FAbilityState& AbilityState : AbilityStates)
+	{
+		if (AbilityState.AbilityID == AbilityID)
 		{
-			CompareSnapshots(AuthorityAbilityState, *LocalAbilityState);
-		}
-		
-		// Check if the server cancelled the ability
-		if (AuthorityAbilityState.AbilityStatus == EndedCancelled && LocalAbilityState->AbilityStatus != EndedCancelled)
-		{
-			CancelAbility(AuthorityAbilityState.AbilityID, AuthorityAbilityState.EndingContext, true);
+			AbilityState.AbilityStatus = Ended;
+			AbilityState.EndingContext = EndingContext;
+			AbilityState.EndingTimeStamp = GetServerTime();
+
+			if (HasAuthority())
+			{
+				AuthorityAbilityStates.MarkItemDirty(AbilityState);
+			}
+			
+			return;
 		}
 	}
+}
 
-	// Changed an attribute state
-	if (AuthorityAbilityState.AbilityClass->IsChildOf(USimpleAttributeModifier::StaticClass()))
+void USimpleGameplayAbilityComponent::OnAbilityCancelled(FGuid AbilityID, FGameplayTag CancelStatus, FInstancedStruct CancellationContext)
+{
+	TArray<FAbilityState>& AbilityStates = HasAuthority() ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
+
+	for (int i = 0; i < AbilityStates.Num(); i++)
 	{
-		if (AuthorityAbilityState.SnapshotHistory.Num() > 0)
+		if (AbilityStates[i].AbilityID == AbilityID)
 		{
-			USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(AuthorityAbilityState.AbilityID);
+			AbilityStates[i].AbilityStatus = Cancelled;
+			AbilityStates[i].EndingContext = CancellationContext;
+			AbilityStates[i].EndingTimeStamp = GetServerTime();
+
+			if (HasAuthority())
+			{
+				AuthorityAbilityStates.MarkItemDirty(AbilityStates[i]);
+			}
+			
+			return;
+		}
+	}
+}
+
+/* Replication */
+
+void USimpleGameplayAbilityComponent::OnAbilityStateAdded(const FAbilityState& NewAbilityState)
+{
+	ResolveLocalAbilityState(NewAbilityState);
+}
+
+void USimpleGameplayAbilityComponent::OnAbilityStateChanged(const FAbilityState& ChangedAbilityState)
+{
+	ResolveLocalAbilityState(ChangedAbilityState);
+}
+
+void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilityState& UpdatedAbilityState)
+{
+	// Server-only abilities should not be activated on the client
+	if (UpdatedAbilityState.ActivationPolicy == EAbilityActivationPolicy::ServerOnly)
+	{
+		return;
+	}
+
+	FAbilityState* LocalAbilityState = LocalAbilityStates.FindByPredicate([UpdatedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == UpdatedAbilityState.AbilityID; });
+	
+	const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(UpdatedAbilityState.AbilityClass);
+	USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AbilityClass);
+	const bool IsSingleInstanceAbility = AbilityInstance->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance;
+	const bool IsInstancedAbilityActive = AbilityInstance->IsActive;
+	
+	switch (UpdatedAbilityState.AbilityStatus)
+	{
+		// If an ability ends on the server but never existed locally it probably ended very quickly and we should activate it locally
+		// i.e. the ability activated and ended on the server in the same frame and got replicated to the client with the Ended status
+		case Ended:
+			if (LocalAbilityState)
+			{
+				break;
+			}
+		case ActivationSuccess:
+			if (IsInstancedAbilityActive)
+			{
+				// If the ability is already running on the client using the UpdatedAbility state ID we don't need to do anything
+				if (AbilityInstance->AbilityID == UpdatedAbilityState.AbilityID)
+				{
+					break;
+				}
+
+				// Otherwise an ability with a different ID is already running and needs to be cancelled first
+				AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct());
+				AbilityInstance->Activate(this, UpdatedAbilityState.AbilityID, UpdatedAbilityState.ActivationContexts);
+			}
+		
+			// Ability instance isn't active so we activate a local copy
+			AbilityInstance->Activate(this, UpdatedAbilityState.AbilityID, UpdatedAbilityState.ActivationContexts);
+
+			break;
+		
+		// In these cases the ability is not running on the server and so if it is running locally we need to cancel it
+		case PreActivation:
+		case ActivationFailed:
+		case Cancelled:
+			if (IsSingleInstanceAbility && AbilityInstance->AbilityID == UpdatedAbilityState.AbilityID)
+			{
+				AbilityInstance->CancelAbility(FDefaultTags::AbilityCancelled(), FInstancedStruct());
+			}
+			break;
+	}
+
+	// Check if there is a local ability state with the same ID and update it
+	if (LocalAbilityState)
+	{
+		*LocalAbilityState = UpdatedAbilityState;
+		return;
+	}
+
+	// Otherwise add the new ability state to the local array
+	LocalAbilityStates.Add(UpdatedAbilityState);
+}
+
+void USimpleGameplayAbilityComponent::OnAbilityStateRemoved(const FAbilityState& RemovedAbilityState)
+{
+	LocalAbilityStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
+}
+
+void USimpleGameplayAbilityComponent::OnAttributeModiferStateAdded(const FAbilityState& NewAttributeModiferState)
+{
+	// A mapping of the local ability states for quick lookups
+	TMap<FGuid, int32> LocalStateArrayIndexMap;
+	
+	for (int32 i = 0; i < LocalAttributeModifierStates.Num(); i++)
+	{
+		LocalStateArrayIndexMap.Add(LocalAttributeModifierStates[i].AbilityID, i);
+	}
+
+	// If the NewAbilityState doesn't exist locally, we create a state and apply side effects if the state history is not empty
+	/*if (!LocalStateArrayIndexMap.Contains(NewAttributeModiferState.AbilityID))
+	{
+		LocalAttributeModifierStates.Add(NewAttributeModiferState);
+
+		if (NewAttributeModiferState.SnapshotHistory.Num() > 0)
+		{
+			USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(NewAttributeModiferState.AbilityID);
 
 			if (!Modifier)
 			{
-				return;
+				UClass* ParentClassPtr = NewAttributeModiferState.AbilityClass.Get();
+				const TSubclassOf<USimpleAttributeModifier> AbilityClass = Cast<UClass>(ParentClassPtr);
+				Modifier = NewObject<USimpleAttributeModifier>(this, AbilityClass);
+				InstancedAttributeModifiers.Add(Modifier);
 			}
 
-			TArray<FSimpleAbilitySnapshot>* LocalSnapshots = GetLocalAttributeStateSnapshots(AuthorityAbilityState.AbilityID);
+			Modifier->InitializeAbility(this, NewAttributeModiferState.AbilityID, true);
 
-			if (!LocalSnapshots)
+			if (Modifier->ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyClientPredicted)
 			{
-				SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Attribute modifier with ID %s not found in LocalAttributeStates array"), *AuthorityAbilityState.AbilityID.ToString()));
 				return;
 			}
 			
-			for (FSimpleAbilitySnapshot& LocalSnapshot : *LocalSnapshots)
-			{
-				if (LocalSnapshot.SnapshotTag == AuthorityAbilityState.SnapshotHistory.Last().SnapshotTag && !LocalSnapshot.WasClientSnapshotResolved)
-				{
-					Modifier->ClientResolvePastState(AuthorityAbilityState.SnapshotHistory.Last().SnapshotTag, AuthorityAbilityState.SnapshotHistory.Last(), LocalSnapshot);
-					LocalSnapshot.WasClientSnapshotResolved = true;
-					break;
-				}
-			}
-		}	
-	}
-}
-  
-void USimpleGameplayAbilityComponent::OnStateRemoved(const FAbilityState& RemovedAbilityState)
-{
-	if (RemovedAbilityState.AbilityClass->IsChildOf(USimpleGameplayAbility::StaticClass()))
-	{
-		LocalAbilityStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
-		return;
-	}
-
-	if (RemovedAbilityState.AbilityClass->IsChildOf(USimpleAttributeModifier::StaticClass()))
-	{
-		LocalAttributeStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
-	}
+			Modifier->ClientFastForwardState(NewAttributeModiferState.SnapshotHistory.Last().SnapshotTag, NewAttributeModiferState.SnapshotHistory.Last());
+		}
+	}*/
 }
 
-void USimpleGameplayAbilityComponent::CompareSnapshots(const FAbilityState& AuthorityAbilityState, FAbilityState& LocalAbilityState)
+void USimpleGameplayAbilityComponent::OnAttributeModifierStateChanged(const FAbilityState& ChangedAttributeModiferState)
 {
-	if (AuthorityAbilityState.SnapshotHistory.Num() == 0)
+	if (!ChangedAttributeModiferState.AbilityClass)
 	{
+		SIMPLE_LOG(this,
+			FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Changed ability state with ID %s has an invalid class upon replication."),
+			*ChangedAttributeModiferState.AbilityID.ToString()));
+
 		return;
 	}
 	
-	const FSimpleAbilitySnapshot& AuthoritySnapshot = AuthorityAbilityState.SnapshotHistory.Last();
-        
-	// Try to find matching snapshot by sequence number first
-	FSimpleAbilitySnapshot* MatchingSnapshot = nullptr;
-        
-	for (FSimpleAbilitySnapshot& ClientSnapshot : LocalAbilityState.SnapshotHistory)
+	/*if (ChangedAttributeModiferState.SnapshotHistory.Num() > 0)
 	{
-		if (ClientSnapshot.SnapshotTag == AuthoritySnapshot.SnapshotTag && 
-			ClientSnapshot.SequenceNumber == AuthoritySnapshot.SequenceNumber &&
-			!ClientSnapshot.WasClientSnapshotResolved)
+		USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(ChangedAttributeModiferState.AbilityID);
+
+		if (!Modifier)
 		{
-			MatchingSnapshot = &ClientSnapshot;
-			break;
+			return;
 		}
-	}
-        
-	// Fall back to just matching by tag if sequence matching fails
-	if (!MatchingSnapshot)
-	{
-		for (FSimpleAbilitySnapshot& ClientSnapshot : LocalAbilityState.SnapshotHistory)
+
+		TArray<FSimpleAbilitySnapshot>* LocalSnapshots = GetLocalAttributeStateSnapshots(ChangedAttributeModiferState.AbilityID);
+
+		if (!LocalSnapshots)
 		{
-			if (ClientSnapshot.SnapshotTag == AuthoritySnapshot.SnapshotTag && 
-				!ClientSnapshot.WasClientSnapshotResolved)
+			SIMPLE_LOG(this,
+				FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Attribute modifier with ID %s not found in LocalAttributeModifierStates array"),
+				*ChangedAttributeModiferState.AbilityID.ToString()));
+			
+			return;
+		}
+		
+		for (FSimpleAbilitySnapshot& LocalSnapshot : *LocalSnapshots)
+		{
+			if (LocalSnapshot.SnapshotTag == ChangedAttributeModiferState.SnapshotHistory.Last().SnapshotTag && !LocalSnapshot.WasClientSnapshotResolved)
 			{
-				MatchingSnapshot = &ClientSnapshot;
+				Modifier->ClientResolvePastState(ChangedAttributeModiferState.SnapshotHistory.Last().SnapshotTag, ChangedAttributeModiferState.SnapshotHistory.Last(), LocalSnapshot);
+				LocalSnapshot.WasClientSnapshotResolved = true;
 				break;
 			}
 		}
+	}*/	
+}
+
+void USimpleGameplayAbilityComponent::OnAttributeModiferStateRemoved(const FAbilityState& RemovedAttributeModiferState)
+{
+	LocalAttributeModifierStates.RemoveAll([RemovedAttributeModiferState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAttributeModiferState.AbilityID; });
+}
+
+void USimpleGameplayAbilityComponent::OnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot)
+{
+	// Get the local version of NewAbilitySnapshot if it exists
+	const FAbilitySnapshot* LocalSnapshot = LocalPendingAbilitySnapshots.FindByPredicate(
+		[NewAbilitySnapshot](const FAbilitySnapshot& Snapshot)
+		{
+			return Snapshot.AbilityID == NewAbilitySnapshot.AbilityID && Snapshot.SnapshotCounter == NewAbilitySnapshot.SnapshotCounter;
+		});
+
+	// If there's no local snapshot for NewAbilitySnapshot, we've resolved it already, and we don't need to do anything.
+	if (!LocalSnapshot)
+	{
+		return;
 	}
 
-	USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AuthorityAbilityState.AbilityID);
-			
-	if (MatchingSnapshot && AbilityInstance)
+	// We only want to resolve the snapshot if the ability is currently running
+	USimpleGameplayAbility* LocalRunningAbilityInstance = nullptr;
+	for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
 	{
-		AbilityInstance->ClientResolvePastState(AuthoritySnapshot.SnapshotTag, AuthoritySnapshot, *MatchingSnapshot);
-		MatchingSnapshot->WasClientSnapshotResolved = true;
+		if (InstancedAbility->AbilityID == LocalSnapshot->AbilityID)
+		{
+			LocalRunningAbilityInstance = InstancedAbility;
+			break;
+		}
 	}
+	
+	if (!LocalRunningAbilityInstance || !LocalRunningAbilityInstance->IsActive)
+	{
+		return;
+	}
+
+	// Call the resolve function on the local running ability instance
+	LocalRunningAbilityInstance->OnServerSnapshotReceived(NewAbilitySnapshot.SnapshotCounter, NewAbilitySnapshot.SnapshotData, LocalSnapshot->SnapshotData);
+
+	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
+	if (LocalSnapshot)
+	{
+		LocalPendingAbilitySnapshots.RemoveAll([LocalSnapshot](const FAbilitySnapshot& Snapshot)
+		{
+			return Snapshot.AbilityID == LocalSnapshot->AbilityID && Snapshot.SnapshotCounter == LocalSnapshot->SnapshotCounter;
+		});
+	}
+}
+
+
+void USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot)
+{
 }
 
 void USimpleGameplayAbilityComponent::OnGameplayTagAdded(const FGameplayTagCounter& GameplayTag)
@@ -1225,13 +1200,20 @@ void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AvatarActor);
+	
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityGameplayTags);
+	
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, GrantedAbilities);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, ActiveAbilityOverrides);
+	
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityFloatAttributes);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityStructAttributes);
+	
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
-	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAttributeStates);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilitySnapshots);
+	
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAttributeModifierStates);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAttributeModifierSnapshots);
 }
 
 
