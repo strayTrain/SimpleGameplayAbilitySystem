@@ -106,19 +106,6 @@ bool USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget(
 		if (InstancedModifier->GetClass() == ModifierClass)
 		{
 			ModifierInstance = InstancedModifier;
-			
-			if (ModifierInstance->DurationType == EAttributeModifierType::SetDuration && ModifierInstance->IsActive)
-			{
-				if (ModifierInstance->OnReapplication == EDurationModifierReApplicationConfig::AddStack)
-				{
-					ModifierInstance->AddModifierStack(1);
-					return true;
-				}
-
-				InstancedModifier->Cancel(FDefaultTags::AbilityCancelled(), FInstancedStruct());
-			}
-			
-			break;
 		}
 	}
 

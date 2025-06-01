@@ -18,14 +18,21 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
 	EAttributeModifierType DurationType = EAttributeModifierType::Instant;
+
 	
+	/**
+	 * How long this modifier lasts. Only applies to SetDuration type modifiers. If the duration is 0, the modifier
+	 * will behave the same as an Instant type modifier.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
 		EditConditionHides,
 		EditCondition = "DurationType == EAttributeModifierType::SetDuration"))
 	float Duration = 1;
 	
 	/**
-	 * How often the modifier ticks. If 0 the modifier will only tick once when applied.
+	 * How often the modifier applies its Actions stack. If set to 0 the action stack will only be applied once with
+	 * the Phase set to OnApplied. If set to a value greater than 0, the action stack will be applied every TickInterval seconds
+	 * with a Phase of Default.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
 		EditConditionHides,
@@ -121,16 +128,20 @@ public:
 	/* Blueprint Implementable Events */
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void OnPreApplyModifier();
-	void OnPreApplyModifier_Implementation() {}
+	void OnPreApplyModifierActions();
+	void OnPreApplyModifierActions_Implementation() {}
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void OnPostApplyModifier();
-	void OnPostApplyModifier_Implementation() {}
+	void OnPostApplyModifierActions();
+	void OnPostApplyModifierActions_Implementation() {}
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnModifierEnded(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
 	void OnModifierEnded_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext) {}
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	void OnModifierCancelled(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
+	void OnModifierCancelled_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext) {}
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnStacksAdded(int32 AddedStacks, int32 CurrentStacks);
@@ -147,7 +158,10 @@ protected:
 	USimpleGameplayAbilityComponent* TargetAbilityComponent;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
-	FAttributeModifierActionScratchPad ModifierActionScratchPad;	
+	FAttributeModifierActionScratchPad ModifierActionScratchPad;
+
+	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
+	bool ApplyActionStacks(const EAttributeModifierPhase& Phase, USimpleAttributeModifier* OwningModifier);
 	
 	UFUNCTION()
 	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender = nullptr);
@@ -158,4 +172,7 @@ protected:
 private:
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
+
+	void OnDurationTimerExpired();
+	void OnTickTimerTriggered();
 };

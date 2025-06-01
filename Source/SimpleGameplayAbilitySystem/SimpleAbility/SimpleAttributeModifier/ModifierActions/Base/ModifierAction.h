@@ -21,8 +21,8 @@ public:
 	int32 ApplicationPhases = 1 << 1;
 	
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	bool ShouldApply(EAttributeModifierSideEffectTrigger TriggerPhase, USimpleAttributeModifier* OwningModifier) const;
-	virtual bool ShouldApply_Implementation(EAttributeModifierSideEffectTrigger TriggerPhase, USimpleAttributeModifier* OwningModifier) const { return true; }
+	bool ShouldApply(EAttributeModifierPhase Phase, USimpleAttributeModifier* OwningModifier) const;
+	virtual bool ShouldApply_Implementation(EAttributeModifierPhase Phase, USimpleAttributeModifier* OwningModifier) const { return true; }
 
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
 	bool ApplyAction(USimpleAttributeModifier* OwningModifier);

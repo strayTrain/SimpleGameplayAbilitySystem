@@ -33,16 +33,63 @@ bool USimpleAttributeModifier::Activate(USimpleGameplayAbilityComponent* Activat
 	// Check if we can apply the modifier
 	if (!CanApplyModifierInternal() || !CanActivate(ActivatingAbilityComponent, ActivationContext))
 	{
+		ApplyActionStacks(EAttributeModifierPhase::OnApplicationFailed, this);
+		OnAbilityCancelled.ExecuteIfBound(AbilityID, FDefaultTags::AbilityCancelled(), FInstancedStruct());
+		IsActive = false;
 		return false;
 	}
 	
 	ActivationTime = OwningAbilityComponent->GetServerTime();
 	IsActive = true;
 	OnActivationSuccess.ExecuteIfBound(AbilityID);
-	
+
+	// Add permanent gameplay tags from this modifier
 	for (const FGameplayTag& Tag : PermanentlyAppliedTags)
 	{
 		TargetAbilityComponent->AddGameplayTag(Tag, FInstancedStruct());
+	}
+
+	OnPreApplyModifierActions();
+	
+	/* If we're an instant modifier we apply the action stack immediately and then end. SetDuration modifiers with a
+	duration of 0 also apply immediately and end. */
+	if (DurationType == EAttributeModifierType::Instant || (DurationType == EAttributeModifierType::SetDuration && Duration <= 0))
+	{
+		ApplyActionStacks(EAttributeModifierPhase::OnApplied, this);
+		ApplyActionStacks(EAttributeModifierPhase::Default, this);
+		OnPostApplyModifierActions();
+		
+		End(FDefaultTags::AbilityEnded(), FInstancedStruct());
+		OnAbilityEnded.ExecuteIfBound(AbilityID, FDefaultTags::AbilityEnded(), FInstancedStruct());
+		return true;
+	}
+	
+	// Otherwise we're a duration modifier (either SetDuration with a duration > 0 or InfiniteDuration)
+
+	// Add temporary tags from this modifier
+	for (const FGameplayTag& Tag : TemporarilyAppliedTags)
+	{
+		TargetAbilityComponent->AddGameplayTag(Tag, FInstancedStruct());
+	}
+
+	// Set the tick timer
+	if (TickInterval > 0)
+	{
+		GetWorld()->GetTimerManager().SetTimer(TickTimerHandle, this, &USimpleAttributeModifier::OnTickTimerTriggered, TickInterval, true);
+	}
+	
+	if (DurationType == EAttributeModifierType::SetDuration && Duration > 0)
+	{
+		// Set the duration timer
+		GetWorld()->GetTimerManager().SetTimer(
+			DurationTimerHandle,
+			this,
+			&USimpleAttributeModifier::OnDurationTimerExpired,
+			Duration,
+			false
+		);
+		
+		return true;
 	}
 	
 	return false;
@@ -344,6 +391,25 @@ void USimpleAttributeModifier::AddModifierStack(int32 StackCount)
 	return true;
 }*/
 
+bool USimpleAttributeModifier::ApplyActionStacks(const EAttributeModifierPhase& Phase, USimpleAttributeModifier* OwningModifier)
+{
+	for (UModifierAction* Action : ModifierActions)
+	{
+		if (!Action->ShouldApply(Phase, OwningModifier))
+		{
+			continue;
+		}
+
+		if (!Action->ApplyAction(OwningModifier))
+		{
+			SIMPLE_LOG(GetWorld(), FString::Printf(TEXT("[USimpleAttributeModifier::ApplyActionStacks]: Action %s failed to apply."), *Action->GetName()));
+			return false;
+		}
+	}
+	
+	return true;
+}
+
 void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
 {
 	if (DurationType == EAttributeModifierType::SetDuration && IsActive)
@@ -367,4 +433,12 @@ void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag
 		InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(DurationTimerHandle);
 		InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(TickTimerHandle);
 	}
+}
+
+void USimpleAttributeModifier::OnDurationTimerExpired()
+{
+}
+
+void USimpleAttributeModifier::OnTickTimerTriggered()
+{
 }

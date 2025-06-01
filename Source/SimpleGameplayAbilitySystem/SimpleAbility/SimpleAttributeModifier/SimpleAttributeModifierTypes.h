@@ -140,8 +140,8 @@ struct FAttributeModifierActionScratchPad
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite)
-	FGameplayTagContainer StackTags;
+	FGameplayTagContainer ScratchpadTags;
 
 	UPROPERTY(BlueprintReadWrite)
-	TMap<FGameplayTag, float> StackValues;
+	TMap<FGameplayTag, float> ScratchpadValues;
 };
