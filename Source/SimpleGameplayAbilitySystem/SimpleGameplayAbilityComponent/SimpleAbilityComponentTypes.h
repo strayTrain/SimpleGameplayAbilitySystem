@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
 	#include "StructUtils/InstancedStruct.h"
@@ -9,10 +8,11 @@
 	#include "InstancedStruct.h"
 #endif
 
+#include "GameplayTagContainer.h"
+#include "SimpleGameplayAbilitySystem/UtilityClasses/FastArraySerializerMacros.h"
 #include "Net/Serialization/FastArraySerializer.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/AttributeHandler/SimpleAttributeHandler.h"
 #include "SimpleAbilityComponentTypes.generated.h"
-
 
 /* Enums */
 
@@ -115,29 +115,29 @@ struct FValueLimits
 {
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, meta=(InlineEditConditionToggle))
+	bool UseMinBaseValue;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "UseMinBaseValue"))
 	float MinBaseValue;
 
+	UPROPERTY(EditAnywhere, meta=(InlineEditConditionToggle))
+	bool UseMaxBaseValue;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "UseMaxBaseValue"))
 	float MaxBaseValue;
+
+	UPROPERTY(EditAnywhere, meta=(InlineEditConditionToggle))
+	bool UseMinCurrentValue;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "UseMinCurrentValue"))
 	float MinCurrentValue;
 
+	UPROPERTY(EditAnywhere, meta=(InlineEditConditionToggle))
+	bool UseMaxCurrentValue;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "UseMaxCurrentValue"))
 	float MaxCurrentValue;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool UseMinBaseValue;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool UseMaxBaseValue;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool UseMinCurrentValue;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool UseMaxCurrentValue;
 };
 
 USTRUCT(BlueprintType)
@@ -180,10 +180,59 @@ struct FStructAttributeModification
 	FInstancedStruct OldValue;
 };
 
-// Float attribute 
-DECLARE_DELEGATE_OneParam(FOnFloatAttributeAdded, const FFloatAttribute&);
-DECLARE_DELEGATE_OneParam(FOnFloatAttributeChanged, const FFloatAttribute&);
-DECLARE_DELEGATE_OneParam(FOnFloatAttributeRemoved, const FFloatAttribute&);
+UENUM(BlueprintType)
+enum class EFlowControl : uint8
+{
+	Found,
+	NotFound
+};
+
+USTRUCT(BlueprintType)
+struct FEventContext
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag ContextTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct ContextData;
+};
+
+USTRUCT(BlueprintType)
+struct FEventContextCollection
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FEventContext> EventContexts;
+};
+
+USTRUCT(BlueprintType)
+struct FAbilityActivationEvent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGuid AbilityID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<USimpleGameplayAbility> AbilityClass;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct AbilityContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool WasActivatedSuccessfully;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float ActivationTimeStamp;
+};
+
+/* FFastArraySerializer Structs */
+
+// Float attribute
+DECLARE_FAST_ARRAY_SERIALIZER_DELEGATES(FFloatAttribute, FloatAttribute)
 
 USTRUCT(BlueprintType)
 struct FFloatAttribute : public FFastArraySerializerItem
@@ -238,18 +287,9 @@ struct FFloatAttributeContainer : public FFastArraySerializer
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FFloatAttributeContainer> : public TStructOpsTypeTraitsBase2<FFloatAttributeContainer>
-{
-	enum 
-	{
-		WithNetDeltaSerializer = true,
-	};
-};
+DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FFloatAttributeContainer)
 
 // Struct attribute
-
-// Add this before the FStructAttribute struct definition
 DECLARE_DELEGATE(FOnStructAttributeValueChanged);
 
 USTRUCT(BlueprintType)
@@ -286,9 +326,7 @@ struct FStructAttribute : public FFastArraySerializerItem
 	}
 };
 
-DECLARE_DELEGATE_OneParam(FOnStructAttributeAdded, const FStructAttribute&);
-DECLARE_DELEGATE_OneParam(FOnStructAttributeChanged, const FStructAttribute&);
-DECLARE_DELEGATE_OneParam(FOnStructAttributeRemoved, const FStructAttribute&);
+DECLARE_FAST_ARRAY_SERIALIZER_DELEGATES(FStructAttribute, StructAttribute)
 
 USTRUCT()
 struct FStructAttributeContainer : public FFastArraySerializer
@@ -341,15 +379,9 @@ struct FStructAttributeContainer : public FFastArraySerializer
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FStructAttributeContainer> : public TStructOpsTypeTraitsBase2<FStructAttributeContainer>
-{
-	enum 
-	{
-		WithNetDeltaSerializer = true,
-	};
-};
+DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FStructAttributeContainer)
 
+// GameplayTagCounter
 USTRUCT(BlueprintType)
 struct FGameplayTagCounter : public FFastArraySerializerItem
 {
@@ -372,115 +404,60 @@ struct FGameplayTagCounter : public FFastArraySerializerItem
 	}
 };
 
-DECLARE_DELEGATE_OneParam(FOnGameplayTagCounterAdded, const FGameplayTagCounter&);
-DECLARE_DELEGATE_OneParam(FOnGameplayTagCounterChanged, const FGameplayTagCounter&);
-DECLARE_DELEGATE_OneParam(FOnGameplayTagCounterRemoved, const FGameplayTagCounter&);
+DECLARE_FAST_ARRAY_SERIALIZER_DELEGATES(FGameplayTagCounter, GameplayTagCounter)
 
 USTRUCT()
 struct FGameplayTagCounterContainer : public FFastArraySerializer
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, meta = (TitleProperty = "GameplayTag"))
+	UPROPERTY(EditAnywhere, SaveGame, meta=(TitleProperty="GameplayTag"))
 	TArray<FGameplayTagCounter> Tags;
 
 	FOnGameplayTagCounterAdded   OnGameplayTagCounterAdded;
 	FOnGameplayTagCounterChanged OnGameplayTagCounterChanged;
 	FOnGameplayTagCounterRemoved OnGameplayTagCounterRemoved;
-	
-	void PostReplicatedAdd(const TArrayView< int32 >& AddedIndices, int32 FinalSize)
+
+	/** Called after new items are added on clients */
+	void PostReplicatedAdd(const TArrayView<int32>& AddedIndices, int32 FinalSize)
 	{
 		if (OnGameplayTagCounterAdded.IsBound())
 		{
-			for (const int32 AddedIndex : AddedIndices)
+			for (int32 Index : AddedIndices)
 			{
-				OnGameplayTagCounterAdded.Execute(Tags[AddedIndex]);
+				OnGameplayTagCounterAdded.ExecuteIfBound(Tags[Index]);
 			}
 		}
 	}
-	
-	void PostReplicatedChange(const TArrayView< int32 >& ChangedIndices, int32 FinalSize)
+
+	/** Called when existing items change on clients */
+	void PostReplicatedChange(const TArrayView<int32>& ChangedIndices, int32 FinalSize)
 	{
 		if (OnGameplayTagCounterChanged.IsBound())
 		{
-			for (const int32 ChangedIndex : ChangedIndices)
+			for (int32 Index : ChangedIndices)
 			{
-				OnGameplayTagCounterChanged.Execute(Tags[ChangedIndex]);
+				OnGameplayTagCounterChanged.ExecuteIfBound(Tags[Index]);
 			}
 		}
 	}
 
-	void PreReplicatedRemove (const TArrayView< int32 >& RemovedIndices, int32 FinalSize)
+	/** Called before items are removed on clients */
+	void PreReplicatedRemove(const TArrayView<int32>& RemovedIndices, int32 FinalSize)
 	{
 		if (OnGameplayTagCounterRemoved.IsBound())
 		{
-			for (const int32 RemovedIndex : RemovedIndices)
+			for (int32 Index : RemovedIndices)
 			{
-				OnGameplayTagCounterRemoved.Execute(Tags[RemovedIndex]);
+				OnGameplayTagCounterRemoved.ExecuteIfBound(Tags[Index]);
 			}
 		}
 	}
 
-	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
+	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
 	{
 		return FFastArraySerializer::FastArrayDeltaSerialize<FGameplayTagCounter, FGameplayTagCounterContainer>(Tags, DeltaParms, *this);
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FGameplayTagCounterContainer> : public TStructOpsTypeTraitsBase2<FGameplayTagCounterContainer>
-{
-	enum 
-	{
-		WithNetDeltaSerializer = true,
-	};
-};
-
-UENUM(BlueprintType)
-enum class EFlowControl : uint8
-{
-	Found,
-	NotFound
-};
-
-USTRUCT(BlueprintType)
-struct FEventContext
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag ContextTag;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct ContextData;
-};
-
-USTRUCT(BlueprintType)
-struct FEventContextCollection
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FEventContext> EventContexts;
-};
-
-USTRUCT(BlueprintType)
-struct FAbilityActivationEvent
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGuid AbilityID;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<USimpleGameplayAbility> AbilityClass;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct AbilityContext;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool WasActivatedSuccessfully;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float ActivationTimeStamp;
-};
+DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FGameplayTagCounterContainer)
