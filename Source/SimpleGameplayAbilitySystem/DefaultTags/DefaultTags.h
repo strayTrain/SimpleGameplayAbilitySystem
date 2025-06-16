@@ -41,7 +41,9 @@ class FDefaultTags
 		static FGameplayTag AuthorityAbilityDomain() { return FindTag("SimpleGAS.Domains.Ability.Authority"); }
 		static FGameplayTag LocalAttributeDomain() { return FindTag("SimpleGAS.Domains.Attribute.Local"); }
 		static FGameplayTag AuthorityAttributeDomain() { return FindTag("SimpleGAS.Domains.Attribute.Authority"); }
-	
+
+		// Misc
+		static FGameplayTag ScratchPadFloatOverflow() { return FindTag("SimpleGAS.ModifierActionScratchpadTags.FloatAttributeOverflow"); }
 	private:
 		static FGameplayTag FindTag(const FName TagName)
 		{

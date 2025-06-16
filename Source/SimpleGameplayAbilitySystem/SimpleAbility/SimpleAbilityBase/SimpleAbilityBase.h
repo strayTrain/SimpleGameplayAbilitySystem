@@ -1,60 +1,79 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "UObject/Object.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleAbilityBase.generated.h"
 
 class USimpleGameplayAbilityComponent;
-class USimpleAbilityComponent;
 
 UCLASS(NotBlueprintable)
-class SIMPLEGAMEPLAYABILITYSYSTEM_API  USimpleAbilityBase : public UObject
+class SIMPLEGAMEPLAYABILITYSYSTEM_API  USimpleAbilityBase : public UObject, public FTickableGameObject
 {
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintReadOnly)
-	FGuid AbilityInstanceID;
+	UPROPERTY(BlueprintReadOnly, Category = "State")
+	FGuid AbilityID;
 	
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, Category = "State")
 	USimpleGameplayAbilityComponent* OwningAbilityComponent;
 
-	/**
-	 * True if this ability was replicated to a client, false if it was activated on the server or was client predicted
-	 */
-	UPROPERTY(BlueprintReadOnly)
-	bool IsProxyAbility = false;
-
-	UFUNCTION(BlueprintCallable)
-	void InitializeAbility(USimpleGameplayAbilityComponent* InOwningAbilityComponent, FGuid InAbilityInstanceID, bool IsProxyActivation);
-
+	UPROPERTY(BlueprintReadOnly, Category = "State")
+	FAbilityContextCollection AbilityContexts;
 	
-	/**
-	 * Called when the owning ability component is being destroyed.
-	 * This is where you should clean up any references/clear timers/stop listening for events etc.
-	 */
-	UFUNCTION(BlueprintNativeEvent)
-	void CleanUpAbility();
-	virtual void CleanUpAbility_Implementation();
+	UPROPERTY(BlueprintReadOnly, Category = "State")
+	bool IsActive;
 	
+	/* Call these delegates in child classes to let the OwningAbilityComponent know when the ability instance's state changes */
+	FAbilityActivationDelegate OnActivationSuccess;
+	FAbilityActivationDelegate OnActivationFailed;
+	FAbilityStoppedDelegate OnAbilityEnded;
+	FAbilityStoppedDelegate OnAbilityCancelled;
+	
+	/* Implement these functions in derived classes */
+	virtual bool CanActivate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FAbilityContextCollection ActivationContext) { return true; }
+	virtual bool Activate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FGuid NewAbilityID, const FAbilityContextCollection ActivationContext);
+	virtual void Tick(float DeltaTime) override {}
+	virtual void Cancel(FGameplayTag CancelStatus, FInstancedStruct CancelContext) { }
+	virtual void End(FGameplayTag EndStatus, FInstancedStruct EndContext) {}
+	virtual void CleanUpAbility();
+	
+	/* Utility functions */
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FInstancedStruct GetAbilityContext(FGameplayTag ContextTag, bool& WasFound) const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	EAbilityNetworkRole GetNetworkRole(bool& IsListenServer) const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsRunningOnClient() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsRunningOnServer() const;
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool HasAuthority() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Ability|Snapshot")
-	void TakeStateSnapshot(FGameplayTag SnapshotTag, FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved);
-
-	// Called when the snapshot history locally is ahead of the server (usually in the case of a local predicted ability)
-	virtual void ClientResolvePastState(FGameplayTag StateTag, FSimpleAbilitySnapshot AuthorityState, FSimpleAbilitySnapshot PredictedState);
-
-	// Called when the snapshot history locally is behind the server (usually in the case of a server initiated ability)
-	virtual void ClientFastForwardState(FGameplayTag StateTag, FSimpleAbilitySnapshot LatestAuthorityState);
-
+	void TakeStateSnapshot(FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved) { TakeSnapshotInternal(SnapshotData, OnResolved); }
+	// Override in child classes to decide where to save the snapshot data.
+	virtual void TakeSnapshotInternal(const FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved) {}
+	// Called by the OwningAbilityComponent on the client version of this ability when a server snapshot is replicated
+	virtual void OnServerSnapshotReceived(const int32 SnapshotCounter, const FInstancedStruct& AuthoritySnapshotData, const FInstancedStruct& LocalSnapshotData);
+	
 protected:
-	/**
-	 * Used to keep track of how many snapshots we have taken so we can assign sequence numbers. The sequence number is used to
-	 * determine which snapshot to use when resolving mispredictions.
-	 */
-	UPROPERTY()
-	int32 SnapshotSequenceCounter = 0;
+	// Set every time we activate this ability
+	UPROPERTY(BlueprintReadOnly, Category = "State")
+	double ActivationTime;
+	
+	virtual UWorld* GetWorld() const override;
 
-	// Map to store snapshot resolution callbacks, keyed by SnapshotSequenceCounter
-	TMap<int32, FOnSnapshotResolved> SnapshotResolveCallbacks;
+	// Used to keep track of which snapshots need to be resolved
+	TMap<int32, FOnSnapshotResolved> PendingSnapshots;
+	
+	/* FTickableGameObject overrides */
+	virtual bool IsTickable() const override { return IsActive && GetWorld(); }
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(USimpleGameplayAbility, STATGROUP_Tickables); }
+	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Conditional; }
 };
