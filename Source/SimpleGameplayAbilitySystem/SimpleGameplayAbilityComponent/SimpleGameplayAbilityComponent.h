@@ -146,6 +146,43 @@ public:
 
 	int32 AddGameplayAbilitySnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
 	int32 AddAttributeModifierSnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
+
+	/* Attribute Modifier Functions */
+	
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	bool ApplyAttributeModifierToTarget(
+		USimpleGameplayAbilityComponent* ModifierTarget,
+		TSubclassOf<USimpleAttributeModifier> ModifierClass,
+		float Magnitude,
+		FAbilityContextCollection ModifierContexts,
+		FGuid& ModifierID);
+
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	bool ApplyAttributeModifierToSelf(
+		TSubclassOf<USimpleAttributeModifier> ModifierClass,
+		float Magnitude,
+		FAbilityContextCollection ModifierContexts,
+		FGuid& ModifierID);
+
+	/**
+	 * Cancels a modifier.
+	 * If it is an active duration modifier, it is cancelled.
+	 * If it is an instant modifier or ended duration modifier, any running ability or modifier side effects it created are cancelled.
+	 * @param ModifierID The ID of the modifier to cancel
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	void CancelAttributeModifier(FGuid ModifierID);
+
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
+	void CancelAttributeModifiersWithTags(FGameplayTagContainer Tags);
+
+	/**
+	 * This function checks if there is an active attribute modifiers with ModifierTags matching the specified tags.
+	 * @param Tags The tags to check for in the active attribute modifiers. Only exact matches are considered.
+	 * @return True if there is an active attribute modifier with the specified tags, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Attributes")
+	bool HasAttributeModifierWithTags(FGameplayTagContainer Tags) const;
 	
 	/* Attribute Functions */
 	
@@ -168,13 +205,13 @@ public:
 	bool HasStructAttribute(const FGameplayTag AttributeTag);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
-	float GetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound);
+	float GetFloatAttributeValue(EFloatAttributeValueType ValueType, FGameplayTag AttributeTag, bool& WasFound);
 
 	UFUNCTION(BlueprintCallable, meta = (ReturnDisplayName = "WasFound"), Category = "AbilityComponent|Attributes")
-	bool SetFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
+	bool SetFloatAttributeValue(EFloatAttributeValueType ValueType, FGameplayTag AttributeTag, float NewValue, float& Overflow);
 
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	bool IncrementFloatAttributeValue(EAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow);
+	bool IncrementFloatAttributeValue(EFloatAttributeValueType ValueType, FGameplayTag AttributeTag, float Increment, float& Overflow);
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	bool OverrideFloatAttribute(FGameplayTag AttributeTag, FFloatAttribute NewAttribute);
@@ -186,45 +223,16 @@ public:
 	bool SetStructAttributeValue(FGameplayTag AttributeTag, FInstancedStruct NewValue);
 
 	UFUNCTION()
-	float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EAttributeValueType ValueType, float NewValue, float& Overflow);
+	float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EFloatAttributeValueType ValueType, float NewValue, float& Overflow);
 
 	UFUNCTION()
 	void CompareFloatAttributesAndSendEvents(const FFloatAttribute& OldAttribute, const FFloatAttribute& NewAttribute);
 
 	UFUNCTION()
-	void SendFloatAttributeChangedEvent(FGameplayTag EventTag, FGameplayTag AttributeTag, EAttributeValueType ValueType, float NewValue);
+	void SendFloatAttributeChangedEvent(FGameplayTag EventTag, FGameplayTag AttributeTag, EFloatAttributeValueType ValueType, float NewValue);
 	
 	FFloatAttribute* GetFloatAttribute(FGameplayTag AttributeTag);
 	FStructAttribute* GetStructAttribute(FGameplayTag AttributeTag);
-	
-	/* Attribute Modifier Functions */
-	
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	bool ApplyAttributeModifierToTarget(
-		USimpleGameplayAbilityComponent* ModifierTarget,
-		TSubclassOf<USimpleAttributeModifier> ModifierClass,
-		float Magnitude, FAbilityContextCollection
-		ModifierContexts,
-		FGuid& ModifierID);
-
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	bool ApplyAttributeModifierToSelf(
-		TSubclassOf<USimpleAttributeModifier> ModifierClass,
-		float Magnitude,
-		FAbilityContextCollection ModifierContexts,
-		FGuid& ModifierID);
-
-	/**
-	 * Cancels a modifier.
-	 * If it is an active duration modifier, it is cancelled.
-	 * If it is an instant modifier or ended duration modifier, any running ability or modifier side effects it created are cancelled.
-	 * @param ModifierID The ID of the modifier to cancel
-	 */
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	void CancelAttributeModifier(FGuid ModifierID);
-
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Attributes")
-	void CancelAttributeModifiersWithTags(FGameplayTagContainer Tags);
 	
 	/* Gameplay Tag Functions */
 	

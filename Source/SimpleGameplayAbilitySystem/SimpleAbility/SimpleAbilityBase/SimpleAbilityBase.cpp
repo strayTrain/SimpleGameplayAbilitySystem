@@ -80,6 +80,18 @@ EAbilityNetworkRole USimpleAbilityBase::GetNetworkRole(bool& IsListenServer) con
 	return EAbilityNetworkRole::Client;
 }
 
+bool USimpleAbilityBase::IsRunningOnClient() const
+{
+	bool IsListenServer = false;
+	return GetNetworkRole(IsListenServer) == EAbilityNetworkRole::Client;
+}
+
+bool USimpleAbilityBase::IsRunningOnServer() const
+{
+	bool IsListenServer = false;
+	return GetNetworkRole(IsListenServer) == EAbilityNetworkRole::Server;
+}
+
 bool USimpleAbilityBase::HasAuthority() const
 {
 	return OwningAbilityComponent->HasAuthority();

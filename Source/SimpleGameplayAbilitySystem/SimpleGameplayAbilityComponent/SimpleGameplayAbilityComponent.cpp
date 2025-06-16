@@ -1155,9 +1155,52 @@ void USimpleGameplayAbilityComponent::OnAbilitySnapshotAdded(const FAbilitySnaps
 	}
 }
 
-
 void USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot)
 {
+	// Get the local version of NewAttributeModifierSnapshot if it exists
+	const FAbilitySnapshot* LocalSnapshot = LocalPendingAbilitySnapshots.FindByPredicate(
+		[NewAttributeModifierSnapshot](const FAbilitySnapshot& Snapshot)
+		{
+			return Snapshot.AbilityID == NewAttributeModifierSnapshot.AbilityID && Snapshot.SnapshotCounter == NewAttributeModifierSnapshot.SnapshotCounter;
+		});
+
+	// If there's no local snapshot for NewAbilitySnapshot, we've resolved it already, and we don't need to do anything.
+	if (!LocalSnapshot)
+	{
+		return;
+	}
+
+	// Get a reference to the local running modifier instance for the ability ID in the snapshot. We expect this to exist
+	USimpleAttributeModifier* LocalRunningModifierInstance = nullptr;
+	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributeModifiers)
+	{
+		if (InstancedModifier->GetClass() == LocalSnapshot->AbilityClass)
+		{
+			LocalRunningModifierInstance = InstancedModifier;
+			break;
+		}
+	}
+
+	if (!LocalRunningModifierInstance)
+	{
+		if (!LocalRunningModifierInstance)
+		{
+			LocalRunningModifierInstance = NewObject<USimpleAttributeModifier>(this, NewAttributeModifierSnapshot.AbilityClass);
+			InstancedAttributeModifiers.Add(LocalRunningModifierInstance);
+		}
+	}
+
+	// Notify the attribute modifier instance that it has received a server snapshot so it can resolve the differences
+	LocalRunningModifierInstance->OnClientReceivedServerActionsResult(NewAttributeModifierSnapshot.SnapshotData, LocalSnapshot->SnapshotData);
+
+	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
+	if (LocalSnapshot)
+	{
+		LocalPendingAttributeModiferSnapshots.RemoveAll([LocalSnapshot](const FAbilitySnapshot& Snapshot)
+		{
+			return Snapshot.AbilityID == LocalSnapshot->AbilityID && Snapshot.SnapshotCounter == LocalSnapshot->SnapshotCounter;
+		});
+	}	
 }
 
 void USimpleGameplayAbilityComponent::OnGameplayTagAdded(const FGameplayTagCounter& GameplayTag)

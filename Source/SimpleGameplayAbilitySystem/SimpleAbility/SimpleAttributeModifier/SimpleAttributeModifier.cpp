@@ -1,5 +1,7 @@
 #include "SimpleAttributeModifier.h"
 
+#include "ModifierActions/ModifierActionTypes.h"
+#include "ModifierActions/Base/ModifierAction.h"
 #include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/FunctionSelectors/FunctionSelectors.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
@@ -15,11 +17,19 @@ void USimpleAttributeModifier::InitializeModifier(USimpleGameplayAbilityComponen
 {
 	TargetAbilityComponent = Target;
 	Magnitude = ModifierMagnitude;
+
+	for (const TObjectPtr<UModifierAction>& Action : ModifierActions)
+	{
+		if (Action)
+		{
+			Action->InitializeAction(this);
+		}
+	}
 }
 
 bool USimpleAttributeModifier::CanActivate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FAbilityContextCollection ActivationContext)
 {
-	return CanApplyModifier();
+	return CanApplyModifierInternal() && CanApplyModifier();
 }
 
 bool USimpleAttributeModifier::Activate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FGuid NewAbilityID, const FAbilityContextCollection ActivationContext)
@@ -30,10 +40,9 @@ bool USimpleAttributeModifier::Activate(USimpleGameplayAbilityComponent* Activat
 	AbilityContexts = ActivationContext;
 	ModifierActionScratchPad = FAttributeModifierActionScratchPad();
 	
-	// Check if we can apply the modifier
-	if (!CanApplyModifierInternal() || !CanActivate(ActivatingAbilityComponent, ActivationContext))
+	if (!CanActivate(ActivatingAbilityComponent, ActivationContext))
 	{
-		ApplyActionStacks(EAttributeModifierPhase::OnApplicationFailed, this);
+		ApplyModifierActions(this, { EAttributeModifierPhase::OnApplicationFailed });
 		OnAbilityCancelled.ExecuteIfBound(AbilityID, FDefaultTags::AbilityCancelled(), FInstancedStruct());
 		IsActive = false;
 		return false;
@@ -50,15 +59,14 @@ bool USimpleAttributeModifier::Activate(USimpleGameplayAbilityComponent* Activat
 	}
 
 	OnPreApplyModifierActions();
+	ApplyModifierActions(this, { EAttributeModifierPhase::OnApplied });
+	ApplyModifierActions(this, {});
+	OnPostApplyModifierActions();
 	
 	/* If we're an instant modifier we apply the action stack immediately and then end. SetDuration modifiers with a
 	duration of 0 also apply immediately and end. */
 	if (DurationType == EAttributeModifierType::Instant || (DurationType == EAttributeModifierType::SetDuration && Duration <= 0))
 	{
-		ApplyActionStacks(EAttributeModifierPhase::OnApplied, this);
-		ApplyActionStacks(EAttributeModifierPhase::Default, this);
-		OnPostApplyModifierActions();
-		
 		End(FDefaultTags::AbilityEnded(), FInstancedStruct());
 		OnAbilityEnded.ExecuteIfBound(AbilityID, FDefaultTags::AbilityEnded(), FInstancedStruct());
 		return true;
@@ -95,9 +103,80 @@ bool USimpleAttributeModifier::Activate(USimpleGameplayAbilityComponent* Activat
 	return false;
 }
 
+bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* OwningModifier, const TArray<EAttributeModifierPhase> PhaseFilter)
+{
+	TArray<FModifierActionResult> ActionSnapshots;
+
+	for (int i = 0; i < ModifierActions.Num(); i++)
+	{
+		UModifierAction* Action = ModifierActions[i];
+		
+		if (!CanApplyAction(Action, OwningModifier, PhaseFilter))
+		{
+			continue;
+		}
+
+		FInstancedStruct ActionSnapshotData;
+		Action->ApplyAction(ActionSnapshotData);
+		
+		// Take a snapshot of the action result if applicable
+		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyClientPredicted ||
+			Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerInitiated)
+		{
+			ActionSnapshots.Add({i, Action->GetClass(), ActionSnapshotData});
+		}
+	}
+	
+	if (ActionSnapshots.Num() > 0)
+	{
+		// Prepare snapshot data
+		FModifierActionStackResultSnapshot ActionStackSnapshot;
+		ActionStackSnapshot.ActionsResults = ActionSnapshots;
+
+		// Save the snapshot and register the callback
+		FOnSnapshotResolved ResolutionFunction;
+		ResolutionFunction.BindDynamic(this, &USimpleAttributeModifier::OnClientReceivedServerActionsResult);
+		TakeStateSnapshot(FInstancedStruct::Make(ActionStackSnapshot), ResolutionFunction);
+	}
+	
+	return true;
+}
+
 void USimpleAttributeModifier::Cancel(FGameplayTag CancelStatus, FInstancedStruct CancelContext)
 {
-	End(CancelStatus, CancelContext);
+	InstigatorAbilityComponent->GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
+	InstigatorAbilityComponent->GetWorld()->GetTimerManager().ClearTimer(TickTimerHandle);
+
+	ApplyModifierActions(this, { EAttributeModifierPhase::OnCancelled });
+	
+	if (USimpleEventSubsystem* EventSubsystem = InstigatorAbilityComponent->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
+	{
+		EventSubsystem->StopListeningForAllEvents(this);
+	}
+
+	if (CancelStatus.MatchesTagExact(FDefaultTags::AbilityCancelled()))
+	{
+		for (const FGameplayTag& Tag : PermanentlyAppliedTags)
+		{
+			TargetAbilityComponent->RemoveGameplayTag(Tag, FInstancedStruct());
+		}
+	}
+	
+	if (DurationType == EAttributeModifierType::SetDuration || DurationType == EAttributeModifierType::InfiniteDuration)
+	{
+		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
+		{
+			TargetAbilityComponent->RemoveGameplayTag(Tag, FInstancedStruct());
+		}
+	}
+	
+	for (UModifierAction* Action : ModifierActions)
+	{
+		Action->OnCancelAction();
+	}
+	
+	OnModifierCancelled(CancelStatus, CancelContext);
+	IsActive = false;
 }
 
 void USimpleAttributeModifier::End(FGameplayTag EndStatus, FInstancedStruct EndContext)
@@ -105,6 +184,8 @@ void USimpleAttributeModifier::End(FGameplayTag EndStatus, FInstancedStruct EndC
 	InstigatorAbilityComponent->GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
 	InstigatorAbilityComponent->GetWorld()->GetTimerManager().ClearTimer(TickTimerHandle);
 
+	ApplyModifierActions(this, { EAttributeModifierPhase::OnEnded });
+	
 	if (USimpleEventSubsystem* EventSubsystem = InstigatorAbilityComponent->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
 	{
 		EventSubsystem->StopListeningForAllEvents(this);
@@ -118,12 +199,17 @@ void USimpleAttributeModifier::End(FGameplayTag EndStatus, FInstancedStruct EndC
 		}
 	}
 	
-	if (DurationType == EAttributeModifierType::SetDuration)
+	if (DurationType == EAttributeModifierType::SetDuration || DurationType == EAttributeModifierType::InfiniteDuration)
 	{
 		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
 		{
 			TargetAbilityComponent->RemoveGameplayTag(Tag, FInstancedStruct());
 		}
+	}
+
+	for (UModifierAction* Action : ModifierActions)
+	{
+		Action->OnOwningModifierEnded(this);
 	}
 	
 	OnModifierEnded(EndStatus, EndContext);
@@ -170,11 +256,10 @@ bool USimpleAttributeModifier::CanApplyModifierInternal() const
 		return false;
 	}
 
-	// if (USimpleAttributeFunctionLibrary::HasModifierWithTags(TargetAbilityComponent, TargetBlockingModifierTags))
-	// {
-	// 	UE_LOG(LogSimpleGAS, Warning, TEXT("Target has blocking modifier tags in USimpleAttributeModifier::CanApplyModifierInternal"));
-	// 	return false;
-	// }
+	if (TargetAbilityComponent->HasAttributeModifierWithTags(TargetBlockingModifierTags))
+	{
+		return false;
+	}
 
 	return true;
 }
@@ -201,244 +286,110 @@ void USimpleAttributeModifier::AddModifierStack(int32 StackCount)
 	OnStacksAdded(StackCount, Stacks);
 }
 
-/*bool USimpleAttributeModifier::ApplyFloatAttributeModifier(const FFloatAttributeModifier& FloatModifier, TArray<FFloatAttribute>& TempFloatAttributes, float& CurrentOverflow)
+bool USimpleAttributeModifier::CanApplyAction(const UModifierAction* Action, USimpleAttributeModifier* OwningModifier, const TArray<EAttributeModifierPhase>& PhaseFilter) const
 {
-	FFloatAttribute* AttributeToModify = GetTempFloatAttribute(FloatModifier.AttributeToModify, TempFloatAttributes);
-	
-	if (!AttributeToModify)
+	// Check network restrictions on applying the action
+	if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyClientOnly && !IsRunningOnClient())
 	{
-		SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Attribute %s not found."), *FloatModifier.AttributeToModify.ToString()));
 		return false;
 	}
-	
-	/**
-	 * The formula is NewAttributeValue = CurrentAttributeValue [operation] ModificationInputValue
-	 * Where [operation] is one of the following: add, multiply, override (i.e. replace with) or custom (call a function)
-	 *#1#
 
-	// To Start we get the input value for the modification
-	float ModificationInputValue = 0;
-	bool WasTargetAttributeFound = false;
-	bool WasInstigatorAttributeFound = false;
-	switch (FloatModifier.ModificationInputValueSource)
+	if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerOnly && !IsRunningOnServer())
 	{
-		case EAttributeModificationValueSource::Manual:
-			ModificationInputValue = FloatModifier.ManualInputValue;
-			break;
-		
-		case EAttributeModificationValueSource::FromOverflow:
-			ModificationInputValue = CurrentOverflow;
-
-			if (FloatModifier.ConsumeOverflow)
-			{
-				CurrentOverflow = 0;
-			}
-		
-			break;
-		
-		case EAttributeModificationValueSource::FromInstigatorAttribute:
-			if (!InstigatorAbilityComponent)
-			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Instigator ability component is nullptr."));
-				return false;
-			}
-		
-			ModificationInputValue = InstigatorAbilityComponent->GetFloatAttributeValue(FloatModifier.SourceAttributeValueType, FloatModifier.SourceAttribute, WasInstigatorAttributeFound);
-
-			if (!WasInstigatorAttributeFound)
-			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on instigator ability component."), *FloatModifier.SourceAttribute.ToString());
-				return false;
-			}
-
-			break;
-		
-		case EAttributeModificationValueSource::FromTargetAttribute:
-			if (!TargetAbilityComponent)
-			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Target ability component is nullptr."));
-				return false;
-			}
-		
-			ModificationInputValue = TargetAbilityComponent->GetFloatAttributeValue(FloatModifier.SourceAttributeValueType, FloatModifier.SourceAttribute, WasTargetAttributeFound);
-
-			if (!WasTargetAttributeFound)
-			{
-				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on target ability component."), *FloatModifier.SourceAttribute.ToString());
-				return false;
-			}
-			
-			break;
-		
-	case EAttributeModificationValueSource::CustomInputValue:
-			if (!UFunctionSelectors::GetCustomFloatInputValue(
-				this,
-				FloatModifier.CustomInputFunction,
-				AttributeToModify->AttributeTag,
-				ModificationInputValue))
-			{
-				SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom input function failed to activate.")));
-				return false;
-			}
-		
+		return false;
 	}
 
-	// Next up we get the current value of the attribute
-	float CurrentAttributeValue = 0;
-	switch (FloatModifier.ModifiedAttributeValueType)
+	if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerInitiated && !IsRunningOnServer())
 	{
-		case EAttributeValueType::BaseValue:
-			CurrentAttributeValue = AttributeToModify->BaseValue;
-			break;
-		case EAttributeValueType::MinBaseValue:
-			CurrentAttributeValue = AttributeToModify->ValueLimits.MinBaseValue;
-			break;
-		case EAttributeValueType::MaxBaseValue:
-			CurrentAttributeValue = AttributeToModify->ValueLimits.MaxBaseValue;
-			break;
-		case EAttributeValueType::CurrentValue:
-			CurrentAttributeValue = AttributeToModify->CurrentValue;
-			break;
-		case EAttributeValueType::MinCurrentValue:
-			CurrentAttributeValue = AttributeToModify->ValueLimits.MinCurrentValue;
-			break;
-		case EAttributeValueType::MaxCurrentValue:
-			CurrentAttributeValue = AttributeToModify->ValueLimits.MaxCurrentValue;
-			break;
-	}
-	
-	// Next, modify AttributeToModify based on the input value and the modifier's operation
-	float NewAttributeValue = 0;
-	FGameplayTag FloatChangedDomainTag = AttributeToModify->AttributeTag;
-	switch (FloatModifier.ModificationOperation)
-	{
-		case EFloatAttributeModificationOperation::Add:
-			NewAttributeValue = CurrentAttributeValue + ModificationInputValue;
-			break;
-
-		case EFloatAttributeModificationOperation::Subtract:
-			NewAttributeValue = CurrentAttributeValue - ModificationInputValue;
-			break;
-					
-		case EFloatAttributeModificationOperation::Multiply:
-			NewAttributeValue = CurrentAttributeValue * ModificationInputValue;
-			break;
-
-		case EFloatAttributeModificationOperation::Divide:
-			if (FMath::IsNearlyZero(ModificationInputValue))
-			{
-				SIMPLE_LOG(OwningAbilityComponent, TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Division by zero."));
-				return false;
-			}
-			NewAttributeValue = CurrentAttributeValue / ModificationInputValue;
-			break;
-
-		case EFloatAttributeModificationOperation::Power:
-			NewAttributeValue = FMath::Pow(CurrentAttributeValue, ModificationInputValue);
-			break;
-		
-		case EFloatAttributeModificationOperation::Override:
-			NewAttributeValue =  ModificationInputValue;
-			break;
-		
-		case EFloatAttributeModificationOperation::Custom:
-			if (!UFunctionSelectors::ApplyFloatAttributeOperation(
-				this,
-				FloatModifier.FloatOperationFunction,
-				AttributeToModify->AttributeTag,
-				CurrentAttributeValue,
-				ModificationInputValue,
-				CurrentOverflow,
-				FloatChangedDomainTag,
-				NewAttributeValue,
-				CurrentOverflow))
-			{
-				SIMPLE_LOG(OwningAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom operation function %s failed to activate."), *FloatModifier.CustomInputFunction.GetMemberName().ToString()));
-				return false;
-			}
-
-			break;
+		return false;
 	}
 
-	// Lastly, we set the new value to the attribute
-	switch (FloatModifier.ModifiedAttributeValueType)
+	// Return false if phase filters do not match. If both are empty, they match.
+	if (Action->ApplicationPhaseFilter.Num() > 0 || PhaseFilter.Num() > 0)
 	{
-		case EAttributeValueType::BaseValue:
-			AttributeToModify->BaseValue = OwningAbilityComponent->ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::BaseValue, NewAttributeValue, CurrentOverflow);
-			break;
-		
-		case EAttributeValueType::CurrentValue:
-			AttributeToModify->CurrentValue = OwningAbilityComponent->ClampFloatAttributeValue(*AttributeToModify, EAttributeValueType::CurrentValue, NewAttributeValue, CurrentOverflow);
-			break;
-		
-		case EAttributeValueType::MaxBaseValue:
-			AttributeToModify->ValueLimits.MaxBaseValue = NewAttributeValue;
-			break;
-		
-		case EAttributeValueType::MinBaseValue:
-			AttributeToModify->ValueLimits.MinBaseValue = NewAttributeValue;
-			break;
-		
-		case EAttributeValueType::MaxCurrentValue:
-			AttributeToModify->ValueLimits.MaxCurrentValue = NewAttributeValue;
-			break;
-		
-		case EAttributeValueType::MinCurrentValue:
-			AttributeToModify->ValueLimits.MinCurrentValue = NewAttributeValue;
-			break;
-	}
-	
-	return true;
-}*/
-
-bool USimpleAttributeModifier::ApplyActionStacks(const EAttributeModifierPhase& Phase, USimpleAttributeModifier* OwningModifier)
-{
-	for (UModifierAction* Action : ModifierActions)
-	{
-		if (!Action->ShouldApply(Phase, OwningModifier))
+		if (!Action->ApplicationPhaseFilter.ContainsByPredicate([&](const EAttributeModifierPhase Phase) { return PhaseFilter.Contains(Phase); }))
 		{
-			continue;
-		}
-
-		if (!Action->ApplyAction(OwningModifier))
-		{
-			SIMPLE_LOG(GetWorld(), FString::Printf(TEXT("[USimpleAttributeModifier::ApplyActionStacks]: Action %s failed to apply."), *Action->GetName()));
 			return false;
 		}
 	}
-	
+		
+	if (!Action->ShouldApply(OwningModifier))
+	{
+		return false;
+	}
+
 	return true;
 }
 
-void USimpleAttributeModifier::OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
+void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FInstancedStruct ServerSnapshot, FInstancedStruct ClientSnapshot)
 {
-	if (DurationType == EAttributeModifierType::SetDuration && IsActive)
+	const TArray<FModifierActionResult> ServerResults = ServerSnapshot.Get<FModifierActionStackResultSnapshot>().ActionsResults;
+	const TArray<FModifierActionResult> ClientResults = ClientSnapshot.Get<FModifierActionStackResultSnapshot>().ActionsResults;
+
+	TMap<int32, FModifierActionResult> ServerMap, ClientMap;
+	for (const FModifierActionResult& ActionResult : ServerResults) ServerMap.Add(ActionResult.ActionIndex, ActionResult);
+	for (const FModifierActionResult& ActionResult : ClientResults) ClientMap.Add(ActionResult.ActionIndex, ActionResult);
+
+	TSet<int32> AllIndices;
+	ServerMap.GetKeys(AllIndices);
+	ClientMap.GetKeys(AllIndices);
+
+	for (int32 Idx : AllIndices)
 	{
-		if (!CanApplyModifierInternal())
+		UModifierAction* Action = ModifierActions.IsValidIndex(Idx) ? ModifierActions[Idx] : nullptr;
+		if (!Action) continue;
+
+		const bool IsInServerMap = ServerMap.Contains(Idx);
+		const bool IsInClientMap = ClientMap.Contains(Idx);
+
+		if (IsInServerMap && !IsInClientMap)
 		{
-			switch (TickTagRequirementBehaviour)
-			{
-				case EDurationTickTagRequirementBehaviour::CancelOnTagRequirementFailed:
-					Cancel(FDefaultTags::AbilityCancelled(), FInstancedStruct());
-					return;;
-				case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
-					return;
-				case EDurationTickTagRequirementBehaviour::PauseOnTagRequirementFailed:
-					InstigatorAbilityComponent->GetWorld()->GetTimerManager().PauseTimer(DurationTimerHandle);
-					InstigatorAbilityComponent->GetWorld()->GetTimerManager().PauseTimer(TickTimerHandle);
-					return;
-			}
+			Action->OnServerInitiatedResultReceived(ServerMap[Idx].ActionResult);
 		}
-		
-		InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(DurationTimerHandle);
-		InstigatorAbilityComponent->GetWorld()->GetTimerManager().UnPauseTimer(TickTimerHandle);
+		else if (!IsInServerMap && IsInClientMap)
+		{
+			Action->OnCancelAction();
+		}
+		else if (IsInServerMap && IsInClientMap)
+		{
+			// If the snapshots match we don't need to do anything
+			if (ServerMap[Idx].ActionResult == ClientMap[Idx].ActionResult)
+			{
+				continue;
+			}
+			
+			Action->OnClientPredictedCorrection(
+				ServerMap[Idx].ActionResult,
+				ClientMap[Idx].ActionResult
+			);
+		}
 	}
 }
 
 void USimpleAttributeModifier::OnDurationTimerExpired()
 {
+	End(FDefaultTags::AbilityEnded(), FInstancedStruct());
 }
 
 void USimpleAttributeModifier::OnTickTimerTriggered()
 {
+	// Check if the modifier can still be applied
+	if (!CanApplyModifierInternal())
+	{
+		ApplyModifierActions(this, { EAttributeModifierPhase::OnDurationTickFailed });
+
+		switch (TickTagRequirementBehaviour)
+		{
+			case EDurationTickTagRequirementBehaviour::CancelOnTagRequirementFailed:
+				Cancel(FDefaultTags::AbilityCancelled(), FInstancedStruct());
+				return;
+			case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
+				return;
+		}
+	}
+
+	TickCount += 1;
+	ApplyModifierActions(this, { EAttributeModifierPhase::OnDurationTick });
+	ApplyModifierActions(this, { });
+	OnPostApplyModifierActions();
 }

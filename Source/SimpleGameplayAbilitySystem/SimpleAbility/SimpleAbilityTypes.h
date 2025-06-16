@@ -314,6 +314,9 @@ struct FAbilitySnapshot : public FFastArraySerializerItem
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid AbilityID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<USimpleAbilityBase> AbilityClass;
 	
 	UPROPERTY(BlueprintReadWrite)
 	double TimeStamp;

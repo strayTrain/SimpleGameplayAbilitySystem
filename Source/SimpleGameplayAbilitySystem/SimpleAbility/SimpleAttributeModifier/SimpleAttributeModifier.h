@@ -3,9 +3,9 @@
 #include "CoreMinimal.h"
 #include "SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
-#include "ModifierActions/Base/ModifierAction.h"
 #include "SimpleAttributeModifier.generated.h"
 
+class UModifierAction;
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable)
@@ -18,7 +18,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config")
 	EAttributeModifierType DurationType = EAttributeModifierType::Instant;
-
 	
 	/**
 	 * How long this modifier lasts. Only applies to SetDuration type modifiers. If the duration is 0, the modifier
@@ -46,18 +45,17 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
 		EditConditionHides,
-		EditCondition = "DurationType != EAttributeModifierType::Instant"))
+		EditCondition = "DurationType == EAttributeModifierType::SetDuration"))
 	EDurationModifierReApplicationConfig OnReapplication;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "DurationType != EAttributeModifierType::Instant"))
+	bool CanStack = false;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
-		EditConditionHides,
-		EditCondition = "DurationType != EAttributeModifierType::Instant && OnReapplication == EDurationModifierReApplicationConfig::AddStack"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (InlineEditConditionToggle))
 	bool HasMaxStacks;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
-		EditConditionHides,
-		EditCondition = "HasMaxStacks && DurationType != EAttributeModifierType::Instant && OnReapplication == EDurationModifierReApplicationConfig::AddStack"))
-	int32 MaxStacks;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "HasMaxStacks"))
+	int32 MaxStacks = 1;
 
 	/**
 	 * Tags that can be used to classify this modifier. e.g. "DamageOverTime", "StatusEffect" etc.
@@ -97,18 +95,36 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Requirements")
 	FGameplayTagContainer TargetBlockingModifierTags;
+
+	/**
+	 * Optional convenience value that can be used for simpler modifiers. e.g. If you know you want to deal 5 damage when
+	 * the modifier is applied, you can pass this to 5 into this value and use it in your modifier actions instead of having to
+	 * store the value as a context variable.
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
+	float Magnitude = 0;
+	
+	/**
+	 * Keeps track of the number of stacks this modifier has. Only applies to duration type modifiers with a stackable configuration.
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
+	int32 Stacks = 1;
+
+	/**
+	 * Keeps track of the number of ticks that have occurred since the modifier was applied if the modifier is a duration type.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
+	int32 TickCount = 0;
 	
 	UPROPERTY(EditAnywhere, Instanced, Category = "Attribute Modifier|Actions", meta = (TitleProperty = "Description"))
 	TArray<TObjectPtr<UModifierAction>> ModifierActions;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
-	float Magnitude = 0;
-	
-	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
-	int32 Stacks = 1;
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
+	USimpleGameplayAbilityComponent* InstigatorAbilityComponent;
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
+	USimpleGameplayAbilityComponent* TargetAbilityComponent;
 	
 	/* SimpleAbilityBase overrides */
-	void InitializeModifier(USimpleGameplayAbilityComponent* Target, const float ModifierMagnitude);
 	virtual bool CanActivate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FAbilityContextCollection ActivationContext) override;
 	virtual bool Activate(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FGuid NewAbilityID, const FAbilityContextCollection ActivationContext) override;
 	virtual void Cancel(FGameplayTag CancelStatus, FInstancedStruct CancelContext) override;
@@ -116,6 +132,8 @@ public:
 	virtual void TakeSnapshotInternal(const FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved) override;
 	
 	/* Modifier Lifecycle Functions */
+
+	void InitializeModifier(USimpleGameplayAbilityComponent* Target, const float ModifierMagnitude);
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Application")
 	bool CanApplyModifier() const;
@@ -150,26 +168,29 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnMaxStacksReached();
 	void OnMaxStacksReached_Implementation() {}
+
+	UFUNCTION()
+	void OnClientReceivedServerActionsResult(FInstancedStruct ServerSnapshot, FInstancedStruct ClientSnapshot);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FAttributeModifierActionScratchPad& GetModifierActionScratchPad()
+	{
+		return ModifierActionScratchPad;
+	}
 	
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attribute Modifier|State")
-	USimpleGameplayAbilityComponent* InstigatorAbilityComponent;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attribute Modifier|State")
-	USimpleGameplayAbilityComponent* TargetAbilityComponent;
-
 	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
 	FAttributeModifierActionScratchPad ModifierActionScratchPad;
 
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
-	bool ApplyActionStacks(const EAttributeModifierPhase& Phase, USimpleAttributeModifier* OwningModifier);
-	
-	UFUNCTION()
-	void OnTagsChanged(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender = nullptr);
+	bool ApplyModifierActions(USimpleAttributeModifier* OwningModifier, TArray<EAttributeModifierPhase> PhaseFilter);
 	
 	// No tick function calls needed for attribute modifiers as they're based on timers
 	virtual bool IsTickable() const override { return false; }
 
 private:
+	bool CanApplyAction(const UModifierAction* Action, USimpleAttributeModifier* OwningModifier, const TArray<EAttributeModifierPhase>& PhaseFilter) const;
+	
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
 

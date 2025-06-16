@@ -14,11 +14,12 @@
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/AttributeHandler/SimpleAttributeHandler.h"
 #include "SimpleAbilityComponentTypes.generated.h"
 
-/* Enums */
 
 class USimpleGameplayAbility;
 class USimpleGameplayAbilityComponent;
 struct FFloatAttribute;
+
+/* Enums */
 
 UENUM(BlueprintType)
 enum class ESimpleEventReplicationPolicy : uint8
@@ -48,64 +49,10 @@ enum class ESimpleEventReplicationPolicy : uint8
 };
 
 UENUM(BlueprintType)
-enum class EAttributeValueType : uint8
-{
-	CurrentValue,
-	BaseValue,
-	MaxCurrentValue,
-	MinCurrentValue,
-	MaxBaseValue,
-	MinBaseValue
-};
-
-UENUM(BlueprintType)
-enum class EFloatAttributeModificationOperation : uint8
-{
-	/**
-	 * Output = A + B
-	 */
-	Add,
-	/**
-	 * Output = A - B
-	 */
-	Subtract,
-	/**
-	 * Output = A * B
-	 */
-	Multiply,
-	/**
-	 * Output = A / B
-	 */
-	Divide,
-	/**
-	 * Output = A ** B
-	 */
-	Power,
-	/**
-	 * Output = B
-	 */
-	Override,
-	/**
-	 * Output = [function call]
-	 */
-	Custom
-};
-
-UENUM(BlueprintType)
 enum class EAttributeType : uint8
 {
 	FloatAttribute,
 	StructAttribute,
-};
-
-UENUM(BlueprintType)
-enum class EAttributeModificationValueSource : uint8
-{
-	Manual,
-	FromOverflow,
-	FromInstigatorAttribute,
-	FromTargetAttribute,
-	CustomInputValue
 };
 
 /* Structs */
@@ -138,46 +85,6 @@ struct FValueLimits
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "UseMaxCurrentValue"))
 	float MaxCurrentValue;
-};
-
-USTRUCT(BlueprintType)
-struct FFloatAttributeModification
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USimpleGameplayAbilityComponent* AttributeOwner;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag AttributeTag;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EAttributeValueType ValueType;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float NewValue;
-};
-
-USTRUCT(BlueprintType)
-struct FStructAttributeModification
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USimpleGameplayAbilityComponent* AttributeOwner;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag AttributeTag;
-
-	// Use these tags to indicate which members of the struct have changed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer ModificationTags;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct NewValue;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FInstancedStruct OldValue;
 };
 
 UENUM(BlueprintType)

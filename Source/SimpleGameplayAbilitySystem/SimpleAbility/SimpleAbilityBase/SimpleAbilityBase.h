@@ -47,6 +47,12 @@ public:
 	EAbilityNetworkRole GetNetworkRole(bool& IsListenServer) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsRunningOnClient() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsRunningOnServer() const;
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool HasAuthority() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Ability|Snapshot")
