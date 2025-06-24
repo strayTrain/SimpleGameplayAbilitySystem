@@ -57,6 +57,14 @@ public:
 	FGameplayTagCounterContainer AuthorityGameplayTags;
 	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State")
 	TArray<FGameplayTagCounter> LocalGameplayTags;
+
+	/** Called when a gameplay tag is added */
+	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Tags")
+	FOnGameplayTagAddedSignature OnGameplayTagAdded;
+	
+	/** Called when a gameplay tag is removed */
+	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Tags")
+	FOnGameplayTagRemovedSignature OnGameplayTagRemoved;
 	
 	// Float Attributes
 	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|State", meta = (TitleProperty = "Attributes.AttributeName"))
@@ -145,7 +153,7 @@ public:
 	TArray<FGuid> CancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
 
 	int32 AddGameplayAbilitySnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
-	int32 AddAttributeModifierSnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
+	int32 AddAttributeModifierSnapshot(FGuid AbilityID, TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct SnapshotData);
 
 	/* Attribute Modifier Functions */
 	
@@ -332,7 +340,6 @@ public:
 	
 	USimpleAttributeHandler* GetStructAttributeHandlerInstance(TSubclassOf<USimpleAttributeHandler> HandlerClass);
 	USimpleGameplayAbility* GetGameplayAbilityInstance(FGuid AbilityInstanceID);
-	USimpleAttributeModifier* GetAttributeModifierInstance(FGuid AttributeInstanceID);
 	USimpleGameplayAbility* GetAbilityInstance(const TSubclassOf<USimpleGameplayAbility>& AbilityClass);
 
 protected:
@@ -368,6 +375,8 @@ private:
 	void OnAbilityEnded(FGuid AbilityID, FGameplayTag EndStatus, FInstancedStruct EndingContext);
 	UFUNCTION()
 	void OnAbilityCancelled(FGuid AbilityID, FGameplayTag CancelStatus, FInstancedStruct CancellationContext);
+
+	USimpleAttributeModifier* GetAttributeModifierInstance(TSubclassOf<USimpleAttributeModifier> ModifierClass);
 	
 	// These functions are called on the client when the authoritative version of the variable changes on the server
 	void OnAbilityStateAdded(const FAbilityState& NewAbilityState);
@@ -390,9 +399,9 @@ private:
 	void OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute);
 	void OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute);
 
-	void OnGameplayTagAdded(const FGameplayTagCounter& NewGameplayTag);
-	void OnGameplayTagChanged(const FGameplayTagCounter& ChangedGameplayTag);
-	void OnGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag);
+	void OnAuthorityGameplayTagAdded(const FGameplayTagCounter& NewGameplayTag);
+	void OnAuthorityGameplayTagChanged(const FGameplayTagCounter& ChangedGameplayTag);
+	void OnAuthorityGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

@@ -102,9 +102,9 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	AuthorityStructAttributes.OnStructAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeChanged);
 	AuthorityStructAttributes.OnStructAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeRemoved);
 
-	AuthorityGameplayTags.OnGameplayTagCounterAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnGameplayTagAdded);
-	AuthorityGameplayTags.OnGameplayTagCounterChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnGameplayTagChanged);
-	AuthorityGameplayTags.OnGameplayTagCounterRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnGameplayTagRemoved);
+	AuthorityGameplayTags.OnGameplayTagCounterAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAuthorityGameplayTagAdded);
+	AuthorityGameplayTags.OnGameplayTagCounterChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnAuthorityGameplayTagChanged);
+	AuthorityGameplayTags.OnGameplayTagCounterRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnAuthorityGameplayTagRemoved);
 
 	LocalFloatAttributes = AuthorityFloatAttributes.Attributes;
 	LocalStructAttributes = AuthorityStructAttributes.Attributes;
@@ -471,12 +471,13 @@ int32 USimpleGameplayAbilityComponent::AddGameplayAbilitySnapshot(const FGuid Ab
 	return NewSnapshot.SnapshotCounter;
 }
 
-int32 USimpleGameplayAbilityComponent::AddAttributeModifierSnapshot(const FGuid AbilityID, FInstancedStruct SnapshotData)
+int32 USimpleGameplayAbilityComponent::AddAttributeModifierSnapshot(const FGuid AbilityID, TSubclassOf<USimpleAttributeModifier> ModifierClass, FInstancedStruct SnapshotData)
 {
 	TArray<FAbilitySnapshot>& SnapshotArray = HasAuthority() ? AuthorityAttributeModifierSnapshots.Snapshots : LocalPendingAttributeModiferSnapshots;
 	
 	FAbilitySnapshot NewSnapshot;
 	NewSnapshot.AbilityID = AbilityID;
+	NewSnapshot.AbilityClass = ModifierClass;
 	NewSnapshot.SnapshotData = SnapshotData;
 	NewSnapshot.TimeStamp = GetServerTime();
 	NewSnapshot.SnapshotCounter = 0;
@@ -529,7 +530,8 @@ void USimpleGameplayAbilityComponent::AddGameplayTag(FGameplayTag Tag, FInstance
 	{
 		AuthorityGameplayTags.MarkItemDirty(NewTagCounter);
 	}
-	
+
+	OnGameplayTagAdded.Broadcast(Tag, Payload);
 	SendEvent(FDefaultTags::GameplayTagAdded(), Tag, Payload, this, {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
@@ -556,7 +558,8 @@ void USimpleGameplayAbilityComponent::RemoveGameplayTag(FGameplayTag Tag, FInsta
 	{
 		AuthorityGameplayTags.MarkArrayDirty();
 	}
-	
+
+	OnGameplayTagRemoved.Broadcast(Tag, Payload);
 	SendEvent(FDefaultTags::GameplayTagRemoved(), Tag, Payload, this, {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
@@ -790,17 +793,28 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetGameplayAbilityInsta
 	return nullptr;
 }
 
-USimpleAttributeModifier* USimpleGameplayAbilityComponent::GetAttributeModifierInstance(FGuid AttributeInstanceID)
+USimpleAttributeModifier* USimpleGameplayAbilityComponent::GetAttributeModifierInstance(TSubclassOf<USimpleAttributeModifier> ModifierClass)
 {
+	USimpleAttributeModifier* LocalRunningModifierInstance = nullptr;
 	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributeModifiers)
 	{
-		if (InstancedModifier->AbilityID == AttributeInstanceID)
+		if (InstancedModifier->GetClass() == ModifierClass)
 		{
-			return InstancedModifier;
+			LocalRunningModifierInstance = InstancedModifier;
+			break;
 		}
 	}
 
-	return nullptr;
+	if (!LocalRunningModifierInstance)
+	{
+		if (!LocalRunningModifierInstance)
+		{
+			LocalRunningModifierInstance = NewObject<USimpleAttributeModifier>(this, ModifierClass);
+			InstancedAttributeModifiers.Add(LocalRunningModifierInstance);
+		}
+	}
+
+	return LocalRunningModifierInstance;
 }
 
 double USimpleGameplayAbilityComponent::GetServerTime_Implementation()
@@ -1164,34 +1178,15 @@ void USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded(const FAb
 			return Snapshot.AbilityID == NewAttributeModifierSnapshot.AbilityID && Snapshot.SnapshotCounter == NewAttributeModifierSnapshot.SnapshotCounter;
 		});
 
-	// If there's no local snapshot for NewAbilitySnapshot, we've resolved it already, and we don't need to do anything.
-	if (!LocalSnapshot)
+	FInstancedStruct LocalSnapshotData = FInstancedStruct();
+	
+	if (LocalSnapshot)
 	{
-		return;
+		LocalSnapshotData = LocalSnapshot->SnapshotData;
 	}
-
-	// Get a reference to the local running modifier instance for the ability ID in the snapshot. We expect this to exist
-	USimpleAttributeModifier* LocalRunningModifierInstance = nullptr;
-	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributeModifiers)
-	{
-		if (InstancedModifier->GetClass() == LocalSnapshot->AbilityClass)
-		{
-			LocalRunningModifierInstance = InstancedModifier;
-			break;
-		}
-	}
-
-	if (!LocalRunningModifierInstance)
-	{
-		if (!LocalRunningModifierInstance)
-		{
-			LocalRunningModifierInstance = NewObject<USimpleAttributeModifier>(this, NewAttributeModifierSnapshot.AbilityClass);
-			InstancedAttributeModifiers.Add(LocalRunningModifierInstance);
-		}
-	}
-
-	// Notify the attribute modifier instance that it has received a server snapshot so it can resolve the differences
-	LocalRunningModifierInstance->OnClientReceivedServerActionsResult(NewAttributeModifierSnapshot.SnapshotData, LocalSnapshot->SnapshotData);
+	
+	USimpleAttributeModifier* LocalRunningModifierInstance = GetAttributeModifierInstance(static_cast<TSubclassOf<USimpleAttributeModifier>>(NewAttributeModifierSnapshot.AbilityClass));
+	LocalRunningModifierInstance->OnClientReceivedServerActionsResult(NewAttributeModifierSnapshot.SnapshotData, LocalSnapshotData);
 
 	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
 	if (LocalSnapshot)
@@ -1203,7 +1198,7 @@ void USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded(const FAb
 	}	
 }
 
-void USimpleGameplayAbilityComponent::OnGameplayTagAdded(const FGameplayTagCounter& GameplayTag)
+void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagAdded(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
 		[GameplayTag](const FGameplayTagCounter& TagCounter)
@@ -1221,7 +1216,7 @@ void USimpleGameplayAbilityComponent::OnGameplayTagAdded(const FGameplayTagCount
 	LocalTagCounter->ReferenceCounter = GameplayTag.ReferenceCounter;
 }
 
-void USimpleGameplayAbilityComponent::OnGameplayTagChanged(const FGameplayTagCounter& GameplayTag)
+void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagChanged(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
 		[GameplayTag](const FGameplayTagCounter& TagCounter)
@@ -1239,7 +1234,7 @@ void USimpleGameplayAbilityComponent::OnGameplayTagChanged(const FGameplayTagCou
 	LocalTagCounter->ReferenceCounter = GameplayTag.ReferenceCounter;
 }
 
-void USimpleGameplayAbilityComponent::OnGameplayTagRemoved(const FGameplayTagCounter& GameplayTag)
+void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagRemoved(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
 		[GameplayTag](const FGameplayTagCounter& TagCounter)

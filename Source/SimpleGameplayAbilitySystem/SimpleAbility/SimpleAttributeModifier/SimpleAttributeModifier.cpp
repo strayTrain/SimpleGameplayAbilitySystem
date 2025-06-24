@@ -224,7 +224,7 @@ void USimpleAttributeModifier::TakeSnapshotInternal(const FInstancedStruct Snaps
 		return;
 	}
 
-	const int32 SnapshotCounter = OwningAbilityComponent->AddAttributeModifierSnapshot(AbilityID, SnapshotData);
+	const int32 SnapshotCounter = OwningAbilityComponent->AddAttributeModifierSnapshot(AbilityID, GetClass(), SnapshotData);
 	PendingSnapshots.Add(SnapshotCounter, OnResolved);
 }
 
@@ -323,16 +323,42 @@ bool USimpleAttributeModifier::CanApplyAction(const UModifierAction* Action, USi
 
 void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FInstancedStruct ServerSnapshot, FInstancedStruct ClientSnapshot)
 {
-	const TArray<FModifierActionResult> ServerResults = ServerSnapshot.Get<FModifierActionStackResultSnapshot>().ActionsResults;
-	const TArray<FModifierActionResult> ClientResults = ClientSnapshot.Get<FModifierActionStackResultSnapshot>().ActionsResults;
+	const FModifierActionStackResultSnapshot* ServerSnapshotPtr = ServerSnapshot.GetPtr<FModifierActionStackResultSnapshot>();
+	const FModifierActionStackResultSnapshot* ClientSnapshotPtr = ClientSnapshot.GetPtr<FModifierActionStackResultSnapshot>();
 
+	TArray<FModifierActionResult> ServerActionResults;
+	TArray<FModifierActionResult> ClientActionResults;
+	
+	if (!ServerSnapshotPtr)
+	{
+		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeModifier::OnClientReceivedServerActionsResult]: Server snapshot is null and this should never be the case. Something went wrong :/"));
+		return;
+	}
+
+	ServerActionResults = ServerSnapshotPtr->ActionsResults;
+	
+	// It's possible that the client didn't take a snapshot itself but is receiving a snapshot from the server i.e. ActionApplicationPolicy is AppluServerInitiated
+	if (!ClientSnapshotPtr)
+	{
+		ClientActionResults = TArray<FModifierActionResult>();
+	}
+	else
+	{
+		ClientActionResults = ClientSnapshotPtr->ActionsResults;
+	}
+	
+	// Create maps for server and client action results to compare them easily.
 	TMap<int32, FModifierActionResult> ServerMap, ClientMap;
-	for (const FModifierActionResult& ActionResult : ServerResults) ServerMap.Add(ActionResult.ActionIndex, ActionResult);
-	for (const FModifierActionResult& ActionResult : ClientResults) ClientMap.Add(ActionResult.ActionIndex, ActionResult);
+	for (const FModifierActionResult& ActionResult : ServerActionResults) ServerMap.Add(ActionResult.ActionIndex, ActionResult);
+	for (const FModifierActionResult& ActionResult : ClientActionResults) ClientMap.Add(ActionResult.ActionIndex, ActionResult);
+	
+	TArray<int32> ServerMapKeys, ClientMapKeys;
+	ServerMap.GetKeys(ServerMapKeys);
+	ClientMap.GetKeys(ClientMapKeys);
 
 	TSet<int32> AllIndices;
-	ServerMap.GetKeys(AllIndices);
-	ClientMap.GetKeys(AllIndices);
+	AllIndices.Append(ServerMapKeys);
+	AllIndices.Append(ClientMapKeys);
 
 	for (int32 Idx : AllIndices)
 	{

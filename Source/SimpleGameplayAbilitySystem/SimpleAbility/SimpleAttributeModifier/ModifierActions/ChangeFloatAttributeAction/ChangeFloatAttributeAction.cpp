@@ -8,24 +8,22 @@
 
 bool UChangeFloatAttributeAction::ShouldApply_Implementation(USimpleAttributeModifier* NewOwningModifier) const
 {
-	return OwningModifier->OwningAbilityComponent->HasFloatAttribute(AttributeToModify);
+	return OwningModifier->TargetAbilityComponent->HasFloatAttribute(AttributeToModify);
 }
 
 bool UChangeFloatAttributeAction::ApplyAction_Implementation(FInstancedStruct& SnapshotData)
 {
-	USimpleGameplayAbilityComponent* AbilityComponent = OwningModifier->OwningAbilityComponent;
-
-	if (!AbilityComponent)
+	if (!OwningModifier->TargetAbilityComponent)
 	{
-		SIMPLE_LOG(AbilityComponent, TEXT("[USimpleAttributeModifier::ApplyAction]: Owning ability component is null."));
+		SIMPLE_LOG(OwningModifier->TargetAbilityComponent, TEXT("[USimpleAttributeModifier::ApplyAction]: Owning ability component is null."));
 		return false;
 	}
 
-	const FFloatAttribute* FloatAttribute = AbilityComponent->GetFloatAttribute(AttributeToModify);
+	const FFloatAttribute* FloatAttribute = OwningModifier->TargetAbilityComponent->GetFloatAttribute(AttributeToModify);
 	
 	if (!FloatAttribute)
 	{
-		SIMPLE_LOG(AbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyAction]: Attribute %s not found."), *AttributeToModify.ToString()));
+		SIMPLE_LOG(OwningModifier->TargetAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyAction]: Attribute %s not found."), *AttributeToModify.ToString()));
 		return false;
 	}
 	
@@ -105,7 +103,7 @@ bool UChangeFloatAttributeAction::ApplyAction_Implementation(FInstancedStruct& S
 				AttributeToModify,
 				ModificationInputValue))
 			{
-				SIMPLE_LOG(AbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom input function failed to activate.")));
+				SIMPLE_LOG(OwningModifier->TargetAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom input function failed to activate.")));
 				return false;
 			}
 		
@@ -155,7 +153,7 @@ bool UChangeFloatAttributeAction::ApplyAction_Implementation(FInstancedStruct& S
 		case EFloatAttributeModificationOperation::Divide:
 			if (FMath::IsNearlyZero(ModificationInputValue))
 			{
-				SIMPLE_LOG(AbilityComponent, TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Division by zero."));
+				SIMPLE_LOG(OwningModifier->TargetAbilityComponent, TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Division by zero."));
 				return false;
 			}
 			NewAttributeValue = CurrentAttributeValue / ModificationInputValue;
@@ -181,14 +179,14 @@ bool UChangeFloatAttributeAction::ApplyAction_Implementation(FInstancedStruct& S
 				NewAttributeValue,
 				GetScratchPad().ScratchpadValues[FDefaultTags::ScratchPadFloatOverflow()]))
 			{
-				SIMPLE_LOG(AbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom operation function %s failed to activate."), *CustomInputFunction.GetMemberName().ToString()));
+				SIMPLE_LOG(OwningModifier->TargetAbilityComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom operation function %s failed to activate."), *CustomInputFunction.GetMemberName().ToString()));
 				return false;
 			}
 
 			break;
 	}
 
-	return AbilityComponent->SetFloatAttributeValue(ModifiedAttributeValueType, FloatAttribute->AttributeTag, NewAttributeValue, GetScratchPad().ScratchpadValues[FDefaultTags::ScratchPadFloatOverflow()]);
+	return OwningModifier->TargetAbilityComponent->SetFloatAttributeValue(ModifiedAttributeValueType, FloatAttribute->AttributeTag, NewAttributeValue, GetScratchPad().ScratchpadValues[FDefaultTags::ScratchPadFloatOverflow()]);
 }
 
 void UChangeFloatAttributeAction::OnClientPredictedCorrection_Implementation(FInstancedStruct ServerSnapshot,
