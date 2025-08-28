@@ -15,7 +15,7 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForAbility : public UBlueprintAsyncAc
 {
 	GENERATED_BODY()
 
-public:
+/*public:
 	UPROPERTY(BlueprintAssignable)
 	FEventAbilitySenderDelegate OnAbilityEnded;
 	
@@ -62,5 +62,5 @@ private:
 	UWaitForSimpleEvent* AbilityEndedEventTask;
 	
 	UPROPERTY()
-	UWaitForSimpleEvent* WaitAbilityEndedEventTask;
+	UWaitForSimpleEvent* WaitAbilityEndedEventTask;*/
 };

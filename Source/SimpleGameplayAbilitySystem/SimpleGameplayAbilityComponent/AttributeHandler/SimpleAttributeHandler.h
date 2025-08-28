@@ -25,28 +25,29 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UScriptStruct* StructType;
-	
+
+	// Called from C++ only to initialize the handler with its owner and tag
+	void InitializeHandler(USimpleGameplayAbilityComponent* NewAttributeOwner, FGameplayTag NewAttributeTag);
+
 	UFUNCTION(BlueprintNativeEvent, Category = "SimpleGAS|AttributeHandler")
-	FGameplayTagContainer GetModificationEvents(FGameplayTag AttributeTag, const FInstancedStruct& OldValue, const FInstancedStruct& NewValue);
-	virtual FGameplayTagContainer GetModificationEvents_Implementation(FGameplayTag AttributeTag, const FInstancedStruct& OldValue, const FInstancedStruct& NewValue);
+	FGameplayTagContainer GetModificationEvents(const FInstancedStruct& OldValue, const FInstancedStruct& NewValue);
+	virtual FGameplayTagContainer GetModificationEvents_Implementation(const FInstancedStruct& OldValue, const FInstancedStruct& NewValue);
 
 	/**
 	 * Gets a copy of the struct associated with the given tag on the AttributeOwner.
-	 * @param AttributeTag The tag of the struct to get
-	 * @param WasFound True if the attribute was found and matches the StructType, false otherwise
-	 * @return A copy of the struct associated with the tag, or an empty struct if not found
+	 * @return A copy of the struct associated with the tag, or an empty FInstancedStruct if not found
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|AttributeHandler")
-	FInstancedStruct GetStruct(FGameplayTag AttributeTag, bool& WasFound) const;
+	FInstancedStruct GetStruct() const;
 
 	/**
-	 * Sets the struct associated with the given tag on the AttributeOwner.
-	 * @param AttributeTag The tag of the struct to set
-	 * @param NewValue The instanced struct wrapping the changed struct
+	 * Sets the struct associated with the AttributeTag on the AttributeOwner.
 	 * @return True if the struct was set successfully, false if the attribute was not found or the struct type does not match
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|AttributeHandler")
-	bool SetStruct(FGameplayTag AttributeTag, const FInstancedStruct& NewValue);
-	
+	bool SetStruct(const FInstancedStruct& NewValue);
+
+protected:
+	FGameplayTag AttributeTag;
 	TSoftObjectPtr<USimpleGameplayAbilityComponent> AttributeOwner;
 };

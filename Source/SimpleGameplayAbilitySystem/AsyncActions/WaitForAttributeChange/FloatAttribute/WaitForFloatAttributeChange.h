@@ -9,7 +9,7 @@
 
 class UWaitForSimpleEvent;
 enum class EAttributeType : uint8;
-enum class EAttributeValueType : uint8;
+enum class EFloatAttributeValueType : uint8;
 class USimpleGameplayAbilityComponent;
 
 UCLASS()

@@ -97,6 +97,25 @@ bool UFunctionSelectors::GetStructContext(
 	return false;
 }
 
+bool UFunctionSelectors::GetContextCollection(
+	USimpleAttributeModifier* OwningModifier,
+	const FMemberReference& DynamicFunction,
+	FAbilityContextCollection& ContextCollection)
+{
+	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningModifier->GetClass()))
+	{
+		struct {
+			FAbilityContextCollection ContextCollection;
+		} Params = { ContextCollection };
+
+		OwningModifier->ProcessEvent(Function, &Params);
+		ContextCollection = Params.ContextCollection;
+		return true;
+	}
+
+	return false;
+}
+
 bool UFunctionSelectors::GetAttributeModifierSideEffectTargets(
 	USimpleAttributeModifier* OwningModifier,
 	const FMemberReference& DynamicFunction,
