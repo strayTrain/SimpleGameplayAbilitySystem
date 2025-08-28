@@ -299,21 +299,71 @@ bool USimpleGameplayAbilityComponent::OverrideFloatAttribute(FGameplayTag Attrib
 	return false;
 }
 
-USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance(TSubclassOf<USimpleAttributeHandler> HandlerClass)
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(const FGameplayTag AttributeTag)
 {
+	const FStructAttribute* StructAttribute = GetStructAttribute(AttributeTag);
+
+	if (!StructAttribute)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandler]: Attribute %s not found."), *AttributeTag.ToString()));
+		return nullptr;
+	}
+
+	if (!StructAttribute->StructAttributeHandler)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandler]: Struct attribute %s has no attribute handler class configured."), *AttributeTag.ToString()));
+		return nullptr;
+	}
+
+	return GetStructAttributeHandlerInstance(AttributeTag, StructAttribute->StructAttributeHandler);
+}
+
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandlerAs(FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
+{
+	USimpleAttributeHandler* AttributeHandler = GetAttributeHandler(AttributeTag);
+
+	if (!AttributeHandler)
+	{
+		return nullptr;
+	}
+
+	if (!AttributeHandler->IsA(AttributeHandlerClass))
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandlerAs]: Attribute Handler for attribute %s is not of type %s."), *AttributeTag.ToString(), *AttributeHandlerClass->GetName()));
+		return nullptr;
+	}
+
+	return AttributeHandler;
+}
+
+USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass)
+{
+	if (!HasStructAttribute(AttributeTag))
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance]: Struct Attribute %s not found."), *AttributeTag.ToString()));
+		return nullptr;
+	}
+	
+	USimpleAttributeHandler* HandlerInstance = nullptr;
+	
 	for (USimpleAttributeHandler* InstancedHandler : InstancedAttributeHandlers)
 	{
 		if (InstancedHandler->GetClass() == HandlerClass)
 		{
-			return InstancedHandler;
+			HandlerInstance = InstancedHandler;
+			break;
 		}
 	}
 
-	USimpleAttributeHandler* NewHandlerInstance = NewObject<USimpleAttributeHandler>(this, HandlerClass);
-	NewHandlerInstance->AttributeOwner = this;
-	InstancedAttributeHandlers.Add(NewHandlerInstance);
+	if (!HandlerInstance)
+	{
+		HandlerInstance = NewObject<USimpleAttributeHandler>(this, HandlerClass);
+		InstancedAttributeHandlers.Add(HandlerInstance);
+	}
 	
-	return NewHandlerInstance;
+	HandlerInstance->InitializeHandler(this, AttributeTag);
+	
+	return HandlerInstance;
 }
 
 FInstancedStruct USimpleGameplayAbilityComponent::GetStructAttributeValue(FGameplayTag AttributeTag, bool& WasFound)
@@ -347,7 +397,7 @@ bool USimpleGameplayAbilityComponent::SetStructAttributeValue(const FGameplayTag
 
 	if (Attribute->StructAttributeHandler)
 	{
-		Payload.ModificationTags = GetStructAttributeHandlerInstance(Attribute->StructAttributeHandler)->GetModificationEvents(AttributeTag, Payload.OldValue, Payload.NewValue);
+		Payload.ModificationTags = GetStructAttributeHandlerInstance(AttributeTag, Attribute->StructAttributeHandler)->GetModificationEvents(Payload.OldValue, Payload.NewValue);
 	}
 	
 	Attribute->AttributeValue = NewValue;
@@ -514,13 +564,13 @@ FStructAttribute* USimpleGameplayAbilityComponent::GetStructAttribute(FGameplayT
 	return nullptr;
 }
 
-void USimpleGameplayAbilityComponent::OnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute)
+void USimpleGameplayAbilityComponent::ClientOnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute)
 {
 	LocalFloatAttributes.AddUnique(NewFloatAttribute);
 	SendEvent(FDefaultTags::FloatAttributeAdded(), NewFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
-void USimpleGameplayAbilityComponent::OnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute)
+void USimpleGameplayAbilityComponent::ClientOnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute)
 {
 	for (FFloatAttribute& LocalFloatAttribute : LocalFloatAttributes)
 	{
@@ -536,13 +586,13 @@ void USimpleGameplayAbilityComponent::OnFloatAttributeChanged(const FFloatAttrib
 	SendEvent(FDefaultTags::FloatAttributeAdded(), ChangedFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
-void USimpleGameplayAbilityComponent::OnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute)
+void USimpleGameplayAbilityComponent::ClientOnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute)
 {
 	LocalFloatAttributes.Remove(RemovedFloatAttribute);
 	SendEvent(FDefaultTags::FloatAttributeRemoved(), RemovedFloatAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
-void USimpleGameplayAbilityComponent::OnStructAttributeAdded(const FStructAttribute& NewStructAttribute)
+void USimpleGameplayAbilityComponent::ClientOnStructAttributeAdded(const FStructAttribute& NewStructAttribute)
 {
 	if (!LocalStructAttributes.Contains(NewStructAttribute))
 	{
@@ -551,7 +601,7 @@ void USimpleGameplayAbilityComponent::OnStructAttributeAdded(const FStructAttrib
 	}
 }
 
-void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute)
+void USimpleGameplayAbilityComponent::ClientOnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute)
 {
 	for (FStructAttribute& LocalStructAttribute : LocalStructAttributes)
 	{
@@ -567,7 +617,7 @@ void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttr
 
 			if (LocalStructAttribute.StructAttributeHandler)
 			{
-				Payload.ModificationTags = GetStructAttributeHandlerInstance(LocalStructAttribute.StructAttributeHandler)->GetModificationEvents(ChangedStructAttribute.AttributeTag, Payload.OldValue, Payload.NewValue);
+				Payload.ModificationTags = GetStructAttributeHandlerInstance(ChangedStructAttribute.AttributeTag, LocalStructAttribute.StructAttributeHandler)->GetModificationEvents(Payload.OldValue, Payload.NewValue);
 			}
 			
 			SendEvent(FDefaultTags::StructAttributeValueChanged(), ChangedStructAttribute.AttributeTag, FInstancedStruct::Make(Payload), this, {}, ESimpleEventReplicationPolicy::NoReplication);
@@ -579,7 +629,7 @@ void USimpleGameplayAbilityComponent::OnStructAttributeChanged(const FStructAttr
 	SendEvent(FDefaultTags::StructAttributeAdded(), ChangedStructAttribute.AttributeTag, ChangedStructAttribute.AttributeValue, GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);
 }
 
-void USimpleGameplayAbilityComponent::OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute)
+void USimpleGameplayAbilityComponent::ClientOnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute)
 {
 	LocalStructAttributes.Remove(RemovedStructAttribute);
 	SendEvent(FDefaultTags::StructAttributeRemoved(), RemovedStructAttribute.AttributeTag, FInstancedStruct(), GetOwner(), {}, ESimpleEventReplicationPolicy::NoReplication);

@@ -2,15 +2,15 @@
 
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
-#include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/AbilitySet.h"
-#include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/AttributeSet.h"
+#include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/SimpleAbilitySet.h"
+#include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/SimpleAttributeSet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
-#include "SimpleGameplayAbilitySystem/DataAssets/AbilityOverrideSet/AbilityOverrideSet.h"
+#include "SimpleGameplayAbilitySystem/DataAssets/AbilityOverrideSet/SimpleAbilityOverrideSet.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
 
 class USimpleEventSubsystem;
@@ -38,7 +38,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 		}
 		
 		// Grant abilities to the owning actor
-		for (UAbilitySet* AbilitySet : AbilitySets)
+		for (USimpleAbilitySet* AbilitySet : AbilitySets)
 		{
 			for (const TSubclassOf<USimpleGameplayAbility> AbilityClass : AbilitySet->AbilitiesToGrant)
 			{
@@ -57,7 +57,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 			AddFloatAttribute(Attribute);
 		}
 		
-		for (UAttributeSet* AttributeSet : AttributeSets)
+		for (USimpleAttributeSet* AttributeSet : AttributeSets)
 		{
 			for (const FFloatAttribute Attribute : AttributeSet->FloatAttributes)
 			{
@@ -71,7 +71,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 		}
 
 		// Add ability overrides from the ability override sets
-		for (UAbilityOverrideSet* AbilityOverrideSet : AbilityOverrideSets)
+		for (USimpleAbilityOverrideSet* AbilityOverrideSet : AbilityOverrideSets)
 		{
 			for (const FAbilityOverride AbilityOverride : AbilityOverrideSet->AbilityOverrides)
 			{
@@ -83,28 +83,28 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	}
 
 	// Delegates called on the client to handle replicated data
-	AuthorityAbilityStates.OnStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilityStateAdded);
-	AuthorityAbilityStates.OnStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilityStateChanged);
-	AuthorityAbilityStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilityStateRemoved);
+	AuthorityAbilityStates.OnStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilityStateAdded);
+	AuthorityAbilityStates.OnStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilityStateChanged);
+	AuthorityAbilityStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilityStateRemoved);
 	
-	AuthorityAttributeModifierStates.OnStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModiferStateAdded);
-	AuthorityAttributeModifierStates.OnStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModifierStateChanged);
-	AuthorityAttributeModifierStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModiferStateRemoved);
+	AuthorityAttributeModifierStates.OnStateAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAttributeModiferStateAdded);
+	AuthorityAttributeModifierStates.OnStateChanged.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAttributeModifierStateChanged);
+	AuthorityAttributeModifierStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAttributeModiferStateRemoved);
 
-	AuthorityAbilitySnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAbilitySnapshotAdded);
-	AuthorityAttributeModifierSnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded);
+	AuthorityAbilitySnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotAdded);
+	AuthorityAttributeModifierSnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAttributeModifierSnapshotAdded);
 	
-	AuthorityFloatAttributes.OnFloatAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeAdded);
-	AuthorityFloatAttributes.OnFloatAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeChanged);
-	AuthorityFloatAttributes.OnFloatAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnFloatAttributeRemoved);
+	AuthorityFloatAttributes.OnFloatAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnFloatAttributeAdded);
+	AuthorityFloatAttributes.OnFloatAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnFloatAttributeChanged);
+	AuthorityFloatAttributes.OnFloatAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnFloatAttributeRemoved);
 
-	AuthorityStructAttributes.OnStructAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeAdded);
-	AuthorityStructAttributes.OnStructAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeChanged);
-	AuthorityStructAttributes.OnStructAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnStructAttributeRemoved);
+	AuthorityStructAttributes.OnStructAttributeAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnStructAttributeAdded);
+	AuthorityStructAttributes.OnStructAttributeChanged.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnStructAttributeChanged);
+	AuthorityStructAttributes.OnStructAttributeRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnStructAttributeRemoved);
 
-	AuthorityGameplayTags.OnGameplayTagCounterAdded.BindUObject(this, &USimpleGameplayAbilityComponent::OnAuthorityGameplayTagAdded);
-	AuthorityGameplayTags.OnGameplayTagCounterChanged.BindUObject(this, &USimpleGameplayAbilityComponent::OnAuthorityGameplayTagChanged);
-	AuthorityGameplayTags.OnGameplayTagCounterRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::OnAuthorityGameplayTagRemoved);
+	AuthorityGameplayTags.OnGameplayTagCounterAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAuthorityGameplayTagAdded);
+	AuthorityGameplayTags.OnGameplayTagCounterChanged.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAuthorityGameplayTagChanged);
+	AuthorityGameplayTags.OnGameplayTagCounterRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAuthorityGameplayTagRemoved);
 
 	LocalFloatAttributes = AuthorityFloatAttributes.Attributes;
 	LocalStructAttributes = AuthorityStructAttributes.Attributes;
@@ -260,7 +260,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 		return false;
 	}
 	
-	USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AbilityClass);
+	USimpleGameplayAbility* AbilityInstance = GetAbilityInstanceByClass(AbilityClass);
 	
 	if (AbilityInstance->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance)
 	{
@@ -309,44 +309,7 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(
 	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, ActivationPolicy, true, ActivationTime);
 }
 
-USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandler(const FGameplayTag AttributeTag)
-{
-	const FStructAttribute* StructAttribute = GetStructAttribute(AttributeTag);
-
-	if (!StructAttribute)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandler]: Attribute %s not found."), *AttributeTag.ToString()));
-		return nullptr;
-	}
-
-	if (!StructAttribute->StructAttributeHandler)
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandler]: Struct attribute %s has no attribute handler class configured."), *AttributeTag.ToString()));
-		return nullptr;
-	}
-
-	return GetStructAttributeHandlerInstance(StructAttribute->StructAttributeHandler);
-}
-
-USimpleAttributeHandler* USimpleGameplayAbilityComponent::GetAttributeHandlerAs(FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
-{
-	USimpleAttributeHandler* AttributeHandler = GetAttributeHandler(AttributeTag);
-
-	if (!AttributeHandler)
-	{
-		return nullptr;
-	}
-
-	if (!AttributeHandler->IsA(AttributeHandlerClass))
-	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::GetAttributeHandlerAs]: Attribute Handler for attribute %s is not of type %s."), *AttributeTag.ToString(), *AttributeHandlerClass->GetName()));
-		return nullptr;
-	}
-
-	return AttributeHandler;
-}
-
-USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(const TSubclassOf<USimpleGameplayAbility>& AbilityClass)
+USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstanceByClass(TSubclassOf<USimpleGameplayAbility> AbilityClass)
 {
 	if (AbilityClass.GetDefaultObject()->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance)
 	{
@@ -375,7 +338,7 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstance(cons
 
 void USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext)
 {
-	if (USimpleGameplayAbility* AbilityInstance = GetGameplayAbilityInstance(AbilityInstanceID))
+	if (USimpleGameplayAbility* AbilityInstance = GetAbilityInstanceByID(AbilityInstanceID))
 	{
 		if (!AbilityInstance->IsActive)
 		{
@@ -780,7 +743,7 @@ void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(
 
 /* Utility Functions */
 
-USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetGameplayAbilityInstance(FGuid AbilityInstanceID)
+USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstanceByID(FGuid AbilityInstanceID)
 {
 	for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
 	{
@@ -958,12 +921,12 @@ void USimpleGameplayAbilityComponent::OnAbilityCancelled(FGuid AbilityID, FGamep
 
 /* Replication */
 
-void USimpleGameplayAbilityComponent::OnAbilityStateAdded(const FAbilityState& NewAbilityState)
+void USimpleGameplayAbilityComponent::ClientOnAbilityStateAdded(const FAbilityState& NewAbilityState)
 {
 	ResolveLocalAbilityState(NewAbilityState);
 }
 
-void USimpleGameplayAbilityComponent::OnAbilityStateChanged(const FAbilityState& ChangedAbilityState)
+void USimpleGameplayAbilityComponent::ClientOnAbilityStateChanged(const FAbilityState& ChangedAbilityState)
 {
 	ResolveLocalAbilityState(ChangedAbilityState);
 }
@@ -979,7 +942,7 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 	FAbilityState* LocalAbilityState = LocalAbilityStates.FindByPredicate([UpdatedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == UpdatedAbilityState.AbilityID; });
 	
 	const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(UpdatedAbilityState.AbilityClass);
-	USimpleGameplayAbility* AbilityInstance = GetAbilityInstance(AbilityClass);
+	USimpleGameplayAbility* AbilityInstance = GetAbilityInstanceByClass(AbilityClass);
 	const bool IsSingleInstanceAbility = AbilityInstance->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance;
 	const bool IsInstancedAbilityActive = AbilityInstance->IsActive;
 	
@@ -1033,12 +996,12 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 	LocalAbilityStates.Add(UpdatedAbilityState);
 }
 
-void USimpleGameplayAbilityComponent::OnAbilityStateRemoved(const FAbilityState& RemovedAbilityState)
+void USimpleGameplayAbilityComponent::ClientOnAbilityStateRemoved(const FAbilityState& RemovedAbilityState)
 {
 	LocalAbilityStates.RemoveAll([RemovedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAbilityState.AbilityID; });
 }
 
-void USimpleGameplayAbilityComponent::OnAttributeModiferStateAdded(const FAbilityState& NewAttributeModiferState)
+void USimpleGameplayAbilityComponent::ClientOnAttributeModiferStateAdded(const FAbilityState& NewAttributeModiferState)
 {
 	// A mapping of the local ability states for quick lookups
 	TMap<FGuid, int32> LocalStateArrayIndexMap;
@@ -1077,7 +1040,7 @@ void USimpleGameplayAbilityComponent::OnAttributeModiferStateAdded(const FAbilit
 	}*/
 }
 
-void USimpleGameplayAbilityComponent::OnAttributeModifierStateChanged(const FAbilityState& ChangedAttributeModiferState)
+void USimpleGameplayAbilityComponent::ClientOnAttributeModifierStateChanged(const FAbilityState& ChangedAttributeModiferState)
 {
 	if (!ChangedAttributeModiferState.AbilityClass)
 	{
@@ -1120,12 +1083,12 @@ void USimpleGameplayAbilityComponent::OnAttributeModifierStateChanged(const FAbi
 	}*/	
 }
 
-void USimpleGameplayAbilityComponent::OnAttributeModiferStateRemoved(const FAbilityState& RemovedAttributeModiferState)
+void USimpleGameplayAbilityComponent::ClientOnAttributeModiferStateRemoved(const FAbilityState& RemovedAttributeModiferState)
 {
 	LocalAttributeModifierStates.RemoveAll([RemovedAttributeModiferState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == RemovedAttributeModiferState.AbilityID; });
 }
 
-void USimpleGameplayAbilityComponent::OnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot)
+void USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot)
 {
 	// Get the local version of NewAbilitySnapshot if it exists
 	const FAbilitySnapshot* LocalSnapshot = LocalPendingAbilitySnapshots.FindByPredicate(
@@ -1169,7 +1132,7 @@ void USimpleGameplayAbilityComponent::OnAbilitySnapshotAdded(const FAbilitySnaps
 	}
 }
 
-void USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot)
+void USimpleGameplayAbilityComponent::ClientOnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot)
 {
 	// Get the local version of NewAttributeModifierSnapshot if it exists
 	const FAbilitySnapshot* LocalSnapshot = LocalPendingAbilitySnapshots.FindByPredicate(
@@ -1198,7 +1161,7 @@ void USimpleGameplayAbilityComponent::OnAttributeModifierSnapshotAdded(const FAb
 	}	
 }
 
-void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagAdded(const FGameplayTagCounter& GameplayTag)
+void USimpleGameplayAbilityComponent::ClientOnAuthorityGameplayTagAdded(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
 		[GameplayTag](const FGameplayTagCounter& TagCounter)
@@ -1216,7 +1179,7 @@ void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagAdded(const FGamepla
 	LocalTagCounter->ReferenceCounter = GameplayTag.ReferenceCounter;
 }
 
-void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagChanged(const FGameplayTagCounter& GameplayTag)
+void USimpleGameplayAbilityComponent::ClientOnAuthorityGameplayTagChanged(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
 		[GameplayTag](const FGameplayTagCounter& TagCounter)
@@ -1234,7 +1197,7 @@ void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagChanged(const FGamep
 	LocalTagCounter->ReferenceCounter = GameplayTag.ReferenceCounter;
 }
 
-void USimpleGameplayAbilityComponent::OnAuthorityGameplayTagRemoved(const FGameplayTagCounter& GameplayTag)
+void USimpleGameplayAbilityComponent::ClientOnAuthorityGameplayTagRemoved(const FGameplayTagCounter& GameplayTag)
 {
 	FGameplayTagCounter* LocalTagCounter = LocalGameplayTags.FindByPredicate(
 		[GameplayTag](const FGameplayTagCounter& TagCounter)

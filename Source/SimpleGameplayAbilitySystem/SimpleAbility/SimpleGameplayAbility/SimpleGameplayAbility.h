@@ -6,7 +6,7 @@
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "SimpleGameplayAbility.generated.h"
 
-UCLASS(Blueprintable, BlueprintType)
+UCLASS(Blueprintable, BlueprintType, Abstract)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbilityBase
 {
 	GENERATED_BODY()

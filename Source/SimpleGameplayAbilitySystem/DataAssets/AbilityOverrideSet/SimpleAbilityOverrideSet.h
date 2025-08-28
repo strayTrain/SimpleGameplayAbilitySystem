@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
-#include "AbilityOverrideSet.generated.h"
+#include "SimpleAbilityOverrideSet.generated.h"
 
 class USimpleGameplayAbility;
 
@@ -25,7 +25,7 @@ struct FAbilityOverride
 };
 
 UCLASS()
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UAbilityOverrideSet : public UDataAsset
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAbilityOverrideSet : public UDataAsset
 {
 	GENERATED_BODY()
 

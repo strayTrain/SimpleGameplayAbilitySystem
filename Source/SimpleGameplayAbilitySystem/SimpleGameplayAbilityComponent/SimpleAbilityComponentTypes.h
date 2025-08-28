@@ -371,3 +371,8 @@ DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FGameplayTagCounterContainer)
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagAddedSignature, FGameplayTag, Tag, FInstancedStruct, Payload);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagRemovedSignature, FGameplayTag, Tag, FInstancedStruct, Payload);
+
+/* Event Dispatchers */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFloatAttributeAddedSignature, FGameplayTag, Tag, FInstancedStruct, Payload);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFloatAttributeChangedSignature, FGameplayTag, Tag, FInstancedStruct, Payload);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFloatAttributeRemovedSignature, FGameplayTag, Tag, FInstancedStruct, Payload);

@@ -10,9 +10,9 @@
 
 struct FAbilitySideEffect;
 struct FAbilityOverride;
-class UAbilityOverrideSet;
-class UAbilitySet;
-class UAttributeSet;
+class USimpleAbilityOverrideSet;
+class USimpleAbilitySet;
+class USimpleAttributeSet;
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
@@ -31,10 +31,10 @@ public:
 	/* Initialization Properties */
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
-	TArray<UAbilitySet*> AbilitySets;
+	TArray<USimpleAbilitySet*> AbilitySets;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Abilities")
-	TArray<UAbilityOverrideSet*> AbilityOverrideSets;
+	TArray<USimpleAbilityOverrideSet*> AbilityOverrideSets;
 
 	UPROPERTY(Replicated)
 	TArray<FAbilityOverride> ActiveAbilityOverrides;
@@ -43,7 +43,7 @@ public:
 	TArray<TSubclassOf<USimpleGameplayAbility>> GrantedAbilities;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AbilityComponent|Attributes")
-	TArray<UAttributeSet*> AttributeSets;
+	TArray<USimpleAttributeSet*> AttributeSets;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "AbilityComponent|Attributes", meta = (TitleProperty = "AttributeName"))
 	TArray<FFloatAttribute> FloatAttributes;
@@ -99,6 +99,15 @@ public:
 	FAbilitySnapshotContainer AuthorityAttributeModifierSnapshots;
 	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State", meta = (TitleProperty = "AbilityClass"))
 	TArray<FAbilitySnapshot> LocalPendingAttributeModiferSnapshots;
+
+	/* Event Dispatchers */
+	
+	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Abilities")
+	FOnFloatAttributeAddedSignature OnFloatAttributeAdded;
+	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Abilities")
+	FOnFloatAttributeChangedSignature OnFloatAttributeChanged;
+	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Abilities")
+	FOnFloatAttributeRemovedSignature OnFloatAttributeRemoved;
 	
 	/* Avatar Actor Functions */
 	
@@ -187,7 +196,7 @@ public:
 	/**
 	 * This function checks if there is an active attribute modifiers with ModifierTags matching the specified tags.
 	 * @param Tags The tags to check for in the active attribute modifiers. Only exact matches are considered.
-	 * @return True if there is an active attribute modifier with the specified tags, false otherwise.
+	 * @return True if there is an active attribute modifier with the specified tags, false otherwise
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Attributes")
 	bool HasAttributeModifierWithTags(FGameplayTagContainer Tags) const;
@@ -338,9 +347,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility", meta = (DeterminesOutputType = "AttributeHandlerClass", HideSelfPin))
 	USimpleAttributeHandler* GetAttributeHandlerAs(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass);
 	
-	USimpleAttributeHandler* GetStructAttributeHandlerInstance(TSubclassOf<USimpleAttributeHandler> HandlerClass);
-	USimpleGameplayAbility* GetGameplayAbilityInstance(FGuid AbilityInstanceID);
-	USimpleGameplayAbility* GetAbilityInstance(const TSubclassOf<USimpleGameplayAbility>& AbilityClass);
+	USimpleAttributeHandler* GetStructAttributeHandlerInstance(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass);
+	USimpleGameplayAbility* GetAbilityInstanceByID(FGuid AbilityInstanceID);
+	USimpleGameplayAbility* GetAbilityInstanceByClass(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 
 protected:
 	virtual void BeginPlay() override;
@@ -379,29 +388,29 @@ private:
 	USimpleAttributeModifier* GetAttributeModifierInstance(TSubclassOf<USimpleAttributeModifier> ModifierClass);
 	
 	// These functions are called on the client when the authoritative version of the variable changes on the server
-	void OnAbilityStateAdded(const FAbilityState& NewAbilityState);
-	void OnAbilityStateChanged(const FAbilityState& ChangedAbilityState);
+	void ClientOnAbilityStateAdded(const FAbilityState& NewAbilityState);
+	void ClientOnAbilityStateChanged(const FAbilityState& ChangedAbilityState);
 	void ResolveLocalAbilityState(const FAbilityState& UpdatedAbilityState);
-	void OnAbilityStateRemoved(const FAbilityState& RemovedAbilityState);
+	void ClientOnAbilityStateRemoved(const FAbilityState& RemovedAbilityState);
 	
-	void OnAttributeModiferStateAdded(const FAbilityState& NewAttributeModiferState);
-	void OnAttributeModifierStateChanged(const FAbilityState& ChangedAttributeModiferState);
-	void OnAttributeModiferStateRemoved(const FAbilityState& RemovedAttributeModiferState);
+	void ClientOnAttributeModiferStateAdded(const FAbilityState& NewAttributeModiferState);
+	void ClientOnAttributeModifierStateChanged(const FAbilityState& ChangedAttributeModiferState);
+	void ClientOnAttributeModiferStateRemoved(const FAbilityState& RemovedAttributeModiferState);
 	
-	void OnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot);
-	void OnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot);
+	void ClientOnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot);
+	void ClientOnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot);
 	
-	void OnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute);
-	void OnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute);
-	void OnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute);
+	void ClientOnFloatAttributeAdded(const FFloatAttribute& NewFloatAttribute);
+	void ClientOnFloatAttributeChanged(const FFloatAttribute& ChangedFloatAttribute);
+	void ClientOnFloatAttributeRemoved(const FFloatAttribute& RemovedFloatAttribute);
 
-	void OnStructAttributeAdded(const FStructAttribute& NewStructAttribute);
-	void OnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute);
-	void OnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute);
+	void ClientOnStructAttributeAdded(const FStructAttribute& NewStructAttribute);
+	void ClientOnStructAttributeChanged(const FStructAttribute& ChangedStructAttribute);
+	void ClientOnStructAttributeRemoved(const FStructAttribute& RemovedStructAttribute);
 
-	void OnAuthorityGameplayTagAdded(const FGameplayTagCounter& NewGameplayTag);
-	void OnAuthorityGameplayTagChanged(const FGameplayTagCounter& ChangedGameplayTag);
-	void OnAuthorityGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag);
+	void ClientOnAuthorityGameplayTagAdded(const FGameplayTagCounter& NewGameplayTag);
+	void ClientOnAuthorityGameplayTagChanged(const FGameplayTagCounter& ChangedGameplayTag);
+	void ClientOnAuthorityGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

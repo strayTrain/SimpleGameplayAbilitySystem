@@ -2,11 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "AbilitySet.generated.h"
+#include "SimpleAbilitySet.generated.h"
 
 class USimpleGameplayAbility;
 UCLASS()
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UAbilitySet : public UDataAsset
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAbilitySet : public UDataAsset
 {
 	GENERATED_BODY()
 

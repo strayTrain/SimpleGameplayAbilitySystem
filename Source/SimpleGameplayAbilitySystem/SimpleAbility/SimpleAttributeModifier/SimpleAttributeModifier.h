@@ -8,7 +8,7 @@
 class UModifierAction;
 class USimpleGameplayAbility;
 
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, Abstract)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeModifier : public USimpleAbilityBase
 {
 	GENERATED_BODY()

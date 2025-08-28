@@ -1,22 +1,30 @@
 #include "SimpleAttributeHandler.h"
 
+#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
+#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
-FGameplayTagContainer USimpleAttributeHandler::GetModificationEvents_Implementation(const FGameplayTag AttributeTag, const FInstancedStruct& OldValue, const FInstancedStruct& NewValue)
+void USimpleAttributeHandler::InitializeHandler(USimpleGameplayAbilityComponent* NewAttributeOwner, const FGameplayTag NewAttributeTag)
+{
+	AttributeOwner = NewAttributeOwner;
+	AttributeTag = NewAttributeTag;
+}
+
+FGameplayTagContainer USimpleAttributeHandler::GetModificationEvents_Implementation(const FInstancedStruct& OldValue, const FInstancedStruct& NewValue)
 {
 	return FGameplayTagContainer();
 }
 
-FInstancedStruct USimpleAttributeHandler::GetStruct(FGameplayTag AttributeTag, bool& WasFound) const
+FInstancedStruct USimpleAttributeHandler::GetStruct() const
 {
 	if (!AttributeOwner)
 	{
 		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeHandler::GetStruct]: AttributeOwner is null in GetStruct"));
-		WasFound = false;
 		return FInstancedStruct();
 	}
 
+	bool WasFound = false;
 	FInstancedStruct AttributeValue = AttributeOwner->GetStructAttributeValue(AttributeTag, WasFound);
 
 	if (!WasFound)
@@ -36,7 +44,7 @@ FInstancedStruct USimpleAttributeHandler::GetStruct(FGameplayTag AttributeTag, b
 	return AttributeValue;
 }
 
-bool USimpleAttributeHandler::SetStruct(FGameplayTag AttributeTag, const FInstancedStruct& NewValue)
+bool USimpleAttributeHandler::SetStruct(const FInstancedStruct& NewValue)
 {
 	if (!AttributeOwner)
 	{
