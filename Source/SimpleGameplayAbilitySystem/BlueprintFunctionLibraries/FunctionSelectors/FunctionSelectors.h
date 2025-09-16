@@ -3,10 +3,9 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent//SimpleAbility/SimpleAbilityTypes.h"
 #include "FunctionSelectors.generated.h"
 
-struct FInstancedStruct;
 class USimpleAttributeModifier;
 class USimpleGameplayAbilityComponent;
 
@@ -38,9 +37,6 @@ public:
 	
 	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "Context"))
 	bool Prototype_GetStructContext(FInstancedStruct& Context) { return false; }
-
-	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "Context"))
-	bool Prototype_GetContextCollection(FAbilityContextCollection& ContextCollection) { return false; }
 
 	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "Context"))
 	bool Prototype_GetAttributeModifierSideEffectTargets(
@@ -76,11 +72,6 @@ public:
 		USimpleAttributeModifier* OwningModifier,
 		const FMemberReference& DynamicFunction,
 		FInstancedStruct& Context);
-
-	static bool GetContextCollection(
-		USimpleAttributeModifier* OwningModifier,
-		const FMemberReference& DynamicFunction,
-		FAbilityContextCollection& ContextCollection);
 
 	static bool GetAttributeModifierSideEffectTargets(
 		USimpleAttributeModifier* OwningModifier,

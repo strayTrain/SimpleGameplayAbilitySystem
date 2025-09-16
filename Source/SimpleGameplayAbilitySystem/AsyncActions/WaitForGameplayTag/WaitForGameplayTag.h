@@ -3,25 +3,28 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "SimpleGameplayAbilitySystem/AsyncActions/AsyncActionTypes.h"
-#include "WaitForStructAttributeChange.generated.h"
+//#include "WaitForGameplayTag.generated.h"
 
-class UWaitForSimpleEvent;
-class USimpleGameplayAbilityComponent;
-
-UCLASS()
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForStructAttributeChange : public UBlueprintAsyncActionBase
-{
- 	GENERATED_BODY()
+// class UWaitForSimpleEvent;
+// class USimpleGameplayAbilityComponent;
+//
+// UCLASS()
+// class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForGameplayTag : public UBlueprintAsyncActionBase
+// {
+// 	GENERATED_BODY()
 //
 // public:
 // 	UPROPERTY(BlueprintAssignable)
-// 	FSimpleStructAttributeChangedDelegate OnStructAttributeChanged;
+// 	FSimpleGameplayTagEventDelegate TagAdded;
+//
+// 	UPROPERTY(BlueprintAssignable)
+// 	FSimpleGameplayTagEventDelegate TagRemoved;
 // 	
 // 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|Async Functions", meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true))
-// 	static UWaitForStructAttributeChange* WaitForStructAttributeChange(
+// 	static UWaitForGameplayTag* WaitForGameplayTag(
 // 		UObject* WorldContextObject,
-// 		USimpleGameplayAbilityComponent* AttributeOwner,
-// 		FGameplayTag AttributeTag,
+// 		USimpleGameplayAbilityComponent* TagOwner,
+// 		FGameplayTag GameplayTag,
 // 		bool OnlyTriggerOnce);
 // 	
 // 	virtual void Activate() override;
@@ -36,6 +39,6 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForStructAttributeChange : public UBl
 // 	
 // 	TWeakObjectPtr<UWorld> WorldContext;
 // 	TWeakObjectPtr<USimpleGameplayAbilityComponent> TaskOwner;
-// 	FGameplayTag AttributeTag;
+// 	FGameplayTag GameplayTag;
 // 	bool OnlyTriggerOnce;
-};
+// };

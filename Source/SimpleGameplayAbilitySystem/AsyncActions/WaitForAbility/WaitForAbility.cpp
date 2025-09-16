@@ -1,8 +1,6 @@
 #include "WaitForAbility.h"
 
-#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
-#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 
 using enum ESimpleEventReplicationPolicy;
 using enum EEventInitiator;

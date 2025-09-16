@@ -2,7 +2,7 @@
 #include "StructAttributeCustomization.h"
 #include "PropertyEditorModule.h"
 #include "Modules/ModuleManager.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeComponentTypes.h"
 
 #define LOCTEXT_NAMESPACE "FSimpleGameplayAbilitySystemEditorModule"
 

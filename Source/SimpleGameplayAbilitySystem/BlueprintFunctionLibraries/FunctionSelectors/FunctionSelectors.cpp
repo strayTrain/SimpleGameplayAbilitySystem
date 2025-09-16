@@ -1,7 +1,7 @@
 #include "FunctionSelectors.h"
 
-#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAttributeModifier/SimpleAttributeModifier.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
 
 bool UFunctionSelectors::GetCustomFloatInputValue(
@@ -91,25 +91,6 @@ bool UFunctionSelectors::GetStructContext(
 
 		OwningModifier->ProcessEvent(Function, &Params);
 		Context = Params.Context;
-		return true;
-	}
-
-	return false;
-}
-
-bool UFunctionSelectors::GetContextCollection(
-	USimpleAttributeModifier* OwningModifier,
-	const FMemberReference& DynamicFunction,
-	FAbilityContextCollection& ContextCollection)
-{
-	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningModifier->GetClass()))
-	{
-		struct {
-			FAbilityContextCollection ContextCollection;
-		} Params = { ContextCollection };
-
-		OwningModifier->ProcessEvent(Function, &Params);
-		ContextCollection = Params.ContextCollection;
 		return true;
 	}
 

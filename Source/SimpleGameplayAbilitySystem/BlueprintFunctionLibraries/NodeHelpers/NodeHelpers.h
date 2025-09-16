@@ -3,8 +3,8 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
-#include "SimpleGameplayAbilitySystem/SimpleGameplayAbilityComponent/Interface/SimpleAbilitySystemComponent.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/Interface/SimpleAbilitySystemComponent.h"
 #include "NodeHelpers.generated.h"
 
 UCLASS()
