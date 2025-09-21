@@ -3,7 +3,11 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbility/SimpleAbilityTypes.h"
-#include "StructUtils/InstancedStruct.h"
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+	#include "StructUtils/InstancedStruct.h"
+#else
+	#include "InstancedStruct.h"
+#endif
 #include "UObject/Object.h"
 #include "SimpleAbilityBase.generated.h"
 
@@ -44,10 +48,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	bool ActivateAbility(FInstancedStruct ActivationContext);
 
-	UFUNCTION(BlueprintCallable, Category = "Ability", meta=(AdvancedDisplay = 1))
+	UFUNCTION(BlueprintCallable, Category = "Ability", meta=(AdvancedDisplay = "EndStatus,EndContext"))
 	void EndAbility(FGameplayTag EndStatus, FInstancedStruct EndContext);
 
-	UFUNCTION(BlueprintCallable, Category = "Ability", meta=(AdvancedDisplay = 1))
+	UFUNCTION(BlueprintCallable, Category = "Ability", meta=(AdvancedDisplay = "EndStatus,EndContext"))
 	void CancelAbility(FGameplayTag EndStatus, FInstancedStruct EndContext);
 	
 	/* Overridable functions */

@@ -240,9 +240,9 @@ void USimpleGameplayAbility::OnServerSnapshotReceived(const int32 SnapshotCounte
 
 	const FOnSnapshotResolved ResolutionFunction = PendingSnapshots.FindAndRemoveChecked(SnapshotCounter);
 
+	// No need to resolve snapshots if they are identical
 	if (AuthoritySnapshotData == LocalSnapshotData)
 	{
-		SIMPLE_LOG(GetWorld(), TEXT("[USimpleAbilityBase::OnServerSnapshotReceived]: Authority and local snapshots are identical. No need to resolve."));
 		return;
 	}
 	
