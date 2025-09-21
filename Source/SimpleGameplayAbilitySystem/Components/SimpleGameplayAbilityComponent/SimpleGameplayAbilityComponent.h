@@ -71,60 +71,44 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Abilities")
 	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 	
-	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=3, ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
 	bool ActivateAbility(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
-		const FInstancedStruct& AbilityContext,
-		FGuid& AbilityID,
-		EAbilityActivationPolicyOverride ActivationPolicyOverride = EAbilityActivationPolicyOverride::DontOverride);
+		FInstancedStruct AbilityContext,
+		FGuid& AbilityID);
 
-	bool ActivateAbilityWithID(
-		const FGuid AbilityID,
-		const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
-		const FInstancedStruct& AbilityContext,
-		EAbilityActivationPolicyOverride ActivationPolicyOverride = EAbilityActivationPolicyOverride::DontOverride);
+	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
+	bool ActivateAbilityPredicted(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FInstancedStruct AbilityContext,
+		FGuid& AbilityID);
 	
 	UFUNCTION(Server, Reliable)
 	void ServerActivateAbility(
 		const FGuid AbilityID,
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		const FInstancedStruct& AbilityContexts,
-		EAbilityActivationPolicy ActivationPolicy,
 		float ActivationTime);
 
-	UFUNCTION(BlueprintCallable, meta=(AdvancedDisplay=2), Category = "AbilityComponent|AbilityActivation")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|AbilityActivation")
 	void CancelAbility(FGuid AbilityInstanceID, FInstancedStruct CancellationContext);
 
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
+	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
+	void CancelAbilityPredicted(FGuid AbilityInstanceID, FInstancedStruct CancellationContext);
+	
+	UFUNCTION(Server, Reliable)
+	void ServerCancelAbility(FGuid AbilityInstanceID, FInstancedStruct CancellationContext);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|AbilityActivation")
 	TArray<FGuid> CancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
 
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
+	TArray<FGuid> CancelAbilitiesWithTagsPredicted(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
+
+	UFUNCTION(Server, Reliable, Category = "AbilityComponent|AbilityActivation")
+	void ServerCancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
+
 	int32 AddGameplayAbilitySnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
-	
-	/* Replicated Event Functions */
-	
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events", meta=(AutoCreateRefTerm = "ListenerFilter"))
-	void SendEvent(
-		FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		UObject* Sender, TArray<UObject*> ListenerFilter, ESimpleEventReplicationPolicy ReplicationPolicy);
-	
-	void SendEventInternal(
-		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, const FInstancedStruct& Payload,
-		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
-
-	UFUNCTION(Server, Reliable)
-	void ServerSendEvent(
-		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
-
-	UFUNCTION(Client, Reliable)
-	void ClientSendEvent(
-		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
-	
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSendEvent(
-		FGuid EventID, FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload,
-		UObject* Sender, ESimpleEventReplicationPolicy ReplicationPolicy, const TArray<UObject*>& ListenerFilter);
 	
 	/* Utility Functions */
 
@@ -156,15 +140,11 @@ protected:
 		const FGuid AbilityID,
 		const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
 		const FInstancedStruct& AbilityContext,
-		EAbilityActivationPolicy ActivationPolicy,
-		bool TrackState,
+		bool ShouldTrackState,
 		double ActivationTime = -1);
 	
 	UPROPERTY()
 	TArray<USimpleGameplayAbility*> InstancedAbilities;
-	
-	// Used to keep track of which events have been handled locally to avoid double event sending with multicast
-	TArray<FGuid> HandledEventIDs;
 
 private:
 	UFUNCTION()
@@ -183,7 +163,7 @@ private:
 	void ClientOnAbilityStateChanged(const FAbilityState& ChangedAbilityState);
 	void ClientOnAbilityStateRemoved(const FAbilityState& RemovedAbilityState);
 	void ClientOnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot);
-	void ClientOnAttributeModifierSnapshotAdded(const FAbilitySnapshot& NewAttributeModifierSnapshot);
+	void ClientOnAbilitySnapshotRemoved(const FAbilitySnapshot& NewAbilitySnapshot);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

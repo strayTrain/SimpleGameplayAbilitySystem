@@ -196,9 +196,6 @@ struct FAbilityState : public FFastArraySerializerItem
 	EAbilityStatus AbilityStatus = EAbilityStatus::PreActivation;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	EAbilityActivationPolicy ActivationPolicy;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	double ActivationTimeStamp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)

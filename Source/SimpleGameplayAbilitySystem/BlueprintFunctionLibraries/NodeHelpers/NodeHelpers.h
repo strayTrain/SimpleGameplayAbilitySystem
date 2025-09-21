@@ -2,9 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "SimpleGameplayAbilitySystem/Components/Interfaces/SimpleAbilitySystemInterfaces.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/Interface/SimpleAbilitySystemComponent.h"
 #include "NodeHelpers.generated.h"
 
 UCLASS()
@@ -23,9 +23,9 @@ public:
 		}
         
 		// Use the interface to get the ability component
-		if (Actor->Implements<USimpleAbilitySystemComponent>())
+		if (Actor->Implements<UAbilityComponentInterface>())
 		{
-			return ISimpleAbilitySystemComponent::Execute_GetAbilitySystemComponent(Actor);
+			return IAbilityComponentInterface::Execute_GetSimpleAbilityComponent(Actor);
 		}
         
 		// Fallback: directly look for the component

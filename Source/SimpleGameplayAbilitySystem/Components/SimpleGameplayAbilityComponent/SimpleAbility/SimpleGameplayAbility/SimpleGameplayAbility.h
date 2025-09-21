@@ -9,7 +9,7 @@
 class USimpleAttributeComponent;
 class USimpleGameplayAbilityComponent;
 
-UCLASS(Blueprintable, BlueprintType, Abstract)
+UCLASS(Blueprintable, Abstract, BlueprintType, Abstract)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbilityBase
 {
 	GENERATED_BODY()
@@ -17,54 +17,51 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbi
 public:
 	/* Properties */
 
-	UPROPERTY(BlueprintReadOnly, Category = "Ability|State")
+	UPROPERTY(BlueprintReadOnly, Category = "SimpleAbility|State")
 	FGuid AbilityID;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Policy")
-	EAbilityActivationPolicy ActivationPolicy = EAbilityActivationPolicy::LocalOnly;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Policy")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility")
 	EAbilityInstancingPolicy InstancingPolicy = EAbilityInstancingPolicy::SingleInstance;
+
+	/* If true, the owning ability component must have this ability granted to it for this ability to activate. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility|Requirements")
+	bool RequireGrantToActivate = true;
 	
 	/* These tags must be present on the AttributeComponent for this ability to activate. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Requirements")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility|Requirements")
 	FGameplayTagContainer ActivationRequiredTags;
 
 	/* These tags must NOT be present on the AttributeComponent for this ability to activate. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Requirements")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility|Requirements")
 	FGameplayTagContainer ActivationBlockingTags;
 	
 	/*
 	 * If set, this ability will only activate if ActivationContext contains this struct type.
 	 * If left null, the ability will activate with any payload.
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Requirements")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility|Requirements")
 	UScriptStruct* RequiredContextType;
 
 	/**
 	 * This ability will fail to activate if the avatar actor of the ability component is not one of these types.
 	 * If left empty any (or no) avatar actor will be allowed.
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Requirements")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility|Requirements")
 	TArray<TSubclassOf<AActor>> AvatarTypeFilter;
-
-	/* If true, the owning ability component must have this ability granted to it for this ability to activate. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Requirements")
-	bool RequireGrantToActivate = true;
 
 	/*
 	 * Tags that can be used to classify this ability. e.g. "Melee", "Ranged", "AOE", etc.
 	 * This is used in USimpleAbilityComponent::CancelAbilitiesWithTags
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleAbility|Tags")
 	FGameplayTagContainer AbilityTags;
 
 	/* These tags are added to the AttributeComponent when this ability is activated and removed when it ends. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleAbility|Tags")
 	FGameplayTagContainer TemporarilyAppliedTags;
 
 	/* These tags are added to the AttributeComponent when this ability is activated and not automatically removed when it ends. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability|Tags")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleAbility|Tags")
 	FGameplayTagContainer PermanentlyAppliedTags;
 
 	/* Callable Functions */
@@ -88,9 +85,6 @@ public:
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct ActivationContext,
 		ESubAbilityCancellationPolicy CancellationPolicy = ESubAbilityCancellationPolicy::CancelOnParentAbilityEndedOrCancelled);
-
-	UFUNCTION(BlueprintCallable)
-	void SendEvent(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct EventContext, ESimpleEventReplicationPolicy ReplicationPolicy);
 	
 	/* Overridable Functions */
 	
@@ -137,7 +131,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool HasAuthority() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Ability|Snapshot")
+	UFUNCTION(BlueprintCallable, Category = "SimpleAbility|Snapshot")
 	void TakeStateSnapshot(FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved);
 	// Called by the AbilityComponent on the client version of this ability when a server snapshot is replicated
 	void OnServerSnapshotReceived(const int32 SnapshotCounter, const FInstancedStruct& AuthoritySnapshotData, const FInstancedStruct& LocalSnapshotData);

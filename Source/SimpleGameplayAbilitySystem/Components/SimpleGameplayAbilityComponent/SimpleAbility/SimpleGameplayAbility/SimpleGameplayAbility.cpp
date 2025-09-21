@@ -188,7 +188,7 @@ FGuid USimpleGameplayAbility::ActivateSubAbility(
 	SubAbility.CancellationPolicy = CancellationPolicy;
 	ActivatedSubAbilities.Add(SubAbility);
 
-	AbilityComponent->ActivateAbilityWithID(SubAbilityID, AbilityClass, ActivationContext, EAbilityActivationPolicyOverride::ForceLocalOnly);
+	//AbilityComponent->ActivateAbilityWithID(SubAbilityID, AbilityClass, ActivationContext);
 
 	return SubAbilityID;
 }
@@ -257,13 +257,4 @@ double USimpleGameplayAbility::GetActivationTime() const
 double USimpleGameplayAbility::GetActivationDelay() const
 {
 	return AbilityComponent->GetServerTime() - GetActivationTime();
-}
-
-void USimpleGameplayAbility::SendEvent(
-	const FGameplayTag EventTag,
-	const FGameplayTag DomainTag,
-	const FInstancedStruct EventContext,
-	const ESimpleEventReplicationPolicy ReplicationPolicy)
-{
-	AbilityComponent->SendEvent(EventTag, DomainTag, EventContext, this, {}, ReplicationPolicy);
 }

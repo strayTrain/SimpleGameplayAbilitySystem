@@ -18,7 +18,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "SimpleAbility|State")
 	FInstancedStruct Context;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility|Tick")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility")
 	bool CanTick = false;
 
 	// This is true in the time between OnActivate and OnEnd/Cancel
@@ -62,8 +62,8 @@ public:
 	virtual void OnPreActivate_Implementation() {}
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Ability")
-	void OnActivate(FInstancedStruct& ActivationContext);
-	virtual void OnActivate_Implementation(FInstancedStruct& ActivationContext) {}
+	void OnActivate(const FInstancedStruct& ActivationContext);
+	virtual void OnActivate_Implementation(const FInstancedStruct& ActivationContext) {}
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Ability")
 	void OnTick(float DeltaTime);
