@@ -754,15 +754,9 @@ double USimpleAttributeComponent::GetServerTime()
 	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
 }
 
-USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandler(FGameplayTag AttributeTag)
+USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandler(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
 {
-	return nullptr;
-}
-
-USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandlerAs(
-	FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
-{
-	return nullptr;
+	return GetStructAttributeHandlerInstance(AttributeTag, AttributeHandlerClass);
 }
 
 USimpleAttributeModifier* USimpleAttributeComponent::GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass)
