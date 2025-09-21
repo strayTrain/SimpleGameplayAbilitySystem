@@ -71,14 +71,42 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Abilities")
 	void RevokeAbility(TSubclassOf<USimpleGameplayAbility> AbilityClass);
 	
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
-	bool ActivateAbility(
+	/**
+	 * Activates an ability without any replication. Can be called from both server and client.
+	 * @param AbilityClass The class of the ability to activate
+	 * @param AbilityContext Extra context to pass to the ability on activation
+	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
+	 * @return 
+	 */
+	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
+	bool ActivateAbilityLocal(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct AbilityContext,
 		FGuid& AbilityID);
 
+	/**
+	 * Activates an ability with client-side prediction. Normally called on the client.
+	 * If called on the server, it will still replicate the activation to clients.
+	 * @param AbilityClass The class of the ability to activate
+	 * @param AbilityContext Extra context to pass to the ability on activation
+	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
+	 * @return 
+	 */
 	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
 	bool ActivateAbilityPredicted(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FInstancedStruct AbilityContext,
+		FGuid& AbilityID);
+
+	/**
+	 * Activates an ability on the server. If called from a client, it will send an RPC requesting to activate the ability on the server.
+	 * The ability is still replicated to clients
+	 * @param AbilityClass The class of the ability to activate
+	 * @param AbilityContext Extra context to pass to the ability on activation
+	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
+	 */
+	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
+	void ActivateAbilityServerInitiated(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct AbilityContext,
 		FGuid& AbilityID);

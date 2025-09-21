@@ -75,7 +75,7 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
 
 /* Ability Functions */
 
-bool USimpleGameplayAbilityComponent::ActivateAbility(
+bool USimpleGameplayAbilityComponent::ActivateAbilityLocal(
 	const TSubclassOf<USimpleGameplayAbility> AbilityClass,
 	FInstancedStruct AbilityContext,
 	FGuid& AbilityID)
@@ -96,6 +96,19 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityPredicted(TSubclassOf<USimp
 	}
 	
 	return WasActivated;
+}
+
+void USimpleGameplayAbilityComponent::ActivateAbilityServerInitiated(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid& AbilityID)
+{
+	AbilityID = FGuid::NewGuid();
+
+	if (HasAuthority())
+	{
+		ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, true, GetServerTime());
+		return;
+	}
+	
+	ServerActivateAbility(AbilityID, AbilityClass, AbilityContext, GetServerTime());
 }
 
 bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
