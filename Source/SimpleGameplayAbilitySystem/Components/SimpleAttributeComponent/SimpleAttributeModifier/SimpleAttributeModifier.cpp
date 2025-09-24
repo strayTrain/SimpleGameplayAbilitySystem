@@ -33,9 +33,8 @@ bool USimpleAttributeModifier::ApplyModifier(const FGuid NewModifierID, USimpleA
 
 	OnPreApplyModifierActions();
 	
-	FGameplayTagContainer Triggers; 
-	Triggers.AddTag(FDefaultTags::AttributeModifierApplied()); 
-	ApplyModifierActions(this, Triggers);
+	ModifierActionScratchPad = InitialScratchPadValues;
+	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierApplied() })));
 	
 	// If we're an instant modifier we apply the action stack immediately and then end.
 	// SetDuration modifiers with a duration of 0 also apply immediately and end.
@@ -78,11 +77,7 @@ bool USimpleAttributeModifier::ApplyModifier(const FGuid NewModifierID, USimpleA
 
 void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
 {
-	{
-		FGameplayTagContainer Triggers; 
-		Triggers.AddTag(FDefaultTags::AttributeModifierEnded()); 
-		ApplyModifierActions(this, Triggers);
-	}
+	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierEnded() })));
 	
 	if (DurationType == EAttributeModifierDurationType::SetDuration || DurationType == EAttributeModifierDurationType::InfiniteDuration)
 	{
@@ -102,11 +97,7 @@ void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstanced
 
 void USimpleAttributeModifier::CancelModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
 {
-	{
-		FGameplayTagContainer Triggers; 
-		Triggers.AddTag(EndingStatus); 
-		ApplyModifierActions(this, Triggers);
-	}
+	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ EndingStatus })));
 	
 	if (DurationType == EAttributeModifierDurationType::SetDuration || DurationType == EAttributeModifierDurationType::InfiniteDuration)
 	{
@@ -327,17 +318,18 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 			
 			case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
 			{
-				FGameplayTagContainer Triggers; 
-				Triggers.AddTag(FDefaultTags::AttributeModifierTickFailedSkip()); 
-				ApplyModifierActions(this, Triggers);
+				ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierTickFailedSkip() })));
 				return;
 			}
 		}
 	}
 
 	TickCount += 1;
-
-	FGameplayTagContainer Triggers; 
-	Triggers.AddTag(FDefaultTags::AttributeModifierTicked()); 
-	ApplyModifierActions(this, Triggers);
+	
+	if (ResetScratchPadOnTick)
+	{
+		ModifierActionScratchPad = InitialScratchPadValues;
+	}
+	
+	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({FDefaultTags::AttributeModifierTicked()})));
 }

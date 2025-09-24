@@ -134,6 +134,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
 	bool IsActive = false;
+
+	UPROPERTY(VisibleAnywhere, Category = "Attribute Modifier|Actions")
+	FAttributeModifierActionScratchPad InitialScratchPadValues;
 	
 	UPROPERTY(EditAnywhere, Instanced, Category = "Attribute Modifier|Actions", meta = (TitleProperty = "Description"))
 	TArray<TObjectPtr<UModifierAction>> ModifierActions;

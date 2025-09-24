@@ -15,8 +15,6 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UModifierAction : public UObject
 {
 	GENERATED_BODY()
 
-
-	
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Config", meta = (DisplayPriority = 0))
 	FString Description = "New Modifier Action";
