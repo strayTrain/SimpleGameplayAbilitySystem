@@ -15,6 +15,8 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UModifierAction : public UObject
 {
 	GENERATED_BODY()
 
+
+	
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Config", meta = (DisplayPriority = 0))
 	FString Description = "New Modifier Action";
@@ -95,6 +97,8 @@ public:
 	void IncrementScratchPadValue(FGameplayTag ScratchPadTag, float IncrementAmount);
 
 protected:
+	UModifierAction() { EventTriggers.AddTag(FDefaultTags::AttributeModifierApplied()); }
+
 	UPROPERTY(BlueprintreadWrite, Category="Modifier")
 	FAttributeModifierActionScratchPad ScratchPad;
 	
