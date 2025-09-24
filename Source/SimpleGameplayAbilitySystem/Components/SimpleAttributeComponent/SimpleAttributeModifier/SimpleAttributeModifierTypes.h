@@ -87,6 +87,11 @@ struct FAttributeModifierActionScratchPadValue
 
 	UPROPERTY(BlueprintReadWrite)
 	float ScratchpadValue;
+	
+	bool operator==(const FAttributeModifierActionScratchPadValue& Other) const
+	{
+		return ScratchpadTag == Other.ScratchpadTag && ScratchpadValue == Other.ScratchpadValue;
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -99,6 +104,17 @@ struct FAttributeModifierActionScratchPad
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<FAttributeModifierActionScratchPadValue> ScratchpadValues;
+	
+	bool operator==(const FAttributeModifierActionScratchPad& Other) const
+	{
+		if (ScratchpadTags != Other.ScratchpadTags) return false;
+		if (ScratchpadValues.Num() != Other.ScratchpadValues.Num()) return false;
+		for (int32 i = 0; i < ScratchpadValues.Num(); i++)
+		{
+			if (ScratchpadValues[i] != Other.ScratchpadValues[i]) return false;
+		}
+		return true;
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -117,6 +133,11 @@ struct FModifierActionResult
 	
 	UPROPERTY()
 	FInstancedStruct ActionResult;
+	
+	bool operator==(const FModifierActionResult& Other) const
+	{
+		return ActionIndex == Other.ActionIndex && InputScratchpad == Other.InputScratchpad && ActionResult == Other.ActionResult;
+	}
 };
 
 USTRUCT(BlueprintType)

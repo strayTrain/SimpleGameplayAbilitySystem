@@ -167,6 +167,16 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 	{
 		UModifierAction* Action = ModifierActions[i];
 		Action->InitializeAction(ModifierActionScratchPad, OwningModifier);
+
+		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerOnly && !OwningModifier->InstigatorAttributeComponent->HasAuthority())
+		{
+			continue;
+		}
+
+		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyClientOnly && OwningModifier->InstigatorAttributeComponent->HasAuthority())
+		{
+			continue;
+		}
 		
 		if (!Action->EventTriggers.HasAnyExact(ActionTriggers) || !Action->CanApply())
 		{
@@ -283,7 +293,8 @@ void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FInstancedStr
 		else if (IsInServerMap && IsInClientMap)
 		{
 			// If the snapshots match we don't need to do anything
-			if (ServerMap[Idx].ActionResult == ClientMap[Idx].ActionResult)
+			if (ServerMap[Idx].ActionResult == ClientMap[Idx].ActionResult && 
+				ServerMap[Idx].InputScratchpad == ClientMap[Idx].InputScratchpad)
 			{
 				continue;
 			}
