@@ -82,10 +82,10 @@ struct FAttributeModifierActionScratchPadValue
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag ScratchpadTag;
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float ScratchpadValue;
 	
 	bool operator==(const FAttributeModifierActionScratchPadValue& Other) const
@@ -99,10 +99,10 @@ struct FAttributeModifierActionScratchPad
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTagContainer ScratchpadTags;
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FAttributeModifierActionScratchPadValue> ScratchpadValues;
 	
 	bool operator==(const FAttributeModifierActionScratchPad& Other) const
@@ -144,6 +144,9 @@ USTRUCT(BlueprintType)
 struct FModifierActionStackResults
 {
 	GENERATED_BODY()
+
+	UPROPERTY()
+	TSubclassOf<USimpleAttributeModifier> ModifierClass;
 	
 	UPROPERTY()
 	TArray<FModifierActionResult> ActionsResults;

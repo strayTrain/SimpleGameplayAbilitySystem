@@ -470,41 +470,59 @@ bool USimpleAttributeComponent::SetFloatAttributeValue(EFloatAttributeValueType 
 
 	switch (ValueType)
 	{
-	case EFloatAttributeValueType::BaseValue:
-		OldValue = Attribute->BaseValue;
-		Attribute->BaseValue = ClampedValue;
-		OnFloatAttributeBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
-		break;
+		case EFloatAttributeValueType::BaseValue:
+			OldValue = Attribute->BaseValue;
+			Attribute->BaseValue = ClampedValue;
+			if (OldValue != ClampedValue)
+			{
+				OnFloatAttributeBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			break;
 
-	case EFloatAttributeValueType::CurrentValue:
-		OldValue = Attribute->CurrentValue;
-		Attribute->CurrentValue = ClampedValue;
-		OnFloatAttributeCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
-		break;
+		case EFloatAttributeValueType::CurrentValue:
+			OldValue = Attribute->CurrentValue;
+			Attribute->CurrentValue = ClampedValue;
+			if (OldValue != ClampedValue)
+			{
+				OnFloatAttributeCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			break;
 
-	case EFloatAttributeValueType::MaxCurrentValue:
-		OldValue = Attribute->ValueLimits.MaxCurrentValue;
-		Attribute->ValueLimits.MaxCurrentValue = ClampedValue;
-		OnFloatAttributeMaxCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
-		break;
+		case EFloatAttributeValueType::MaxCurrentValue:
+			OldValue = Attribute->ValueLimits.MaxCurrentValue;
+			Attribute->ValueLimits.MaxCurrentValue = ClampedValue;
+			if (OldValue != ClampedValue)
+			{
+				OnFloatAttributeMaxCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			break;
 
-	case EFloatAttributeValueType::MinCurrentValue:
-		OldValue = Attribute->ValueLimits.MinCurrentValue;
-		Attribute->ValueLimits.MinCurrentValue = ClampedValue;
-		OnFloatAttributeMinCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
-		break;
+		case EFloatAttributeValueType::MinCurrentValue:
+			OldValue = Attribute->ValueLimits.MinCurrentValue;
+			Attribute->ValueLimits.MinCurrentValue = ClampedValue;
+			if (OldValue != ClampedValue)
+			{
+				OnFloatAttributeMinCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			break;
 
-	case EFloatAttributeValueType::MaxBaseValue:
-		OldValue = Attribute->ValueLimits.MaxBaseValue;
-		Attribute->ValueLimits.MaxBaseValue = ClampedValue;
-		OnFloatAttributeMaxBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
-		break;
+		case EFloatAttributeValueType::MaxBaseValue:
+			OldValue = Attribute->ValueLimits.MaxBaseValue;
+			Attribute->ValueLimits.MaxBaseValue = ClampedValue;
+			if (OldValue != ClampedValue)
+			{
+				OnFloatAttributeMaxBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			break;
 
-	case EFloatAttributeValueType::MinBaseValue:
-		OldValue = Attribute->ValueLimits.MinBaseValue;
-		Attribute->ValueLimits.MinBaseValue = ClampedValue;
-		OnFloatAttributeMinBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
-		break;
+		case EFloatAttributeValueType::MinBaseValue:
+			OldValue = Attribute->ValueLimits.MinBaseValue;
+			Attribute->ValueLimits.MinBaseValue = ClampedValue;
+			if (OldValue != ClampedValue)
+			{
+				OnFloatAttributeMinBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			break;
 	}
 
 	if (HasAuthority())
@@ -731,7 +749,10 @@ bool USimpleAttributeComponent::SetStructAttributeValue(FGameplayTag AttributeTa
 		AuthorityStructAttributes.MarkItemDirty(*Attribute);
 	}
 
-	OnStructAttributeChanged.Broadcast(AttributeTag, OldValue, NewValue, ModificationTags);
+	if (OldValue != NewValue)
+	{
+		OnStructAttributeChanged.Broadcast(AttributeTag, OldValue, NewValue, ModificationTags);
+	}
 
 	return true;
 }
@@ -789,6 +810,7 @@ void USimpleAttributeComponent::OnAttributeModifierActionStackApplied(FGuid Modi
 {
 	FAttributeModifierMutation NewMutation;
 	NewMutation.ModifierID = ModifierID;
+	NewMutation.ModifierClass = ActionResult.ModifierClass;
 	NewMutation.ActionStackResult = ActionResult;
 	NewMutation.MutationTimestamp = GetServerTime();
 

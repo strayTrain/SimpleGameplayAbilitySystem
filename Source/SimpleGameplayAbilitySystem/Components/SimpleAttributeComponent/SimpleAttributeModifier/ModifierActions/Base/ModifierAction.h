@@ -26,7 +26,7 @@ public:
 	 * This modifier will trigger when it receives any of these event tags from the OwningModifier
 	 */
 	UPROPERTY(EditDefaultsOnly, Category="Config", meta = (DisplayPriority = 0))
-	FGameplayTagContainer EventTriggers;	
+	FGameplayTagContainer EventTriggers = FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierApplied() }));	
 
 	void InitializeAction(FAttributeModifierActionScratchPad& NewScratchPad, USimpleAttributeModifier* NewOwningModifier)
 	{
@@ -95,8 +95,6 @@ public:
 	void IncrementScratchPadValue(FGameplayTag ScratchPadTag, float IncrementAmount);
 
 protected:
-	UModifierAction() { EventTriggers.AddTag(FDefaultTags::AttributeModifierApplied()); }
-
 	UPROPERTY(BlueprintreadWrite, Category="Modifier")
 	FAttributeModifierActionScratchPad ScratchPad;
 	

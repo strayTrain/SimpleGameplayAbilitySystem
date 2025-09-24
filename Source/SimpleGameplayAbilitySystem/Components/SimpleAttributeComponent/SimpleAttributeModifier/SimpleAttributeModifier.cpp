@@ -193,6 +193,7 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 	if (ActionResults.Num() > 0)
 	{
 		FModifierActionStackResults ActionStackResult;
+		ActionStackResult.ModifierClass = GetClass();
 		ActionStackResult.ActionsResults = ActionResults;
 		// The attribute component listens for this event to track in AuthorityAttributeModifierMutations and ultimately replicate to clients.
 		OnActionStackApplied.Broadcast(ModifierID, ActionStackResult);
