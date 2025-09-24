@@ -22,7 +22,7 @@ bool USimpleAttributeModifier::ApplyModifier(const FGuid NewModifierID, USimpleA
 		return false;
 	}
 	
-	ActivationTime = AttributeComponent->GetServerTime();
+	ActivationTime = InstigatorAttributeComponent->GetServerTime();
 	IsActive = true;
 
 	// Add permanent gameplay tags from this modifier
@@ -32,12 +32,10 @@ bool USimpleAttributeModifier::ApplyModifier(const FGuid NewModifierID, USimpleA
 	}
 
 	OnPreApplyModifierActions();
-	{
-		FGameplayTagContainer Triggers; 
-		Triggers.AddTag(FDefaultTags::AttributeModifierDefaultTrigger()); 
-		Triggers.AddTag(FDefaultTags::AttributeModifierApplied()); 
-		ApplyModifierActions(this, Triggers);
-	}
+	
+	FGameplayTagContainer Triggers; 
+	Triggers.AddTag(FDefaultTags::AttributeModifierApplied()); 
+	ApplyModifierActions(this, Triggers);
 	
 	// If we're an instant modifier we apply the action stack immediately and then end.
 	// SetDuration modifiers with a duration of 0 also apply immediately and end.
@@ -168,19 +166,26 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 	for (int i = 0; i < ModifierActions.Num(); i++)
 	{
 		UModifierAction* Action = ModifierActions[i];
+		Action->InitializeAction(ModifierActionScratchPad, OwningModifier);
 		
-		if (!Action->EventTriggers.HasAnyExact(ActionTriggers) || !Action->CanApply(this))
+		if (!Action->EventTriggers.HasAnyExact(ActionTriggers) || !Action->CanApply())
 		{
 			continue;
 		}
 
-		const FInstancedStruct ActionResult = Action->ApplyAction(OwningModifier);
+		const FAttributeModifierActionScratchPad InputScratchpad = ModifierActionScratchPad;
+		const FInstancedStruct ActionResult = Action->ApplyAction();
 		
-		// Take a snapshot of the action result if applicable
+		// Add the result of the action if applicable
 		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyClientPredicted ||
 			Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerInitiated)
 		{
-			ActionResults.Add({i, Action->GetClass(), ActionResult});
+			ActionResults.Add({
+				i,
+				Action->GetClass(),
+				InputScratchpad,
+				ActionResult
+			});
 		}
 	}
 	
@@ -188,6 +193,7 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 	{
 		FModifierActionStackResults ActionStackResult;
 		ActionStackResult.ActionsResults = ActionResults;
+		// The attribute component listens for this event to track in AuthorityAttributeModifierMutations and ultimately replicate to clients.
 		OnActionStackApplied.Broadcast(ModifierID, ActionStackResult);
 	}
 
@@ -267,7 +273,8 @@ void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FInstancedStr
 
 		if (IsInServerMap && !IsInClientMap)
 		{
-			Action->OnServerInitiatedResultReceived(ServerMap[Idx].ActionResult);
+			Action->InitializeAction(ServerMap[Idx].InputScratchpad, this);
+			const FInstancedStruct Result = Action->ApplyAction();
 		}
 		else if (!IsInServerMap && IsInClientMap)
 		{
@@ -282,7 +289,9 @@ void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FInstancedStr
 			}
 			
 			Action->OnClientPredictedCorrection(
+				ServerMap[Idx].InputScratchpad,
 				ServerMap[Idx].ActionResult,
+				ClientMap[Idx].InputScratchpad,
 				ClientMap[Idx].ActionResult
 			);
 		}
@@ -316,10 +325,8 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 	}
 
 	TickCount += 1;
-	{
-		FGameplayTagContainer Triggers; 
-		Triggers.AddTag(FDefaultTags::AttributeModifierDefaultTrigger()); 
-		Triggers.AddTag(FDefaultTags::AttributeModifierTicked()); 
-		ApplyModifierActions(this, Triggers);
-	}
+
+	FGameplayTagContainer Triggers; 
+	Triggers.AddTag(FDefaultTags::AttributeModifierTicked()); 
+	ApplyModifierActions(this, Triggers);
 }

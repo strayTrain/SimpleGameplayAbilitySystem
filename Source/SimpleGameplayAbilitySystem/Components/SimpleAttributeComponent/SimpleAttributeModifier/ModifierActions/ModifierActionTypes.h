@@ -38,30 +38,3 @@ enum class EContextSource : uint8
 	FromContextCollection,
 	FromFunction
 };
-
-USTRUCT(BlueprintType)
-struct FModifierActionResult
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	int32 ActionIndex;
-
-	UPROPERTY()
-	TSubclassOf<UModifierAction> ActionClass;
-	
-	UPROPERTY()
-	FInstancedStruct ActionResult;
-};
-
-USTRUCT(BlueprintType)
-struct FModifierActionStackResults
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	TSubclassOf<UModifierAction> ActionClass;
-
-	UPROPERTY()
-	TArray<FModifierActionResult> ActionsResults;
-};

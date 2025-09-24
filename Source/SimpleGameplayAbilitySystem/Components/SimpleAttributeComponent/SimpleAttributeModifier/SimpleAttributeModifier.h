@@ -55,13 +55,22 @@ public:
 		EditCondition = "DurationType == EAttributeModifierDurationType::SetDuration"))
 	EDurationModifierReApplicationConfig OnReapplication;
 
+	/**
+	 * If true, the non-instant modifier's scratch pad will be reset each time the modifier ticks.
+	 * If false, the scratch pad will persist between ticks and can be used to store state
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
+		EditConditionHides,
+		EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
+	bool ResetScratchPadOnTick = true;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
 	bool CanStack = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (InlineEditConditionToggle))
 	bool HasMaxStacks;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "HasMaxStacks"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "HasMaxStacks && DurationType != EAttributeModifierDurationType::Instant"))
 	int32 MaxStacks = 1;
 
 	/**
@@ -212,9 +221,6 @@ protected:
 	bool ApplyModifierActions(USimpleAttributeModifier* OwningModifier, FGameplayTagContainer ActionTriggers);
 
 private:
-	UPROPERTY()
-	USimpleAttributeComponent* AttributeComponent;
-
 	bool CanApplyModifierInternal();
 	
 	FTimerHandle DurationTimerHandle;

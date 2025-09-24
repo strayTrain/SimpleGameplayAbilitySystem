@@ -9,7 +9,6 @@ class FDefaultTags
 {
 	public:
 		// Attribute Modifier trigger events
-		static FGameplayTag AttributeModifierDefaultTrigger() { return FindTag("SimpleGAS.ModiferActionTriggers.Default"); }
 		static FGameplayTag AttributeModifierApplied() { return FindTag("SimpleGAS.ModiferActionTriggers.OnApplied"); }
 		static FGameplayTag AttributeModifierTicked() { return FindTag("SimpleGAS.ModiferActionTriggers.OnTick"); }
 		static FGameplayTag AttributeModifierTickFailedSkip() { return FindTag("SimpleGAS.ModiferActionTriggers.OnTickFailedSkip"); }

@@ -6,6 +6,7 @@
 #include "SimpleAttributeComponentTypes.h"
 #include "Components/ActorComponent.h"
 #include "SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
+#include "SimpleAttributeModifier/ModifierActions/ChangeFloatAttributeAction/FloatAttributeActionTypes.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/SimpleAttributeSet.h"
 #include "SimpleAttributeComponent.generated.h"
 
@@ -150,7 +151,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
 	bool ApplyAttributeModifierToTargetPredicted(
-		FGuid ModifierID,
+		FGuid& ModifierID,
 		TSubclassOf<USimpleAttributeModifier> ModifierClass,
 		USimpleAttributeComponent* ModifierTarget,
 		float Magnitude,
@@ -166,14 +167,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
 	bool ApplyAttributeModifierToSelf(
-		FGuid ModifierID,
+		FGuid& ModifierID,
 		TSubclassOf<USimpleAttributeModifier> ModifierClass,
-		float Magnitude,
-		FInstancedStruct ModifierContext);
+		float Magnitude, FInstancedStruct ModifierContext);
 
 	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
 	bool ApplyAttributeModifierToSelfPredicted(
-		FGuid ModifierID,
+		FGuid& ModifierID,
 		TSubclassOf<USimpleAttributeModifier> ModifierClass,
 		float Magnitude,
 		FInstancedStruct ModifierContext);

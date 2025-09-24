@@ -106,7 +106,7 @@ USimpleTimeSynchronizer* USimpleAttributeComponent::GetTimeSynchronizerComponent
 
 /* Attribute Modifiers */
 
-bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(const FGuid ModifierID,
+bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(FGuid ModifierID,
                                                                const TSubclassOf<USimpleAttributeModifier>&
                                                                ModifierClass, USimpleAttributeComponent* ModifierTarget,
                                                                const float Magnitude,
@@ -119,6 +119,7 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(const FGuid Modif
 		return false;
 	}
 
+	ModifierID = FGuid::NewGuid();
 	const bool WasActivated = GetAttributeModifierInstance(ModifierClass)->ApplyModifier(ModifierID, this, ModifierTarget, Magnitude,ModifierContext);
 
 	FAttributeModifierState NewState;
@@ -145,12 +146,13 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(const FGuid Modif
 	return WasActivated;
 }
 
-bool USimpleAttributeComponent::ApplyAttributeModifierToTargetPredicted(const FGuid ModifierID,
+bool USimpleAttributeComponent::ApplyAttributeModifierToTargetPredicted(FGuid& ModifierID,
                                                                         const TSubclassOf<USimpleAttributeModifier> ModifierClass,
                                                                         USimpleAttributeComponent* ModifierTarget,
                                                                         const float Magnitude,
                                                                         const FInstancedStruct ModifierContext) 
 {
+	ModifierID = FGuid::NewGuid();
 	const bool WasApplied = ApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
 
 	if (!HasAuthority() && WasApplied)
@@ -170,19 +172,21 @@ void USimpleAttributeComponent::ServerApplyAttributeModifierToTarget_Implementat
 	ApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
 }
 
-bool USimpleAttributeComponent::ApplyAttributeModifierToSelf(const FGuid ModifierID,
-                                                             const TSubclassOf<USimpleAttributeModifier> ModifierClass,
-                                                             const float Magnitude,
-                                                             const FInstancedStruct ModifierContext)
+bool USimpleAttributeComponent::ApplyAttributeModifierToSelf(
+	FGuid& ModifierID,
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	const float Magnitude, const FInstancedStruct ModifierContext)
 {
+	ModifierID = FGuid::NewGuid();
 	return ApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
 }
 
-bool USimpleAttributeComponent::ApplyAttributeModifierToSelfPredicted(const FGuid ModifierID,
+bool USimpleAttributeComponent::ApplyAttributeModifierToSelfPredicted(FGuid& ModifierID,
                                                                       const TSubclassOf<USimpleAttributeModifier> ModifierClass,
                                                                       const float Magnitude,
                                                                       const FInstancedStruct ModifierContext) 
 {
+	ModifierID = FGuid::NewGuid();
 	const bool WasApplied = ApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
 
 	if (!HasAuthority() && WasApplied)

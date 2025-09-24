@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "ModifierActions/ModifierActionTypes.h"
 #include "Net/Serialization/FastArraySerializer.h"
 #include "SimpleGameplayAbilitySystem/UtilityClasses/FastArraySerializerMacros.h"
 
@@ -13,6 +12,8 @@
 #endif
 
 #include "SimpleAttributeModifierTypes.generated.h"
+
+class UModifierAction;
 
 /* Enums */
 
@@ -77,6 +78,18 @@ enum class EModifierStatus : uint8
 /* Structs */
 
 USTRUCT(BlueprintType)
+struct FAttributeModifierActionScratchPadValue
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FGameplayTag ScratchpadTag;
+
+	UPROPERTY(BlueprintReadWrite)
+	float ScratchpadValue;
+};
+
+USTRUCT(BlueprintType)
 struct FAttributeModifierActionScratchPad
 {
 	GENERATED_BODY()
@@ -85,7 +98,34 @@ struct FAttributeModifierActionScratchPad
 	FGameplayTagContainer ScratchpadTags;
 
 	UPROPERTY(BlueprintReadWrite)
-	TMap<FGameplayTag, float> ScratchpadValues;
+	TArray<FAttributeModifierActionScratchPadValue> ScratchpadValues;
+};
+
+USTRUCT(BlueprintType)
+struct FModifierActionResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	int32 ActionIndex;
+
+	UPROPERTY()
+	TSubclassOf<UModifierAction> ActionClass;
+
+	UPROPERTY()
+	FAttributeModifierActionScratchPad InputScratchpad;
+	
+	UPROPERTY()
+	FInstancedStruct ActionResult;
+};
+
+USTRUCT(BlueprintType)
+struct FModifierActionStackResults
+{
+	GENERATED_BODY()
+	
+	UPROPERTY()
+	TArray<FModifierActionResult> ActionsResults;
 };
 
 /* FFastArraySerializer Structs */

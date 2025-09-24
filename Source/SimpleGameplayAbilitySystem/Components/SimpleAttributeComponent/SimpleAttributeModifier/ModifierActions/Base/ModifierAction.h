@@ -1,8 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/ModifierActionTypes.h"
+#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "UObject/Object.h"
 #include "ModifierAction.generated.h"
 
@@ -25,34 +27,21 @@ public:
 	 */
 	UPROPERTY(EditDefaultsOnly, Category="Config", meta = (DisplayPriority = 0))
 	FGameplayTagContainer EventTriggers;	
+
+	void InitializeAction(FAttributeModifierActionScratchPad& NewScratchPad, USimpleAttributeModifier* NewOwningModifier)
+	{
+		OwningModifier = NewOwningModifier;
+		ScratchPad = NewScratchPad;
+	}
 	
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	bool CanApply(USimpleAttributeModifier* NewOwningModifier) const;
-	virtual bool CanApply_Implementation(USimpleAttributeModifier* NewOwningModifier) const { return true; }
+	bool CanApply() const;
+	virtual bool CanApply_Implementation() const { return true; }
 	
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	FInstancedStruct ApplyAction(USimpleAttributeModifier* AttributeModifier);
-	virtual FInstancedStruct ApplyAction_Implementation(USimpleAttributeModifier* AttributeModifier) { return FInstancedStruct(); }
-
-	/**
-	 * If the ApplicationPolicy is set to ApplyClientPredicted, this function will be called
-	 * on the client when the server sends the action result and it doesn't match the client's result.
-	 * @param ServerResult The value of SnapshotData from the server ApplyAction() call.
-	 * @param ClientResult The value of SnapshotData from the client ApplyAction() call.
-	 */
-	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	void OnClientPredictedCorrection(FInstancedStruct ServerResult, FInstancedStruct ClientResult);
-	virtual void OnClientPredictedCorrection_Implementation(FInstancedStruct ServerResult, FInstancedStruct ClientResult) { }
-
-	/**
-	 * If the ApplicationPolicy is set to ServerInitiated, this function will be called
-	 * on the client when the server sends the action result snapshot.
-	 * @param ServerResult The value of SnapshotData from the server ApplyAction() call.
-	 */
-	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	void OnServerInitiatedResultReceived(FInstancedStruct ServerResult);
-	virtual void OnServerInitiatedResultReceived_Implementation(FInstancedStruct ServerResult) { }
-
+	FInstancedStruct ApplyAction();
+	virtual FInstancedStruct ApplyAction_Implementation() { return FInstancedStruct(); }
+	
 	/**
 	 * Called when the modifier that is applying this action is cancelled or when the client mispredicts and action applying.
 	 * Use this to clean up any resources if required.
@@ -68,4 +57,47 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
 	void OnOwningModifierEnded(USimpleAttributeModifier* Modifier);
 	virtual void OnOwningModifierEnded_Implementation(USimpleAttributeModifier* Modifier) { }
+
+	/**
+	 * If the ApplicationPolicy is set to ApplyClientPredicted, this function will be called
+	 * on the client when the server sends the action result and it doesn't match the client's result.
+	 * @param ServerInputScratchPad
+	 * @param ServerResult The value of SnapshotData from the server ApplyAction() call.
+	 * @param ClientInputScratchPad
+	 * @param ClientResult The value of SnapshotData from the client ApplyAction() call.
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
+	void OnClientPredictedCorrection(FAttributeModifierActionScratchPad ServerInputScratchPad, FInstancedStruct ServerResult, FAttributeModifierActionScratchPad
+	                                 ClientInputScratchPad, FInstancedStruct ClientResult);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	USimpleAttributeModifier* GetOwningModifier() const { return OwningModifier; }
+	
+	UFUNCTION(BlueprintCallable, Category="Modifier")
+	void AddScratchPadTag(FGameplayTag ScratchPadTag);
+
+	UFUNCTION(BlueprintCallable, Category="Modifier")
+	void RemoveScratchPadTag(FGameplayTag ScratchPadTag);
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	float GetScratchPadValue(FGameplayTag ScratchPadTag, bool& WasFound) const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	bool HasScratchPadValue(FGameplayTag ScratchPadTag) const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	bool HasScratchPadTag(FGameplayTag ScratchPadTag) const;
+
+	UFUNCTION(BlueprintCallable, Category="Modifier")
+	void SetScratchPadValue(FGameplayTag ScratchPadTag, float Value);
+
+	UFUNCTION(BlueprintCallable, Category="Modifier")
+	void IncrementScratchPadValue(FGameplayTag ScratchPadTag, float IncrementAmount);
+
+protected:
+	UPROPERTY(BlueprintreadWrite, Category="Modifier")
+	FAttributeModifierActionScratchPad ScratchPad;
+	
+	UPROPERTY()
+	USimpleAttributeModifier* OwningModifier;
 };
