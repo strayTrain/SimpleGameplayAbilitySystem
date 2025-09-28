@@ -633,10 +633,10 @@ bool USimpleAttributeComponent::SetStructAttributeValue(FGameplayTag AttributeTa
 
 bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(
 	FGuid& ModifierID,
-	const TSubclassOf<USimpleAttributeModifier>& ModifierClass,
+	TSubclassOf<USimpleAttributeModifier> ModifierClass,
 	USimpleAttributeComponent* ModifierTarget,
 	const float Magnitude,
-	const FInstancedStruct& ModifierContext)
+	FInstancedStruct ModifierContext)
 {
 	ModifierID = FGuid::NewGuid();
 	return GetAttributeModifierInstance(ModifierClass, false)->ApplyModifier(ModifierID, this, ModifierTarget, Magnitude,ModifierContext);

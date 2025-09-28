@@ -83,13 +83,13 @@ public:
 	 * @param ModifierContext Optional context struct that can be used to pass additional data to the modifier.
 	 * @return True if the modifier was applied successfully, false otherwise
 	 */
-	UFUNCTION(Category = "AttributeComponent|Attributes")
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
 	bool ApplyAttributeModifierToTarget(
 		FGuid& ModifierID,
-		const TSubclassOf<USimpleAttributeModifier>& ModifierClass,
+		TSubclassOf<USimpleAttributeModifier> ModifierClass,
 		USimpleAttributeComponent* ModifierTarget,
 		float Magnitude,
-		const FInstancedStruct& ModifierContext);
+		FInstancedStruct ModifierContext);
 
 	/**
 	 *	Applies an attribute modifier to a target attribute component with client prediction. If this function is
