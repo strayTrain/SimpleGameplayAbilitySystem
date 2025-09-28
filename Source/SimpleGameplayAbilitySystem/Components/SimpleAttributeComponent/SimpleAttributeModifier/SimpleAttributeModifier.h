@@ -9,6 +9,8 @@ class USimpleAttributeComponent;
 class UModifierAction;
 class USimpleGameplayAbility;
 
+
+
 UCLASS(Blueprintable, Abstract)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeModifier : public UObject
 {
@@ -147,6 +149,12 @@ public:
 	USimpleAttributeComponent* TargetAttributeComponent;
 
 	/* Event Dispatchers */
+
+
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|Events|Lifecycle")
+	FOnModifierAppliedSignature OnModifierApplied;
+	
 	UPROPERTY(BlueprintAssignable, Category = "Attribute Modifier|Events|Lifecycle")
 	FOnActionStackAppliedSignature OnActionStackApplied;
 	
@@ -169,6 +177,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void AddModifierStack(int32 StackCount);
+
+	// If set to false, this modifier will not call any event dispatchers (which the attribute component uses to replicate state)
+	void SetModifierCanReplicate(const bool CanReplicate) { DoesModifierReplicate = CanReplicate; }
 	
 	/* Blueprint Implementable Events */
 
@@ -205,7 +216,7 @@ public:
 	void OnMaxStacksReached_Implementation() {}
 
 	UFUNCTION()
-	void OnClientReceivedServerActionsResult(FInstancedStruct ServerSnapshot, FInstancedStruct ClientSnapshot);
+	void OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FAttributeModifierActionScratchPad& GetModifierActionScratchPad()
@@ -231,4 +242,6 @@ private:
 
 	void OnDurationTimerExpired();
 	void OnTickTimerTriggered();
+
+	bool DoesModifierReplicate = true;
 };

@@ -19,8 +19,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Config", meta = (DisplayPriority = 0))
 	FString Description = "New Modifier Action";
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Config", meta = (DisplayPriority = 0))
-	EAttributeModifierActionPolicy ApplicationPolicy = EAttributeModifierActionPolicy::ApplyClientPredicted;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority = 0, Bitmask, BitmaskEnum="/Script/SimpleGameplayAbilitySystem.EModifierActionActivationPolicy"))
+	uint8 ActivationPolicy = static_cast<uint8>(EModifierActionActivationPolicy::RunOnServer) | static_cast<uint8>(EModifierActionActivationPolicy::RunOnClient);
 	
 	/**
 	 * This modifier will trigger when it receives any of these event tags from the OwningModifier

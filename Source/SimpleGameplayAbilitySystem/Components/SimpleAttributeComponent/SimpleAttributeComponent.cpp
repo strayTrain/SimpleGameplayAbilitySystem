@@ -2,6 +2,7 @@
 
 #include "SimpleAttributeComponent.h"
 
+#include "VREditorMode.h"
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent//AttributeHandler/SimpleAttributeHandler.h"
@@ -102,135 +103,6 @@ USimpleTimeSynchronizer* USimpleAttributeComponent::GetTimeSynchronizerComponent
 {
 	// Default to assuming the owner actor has a time synchronizer component
 	return GetOwner()->GetComponentByClass<USimpleTimeSynchronizer>();
-}
-
-/* Attribute Modifiers */
-
-bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(FGuid ModifierID,
-                                                               const TSubclassOf<USimpleAttributeModifier>&
-                                                               ModifierClass, USimpleAttributeComponent* ModifierTarget,
-                                                               const float Magnitude,
-                                                               const FInstancedStruct& ModifierContext)
-{
-	if (!ModifierClass)
-	{
-		SIMPLE_LOG(
-			this, TEXT("[USimpleGameplayAbilityComponent::ApplyAttributeModifierToTarget]: ModifierClass is null!"));
-		return false;
-	}
-
-	ModifierID = FGuid::NewGuid();
-	const bool WasActivated = GetAttributeModifierInstance(ModifierClass)->ApplyModifier(ModifierID, this, ModifierTarget, Magnitude,ModifierContext);
-
-	FAttributeModifierState NewState;
-	NewState.ModifierID = ModifierID;
-	NewState.ModifierClass = ModifierClass;
-	NewState.ModifierStatus = EModifierStatus::Applied;
-	NewState.ApplicationTimestamp = GetServerTime();
-
-	if (!WasActivated)
-	{
-		NewState.ModifierStatus = EModifierStatus::AppliedFailed;
-		NewState.EndedTimestamp = GetServerTime();
-	}
-
-	if (!HasAuthority())
-	{
-		LocalAttributeModifierStates.Add(NewState);
-		return WasActivated;
-	}
-
-	AuthorityAttributeModifierStates.ModifierStates.Add(NewState);
-	AuthorityAttributeModifierStates.MarkItemDirty(NewState);
-	
-	return WasActivated;
-}
-
-bool USimpleAttributeComponent::ApplyAttributeModifierToTargetPredicted(FGuid& ModifierID,
-                                                                        const TSubclassOf<USimpleAttributeModifier> ModifierClass,
-                                                                        USimpleAttributeComponent* ModifierTarget,
-                                                                        const float Magnitude,
-                                                                        const FInstancedStruct ModifierContext) 
-{
-	ModifierID = FGuid::NewGuid();
-	const bool WasApplied = ApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
-
-	if (!HasAuthority() && WasApplied)
-	{
-		ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
-	}
-
-	return WasApplied;
-}
-
-void USimpleAttributeComponent::ServerApplyAttributeModifierToTarget_Implementation(const FGuid ModifierID,
-																					const TSubclassOf<USimpleAttributeModifier> ModifierClass,
-																					USimpleAttributeComponent* ModifierTarget,
-																					const float Magnitude,
-																					const FInstancedStruct ModifierContext)
-{
-	ApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
-}
-
-bool USimpleAttributeComponent::ApplyAttributeModifierToSelf(
-	FGuid& ModifierID,
-	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
-	const float Magnitude, const FInstancedStruct ModifierContext)
-{
-	ModifierID = FGuid::NewGuid();
-	return ApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
-}
-
-bool USimpleAttributeComponent::ApplyAttributeModifierToSelfPredicted(FGuid& ModifierID,
-                                                                      const TSubclassOf<USimpleAttributeModifier> ModifierClass,
-                                                                      const float Magnitude,
-                                                                      const FInstancedStruct ModifierContext) 
-{
-	ModifierID = FGuid::NewGuid();
-	const bool WasApplied = ApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
-
-	if (!HasAuthority() && WasApplied)
-	{
-		ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
-	}
-
-	return WasApplied;
-}
-
-void USimpleAttributeComponent::CancelAttributeModifier(const FGuid ModifierID)
-{
-	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
-	{
-		if (Modifier && Modifier->ModifierID == ModifierID)
-		{
-			Modifier->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
-			return;
-		}
-	}
-}
-
-void USimpleAttributeComponent::CancelAttributeModifiersWithTags(const FGameplayTagContainer ModifierTags)
-{
-	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
-	{
-		if (Modifier && Modifier->ModifierTags.HasAny(ModifierTags))
-		{
-			Modifier->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
-		}
-	}
-}
-
-bool USimpleAttributeComponent::IsModifierWithTagsActive(const FGameplayTagContainer ModifierTags) const
-{
-	for (const USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
-	{
-		if (Modifier && Modifier->IsActive && Modifier->ModifierTags.HasAny(ModifierTags))
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 /* Gameplay Tags */
@@ -757,6 +629,315 @@ bool USimpleAttributeComponent::SetStructAttributeValue(FGameplayTag AttributeTa
 	return true;
 }
 
+/* Attribute Modifiers */
+
+bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(
+	FGuid& ModifierID,
+	const TSubclassOf<USimpleAttributeModifier>& ModifierClass,
+	USimpleAttributeComponent* ModifierTarget,
+	const float Magnitude,
+	const FInstancedStruct& ModifierContext)
+{
+	ModifierID = FGuid::NewGuid();
+	return GetAttributeModifierInstance(ModifierClass, false)->ApplyModifier(ModifierID, this, ModifierTarget, Magnitude,ModifierContext);
+}
+
+bool USimpleAttributeComponent::ApplyAttributeModifierToTargetPredicted(
+	FGuid& ModifierID,
+    const TSubclassOf<USimpleAttributeModifier> ModifierClass,
+    USimpleAttributeComponent* ModifierTarget,
+    const float Magnitude,
+    const FInstancedStruct ModifierContext) 
+{
+	ModifierID = FGuid::NewGuid();
+	const bool WasApplied = GetAttributeModifierInstance(ModifierClass, true)->ApplyModifier(ModifierID, this, ModifierTarget, Magnitude,ModifierContext);
+
+	if (!HasAuthority() && WasApplied)
+	{
+		ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
+	}
+
+	return WasApplied;
+}
+
+void USimpleAttributeComponent::ApplyAttributeModifierToTargetServerInitiated(FGuid& ModifierID,
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass, USimpleAttributeComponent* ModifierTarget, float Magnitude,
+	FInstancedStruct ModifierContext)
+{
+	ModifierID = FGuid::NewGuid();
+	ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
+}
+
+void USimpleAttributeComponent::ServerApplyAttributeModifierToTarget_Implementation(
+	const FGuid ModifierID,
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	USimpleAttributeComponent* ModifierTarget,
+	const float Magnitude,
+	const FInstancedStruct ModifierContext)
+{
+	GetAttributeModifierInstance(ModifierClass, true)->ApplyModifier(ModifierID, this, ModifierTarget, Magnitude,ModifierContext);
+}
+
+bool USimpleAttributeComponent::ApplyAttributeModifierToSelf(
+	FGuid& ModifierID,
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	const float Magnitude, const FInstancedStruct ModifierContext)
+{
+	ModifierID = FGuid::NewGuid();
+	return GetAttributeModifierInstance(ModifierClass, false)->ApplyModifier(ModifierID, this, this, Magnitude,ModifierContext);
+}
+
+bool USimpleAttributeComponent::ApplyAttributeModifierToSelfPredicted(
+	FGuid& ModifierID,
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	const float Magnitude,
+	const FInstancedStruct ModifierContext) 
+{
+	ModifierID = FGuid::NewGuid();
+	const bool WasApplied = GetAttributeModifierInstance(ModifierClass, true)->ApplyModifier(ModifierID, this, this, Magnitude,ModifierContext);
+
+	if (!HasAuthority() && WasApplied)
+	{
+		ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
+	}
+
+	return WasApplied;
+}
+
+void USimpleAttributeComponent::ApplyAttributeModifierToSelfServerInitiated(FGuid& ModifierID,
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass, const float Magnitude, const FInstancedStruct ModifierContext)
+{
+	ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
+}
+
+void USimpleAttributeComponent::CancelAttributeModifier(const FGuid ModifierID)
+{
+	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
+	{
+		if (Modifier && Modifier->ModifierID == ModifierID)
+		{
+			Modifier->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
+			return;
+		}
+	}
+}
+
+void USimpleAttributeComponent::CancelAttributeModifierPredicted(const FGuid ModifierID)
+{
+	CancelAttributeModifier(ModifierID);
+
+	if (!HasAuthority())
+	{
+		ServerCancelAttributeModifier(ModifierID);
+	}
+}
+
+void USimpleAttributeComponent::CancelAttributeModifierServerInitiated(const FGuid ModifierID)
+{
+	if (!HasAuthority())
+	{
+		ServerCancelAttributeModifier(ModifierID);
+		return;
+	}
+
+	CancelAttributeModifier(ModifierID);
+}
+
+void USimpleAttributeComponent::ServerCancelAttributeModifier_Implementation(const FGuid ModifierID)
+{
+	CancelAttributeModifier(ModifierID);
+}
+
+void USimpleAttributeComponent::CancelAttributeModifiersWithTags(const FGameplayTagContainer ModifierTags)
+{
+	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
+	{
+		if (Modifier && Modifier->ModifierTags.HasAny(ModifierTags))
+		{
+			Modifier->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
+		}
+	}
+}
+
+void USimpleAttributeComponent::CancelAttributeModifiersWithTagsPredicted(const FGameplayTagContainer ModifierTags)
+{
+	CancelAttributeModifiersWithTags(ModifierTags);
+
+	if (!HasAuthority())
+	{
+		ServerCancelAttributeModifiersWithTags(ModifierTags);
+	}
+}
+
+void USimpleAttributeComponent::CancelAttributeModifiersWithTagsServerInitiated(const FGameplayTagContainer ModifierTags)
+{
+	if (!HasAuthority())
+	{
+		ServerCancelAttributeModifiersWithTags(ModifierTags);
+		return;
+	}
+
+	CancelAttributeModifiersWithTags(ModifierTags);
+}
+
+void USimpleAttributeComponent::ServerCancelAttributeModifiersWithTags_Implementation(const FGameplayTagContainer ModifierTags)
+{
+	CancelAttributeModifiersWithTags(ModifierTags);
+}
+
+bool USimpleAttributeComponent::IsModifierWithTagsActive(const FGameplayTagContainer ModifierTags) const
+{
+	for (const USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
+	{
+		if (Modifier && Modifier->IsActive && Modifier->ModifierTags.HasAny(ModifierTags))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+USimpleAttributeModifier* USimpleAttributeComponent::GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass, const bool ShouldReplicate)
+{
+	if (!ModifierClass)
+	{
+		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::GetAttributeModifierInstance]: ModifierClass is null!"));
+		return nullptr;
+	}
+	
+	USimpleAttributeModifier* LocalRunningModifierInstance = nullptr;
+	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributeModifiers)
+	{
+		if (InstancedModifier->GetClass() == ModifierClass)
+		{
+			LocalRunningModifierInstance = InstancedModifier;
+			break;
+		}
+	}
+
+	if (!LocalRunningModifierInstance)
+	{
+		LocalRunningModifierInstance = NewObject<USimpleAttributeModifier>(this, ModifierClass);
+		LocalRunningModifierInstance->OnModifierApplied.AddDynamic(this, &USimpleAttributeComponent::OnAttributeModifierInitiallyApplied);
+		LocalRunningModifierInstance->OnActionStackApplied.AddDynamic(this, &USimpleAttributeComponent::OnAttributeModifierActionStackApplied);
+		LocalRunningModifierInstance->OnAttributeModifierEnded.AddDynamic(this, &USimpleAttributeComponent::OnAttributeModifierEnded);
+		LocalRunningModifierInstance->OnAttributeModifierCancelled.AddDynamic(this, &USimpleAttributeComponent::OnAttributeModifierCancelled);
+		InstancedAttributeModifiers.Add(LocalRunningModifierInstance);
+	}
+
+	LocalRunningModifierInstance->SetModifierCanReplicate(ShouldReplicate);
+	return LocalRunningModifierInstance;
+}
+
+/* Attribute Modifier State Callbacks */
+
+void USimpleAttributeComponent::OnAttributeModifierInitiallyApplied(USimpleAttributeModifier* ModifierInstance)
+{
+	FAttributeModifierState NewState;
+	NewState.ModifierID = ModifierInstance->ModifierID;
+	NewState.ModifierContext = FInstancedStruct();
+	NewState.InstigatorAttributeComponent = ModifierInstance->InstigatorAttributeComponent;
+	NewState.TargetAttributeComponent = ModifierInstance->TargetAttributeComponent;
+	NewState.ModifierClass = ModifierInstance->GetClass();
+	NewState.ModifierStatus = EModifierStatus::Applied;
+	NewState.ApplicationTimestamp = GetServerTime();
+
+	if (!HasAuthority())
+	{
+		LocalAttributeModifierStates.Add(NewState);
+		return;
+	}
+
+	AuthorityAttributeModifierStates.ModifierStates.Add(NewState);
+	AuthorityAttributeModifierStates.MarkItemDirty(NewState);
+}
+
+void USimpleAttributeComponent::OnAttributeModifierEnded(USimpleAttributeModifier* ModifierInstance, FGameplayTag EndStatus, FInstancedStruct EndContext)
+{
+	if (HasAuthority())
+	{
+		for (FAttributeModifierState& State : AuthorityAttributeModifierStates.ModifierStates)
+		{
+			if (State.ModifierID == ModifierInstance->ModifierID)
+			{
+				State.ModifierStatus = EModifierStatus::Ended;
+				State.EndedTimestamp = GetServerTime();
+				AuthorityAttributeModifierStates.MarkItemDirty(State);
+				return;
+			}
+		}
+	}
+	else
+	{
+		for (FAttributeModifierState& State : LocalAttributeModifierStates)
+		{
+			if (State.ModifierID == ModifierInstance->ModifierID)
+			{
+				State.ModifierStatus = EModifierStatus::Ended;
+				State.EndedTimestamp = GetServerTime();
+				return;
+			}
+		}
+	}
+
+	SIMPLE_LOG(this, FString::Printf(
+		TEXT("[USimpleAttributeComponent::OnAttributeModifierEnded]: Modifier with ID %s not found in ModifierStates array"),
+		*ModifierInstance->ModifierID.ToString()));
+}
+
+void USimpleAttributeComponent::OnAttributeModifierCancelled(USimpleAttributeModifier* ModifierInstance, FGameplayTag EndStatus, FInstancedStruct EndContext)
+{
+	if (HasAuthority())
+	{
+		for (FAttributeModifierState& State : AuthorityAttributeModifierStates.ModifierStates)
+		{
+			if (State.ModifierID == ModifierInstance->ModifierID)
+			{
+				State.ModifierStatus = EModifierStatus::Cancelled;
+				State.EndedTimestamp = GetServerTime();
+				AuthorityAttributeModifierStates.MarkItemDirty(State);
+				return;
+			}
+		}
+	}
+	else
+	{
+		for (FAttributeModifierState& State : LocalAttributeModifierStates)
+		{
+			if (State.ModifierID == ModifierInstance->ModifierID)
+			{
+				State.ModifierStatus = EModifierStatus::Cancelled;
+				State.EndedTimestamp = GetServerTime();
+				return;
+			}
+		}
+	}
+
+	SIMPLE_LOG(this, FString::Printf(
+		TEXT("[USimpleAttributeComponent::OnAttributeModifierCancelled]: Modifier with ID %s not found in ModifierStates array"),
+		*ModifierInstance->ModifierID.ToString()));
+}
+
+// Modifier Mutation Addition
+void USimpleAttributeComponent::OnAttributeModifierActionStackApplied(USimpleAttributeModifier* ModifierInstance, FModifierActionStackResults ActionResult)
+{
+	FAttributeModifierMutation NewMutation;
+	NewMutation.ModifierID = ModifierInstance->ModifierID;
+	NewMutation.ModifierClass = ActionResult.ModifierClass;
+	NewMutation.ActionStackResult = ActionResult;
+	NewMutation.MutationTimestamp = GetServerTime();
+
+	if (!HasAuthority())
+	{
+		LocalAttributeModiferMutations.Add(NewMutation);
+		return;
+	}
+
+	FAttributeModifierMutation& AddedRef = AuthorityAttributeModifierMutations.Mutations.Add_GetRef(NewMutation);
+	AuthorityAttributeModifierMutations.MarkItemDirty(AddedRef);
+}
+
 /* Utility */
 
 bool USimpleAttributeComponent::HasAuthority() const
@@ -784,55 +965,14 @@ USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandler(const FG
 	return GetStructAttributeHandlerInstance(AttributeTag, AttributeHandlerClass);
 }
 
-USimpleAttributeModifier* USimpleAttributeComponent::GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass)
-{
-	USimpleAttributeModifier* LocalRunningModifierInstance = nullptr;
-	for (USimpleAttributeModifier* InstancedModifier : InstancedAttributeModifiers)
-	{
-		if (InstancedModifier->GetClass() == ModifierClass)
-		{
-			LocalRunningModifierInstance = InstancedModifier;
-			break;
-		}
-	}
-
-	if (!LocalRunningModifierInstance)
-	{
-		LocalRunningModifierInstance = NewObject<USimpleAttributeModifier>(this, ModifierClass);
-		LocalRunningModifierInstance->OnActionStackApplied.AddDynamic(this, &USimpleAttributeComponent::OnAttributeModifierActionStackApplied);
-		InstancedAttributeModifiers.Add(LocalRunningModifierInstance);
-	}
-
-	return LocalRunningModifierInstance;
-}
-
-void USimpleAttributeComponent::OnAttributeModifierActionStackApplied(FGuid ModifierID, FModifierActionStackResults ActionResult)
-{
-	FAttributeModifierMutation NewMutation;
-	NewMutation.ModifierID = ModifierID;
-	NewMutation.ModifierClass = ActionResult.ModifierClass;
-	NewMutation.ActionStackResult = ActionResult;
-	NewMutation.MutationTimestamp = GetServerTime();
-
-	if (!HasAuthority())
-	{
-		LocalAttributeModiferMutations.Add(NewMutation);
-		return;
-	}
-
-	AuthorityAttributeModifierMutations.Mutations.Add(NewMutation);
-	AuthorityAttributeModifierMutations.MarkItemDirty(NewMutation);
-}
-
-USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerInstance(
-	FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass)
+USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerInstance(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> HandlerClass)
 {
 	if (!HasStructAttribute(AttributeTag))
 	{
 		SIMPLE_LOG(this, FString::Printf(
-			           TEXT(
-				           "[USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance]: Struct Attribute %s not found."),
-			           *AttributeTag.ToString()));
+					   TEXT(
+						   "[USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance]: Struct Attribute %s not found."),
+					   *AttributeTag.ToString()));
 		return nullptr;
 	}
 
@@ -860,8 +1000,7 @@ USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerIns
 
 /* Replication */
 
-void USimpleAttributeComponent::ClientOnAttributeModiferStateAdded(
-	const FAttributeModifierState& NewAttributeModiferState)
+void USimpleAttributeComponent::ClientOnAttributeModiferStateAdded(const FAttributeModifierState& NewAttributeModiferState)
 {
 	// A mapping of the local modifier states for quick lookups
 	TMap<FGuid, int32> LocalAttributeModifierArrayIndexMap;
@@ -870,84 +1009,97 @@ void USimpleAttributeComponent::ClientOnAttributeModiferStateAdded(
 	{
 		LocalAttributeModifierArrayIndexMap.Add(LocalAttributeModifierStates[i].ModifierID, i);
 	}
-
-	// If the NewAbilityState doesn't exist locally, we create a state and apply side effects if the state history is not empty
-	/*if (!LocalStateArrayIndexMap.Contains(NewAttributeModiferState.AbilityID))
+	
+	switch (NewAttributeModiferState.ModifierStatus)
 	{
-		LocalAttributeModifierStates.Add(NewAttributeModiferState);
-
-		if (NewAttributeModiferState.SnapshotHistory.Num() > 0)
-		{
-			USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(NewAttributeModiferState.AbilityID);
-
-			if (!Modifier)
+		case EModifierStatus::Applied:
+			if (!LocalAttributeModifierArrayIndexMap.Contains(NewAttributeModiferState.ModifierID))
 			{
-				UClass* ParentClassPtr = NewAttributeModiferState.AbilityClass.Get();
-				const TSubclassOf<USimpleAttributeModifier> AbilityClass = Cast<UClass>(ParentClassPtr);
-				Modifier = NewObject<USimpleAttributeModifier>(this, AbilityClass);
-				InstancedAttributeModifiers.Add(Modifier);
-			}
+				GetAttributeModifierInstance(NewAttributeModiferState.ModifierClass, true)->ApplyModifier(
+					NewAttributeModiferState.ModifierID,
+					NewAttributeModiferState.InstigatorAttributeComponent,
+					NewAttributeModiferState.TargetAttributeComponent,
+					0.0f,
+					NewAttributeModiferState.ModifierContext);
 
-			Modifier->InitializeAbility(this, NewAttributeModiferState.AbilityID, true);
-
-			if (Modifier->ModifierApplicationPolicy == EAttributeModifierApplicationPolicy::ApplyClientPredicted)
-			{
+				LocalAttributeModifierStates.Add(NewAttributeModiferState);
 				return;
 			}
-			
-			Modifier->ClientFastForwardState(NewAttributeModiferState.SnapshotHistory.Last().SnapshotTag, NewAttributeModiferState.SnapshotHistory.Last());
-		}
-	}*/
-}
 
-void USimpleAttributeComponent::ClientOnAttributeModifierStateChanged(
-	const FAttributeModifierState& ChangedAttributeModiferState)
-{
-	if (!ChangedAttributeModiferState.ModifierClass)
-	{
-		SIMPLE_LOG(this,
-		           FString::Printf(
-			           TEXT(
-				           "[USimpleGameplayAbilityComponent::OnStateChanged]: Changed ability state with ID %s has an invalid class upon replication."),
-			           *ChangedAttributeModiferState.ModifierID.ToString()));
+			LocalAttributeModifierStates[LocalAttributeModifierArrayIndexMap[NewAttributeModiferState.ModifierID]] = NewAttributeModiferState;
+			break;
+		
+		case EModifierStatus::Cancelled:
+			if (LocalAttributeModifierArrayIndexMap.Contains(NewAttributeModiferState.ModifierID))
+			{
+				GetAttributeModifierInstance(NewAttributeModiferState.ModifierClass, true)->CancelModifier(
+				FDefaultTags::AttributeModifierCancelled(),
+				FInstancedStruct());
+			}
+			break;	
 
-		return;
+		case EModifierStatus::Ended:
+			if (LocalAttributeModifierArrayIndexMap.Contains(NewAttributeModiferState.ModifierID))
+			{
+				GetAttributeModifierInstance(NewAttributeModiferState.ModifierClass, true)->EndModifier(
+					FDefaultTags::AttributeModifierEnded(),
+					FInstancedStruct());
+			}
+			break;
 	}
 
-	/*if (ChangedAttributeModiferState.SnapshotHistory.Num() > 0)
-	{
-		USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(ChangedAttributeModiferState.AbilityID);
-
-		if (!Modifier)
-		{
-			return;
-		}
-
-		TArray<FSimpleAbilitySnapshot>* LocalSnapshots = GetLocalAttributeStateSnapshots(ChangedAttributeModiferState.AbilityID);
-
-		if (!LocalSnapshots)
-		{
-			SIMPLE_LOG(this,
-				FString::Printf(TEXT("[USimpleGameplayAbilityComponent::OnStateChanged]: Attribute modifier with ID %s not found in LocalAttributeModifierStates array"),
-				*ChangedAttributeModiferState.AbilityID.ToString()));
-			
-			return;
-		}
-		
-		for (FSimpleAbilitySnapshot& LocalSnapshot : *LocalSnapshots)
-		{
-			if (LocalSnapshot.SnapshotTag == ChangedAttributeModiferState.SnapshotHistory.Last().SnapshotTag && !LocalSnapshot.WasClientSnapshotResolved)
-			{
-				Modifier->ClientResolvePastState(ChangedAttributeModiferState.SnapshotHistory.Last().SnapshotTag, ChangedAttributeModiferState.SnapshotHistory.Last(), LocalSnapshot);
-				LocalSnapshot.WasClientSnapshotResolved = true;
-				break;
-			}
-		}
-	}*/
 }
 
-void USimpleAttributeComponent::ClientOnAttributeModiferStateRemoved(
-	const FAttributeModifierState& RemovedAttributeModiferState)
+void USimpleAttributeComponent::ClientOnAttributeModifierStateChanged(const FAttributeModifierState& ChangedAttributeModiferState)
+{
+	// A mapping of the local modifier states for quick lookups
+	TMap<FGuid, int32> LocalAttributeModifierArrayIndexMap;
+
+	for (int32 i = 0; i < LocalAttributeModifierStates.Num(); i++)
+	{
+		LocalAttributeModifierArrayIndexMap.Add(LocalAttributeModifierStates[i].ModifierID, i);
+	}
+	
+	switch (ChangedAttributeModiferState.ModifierStatus)
+	{
+		case EModifierStatus::Applied:
+			if (!LocalAttributeModifierArrayIndexMap.Contains(ChangedAttributeModiferState.ModifierID))
+			{
+				GetAttributeModifierInstance(ChangedAttributeModiferState.ModifierClass, true)->ApplyModifier(
+					ChangedAttributeModiferState.ModifierID,
+					ChangedAttributeModiferState.InstigatorAttributeComponent,
+					ChangedAttributeModiferState.TargetAttributeComponent,
+					0.0f,
+					ChangedAttributeModiferState.ModifierContext);
+
+				LocalAttributeModifierStates.Add(ChangedAttributeModiferState);
+				return;
+			}
+
+			LocalAttributeModifierStates[LocalAttributeModifierArrayIndexMap[ChangedAttributeModiferState.ModifierID]] = ChangedAttributeModiferState;
+			break;
+			
+		case EModifierStatus::Cancelled:
+			if (LocalAttributeModifierArrayIndexMap.Contains(ChangedAttributeModiferState.ModifierID))
+			{
+				GetAttributeModifierInstance(ChangedAttributeModiferState.ModifierClass, true)->CancelModifier(
+				FDefaultTags::AttributeModifierCancelled(),
+				FInstancedStruct());
+			}
+			break;	
+
+		case EModifierStatus::Ended:
+			if (LocalAttributeModifierArrayIndexMap.Contains(ChangedAttributeModiferState.ModifierID))
+			{
+				GetAttributeModifierInstance(ChangedAttributeModiferState.ModifierClass, true)->EndModifier(
+					FDefaultTags::AttributeModifierEnded(),
+					FInstancedStruct());
+			}
+			break;
+	}
+}
+
+void USimpleAttributeComponent::ClientOnAttributeModiferStateRemoved(const FAttributeModifierState& RemovedAttributeModiferState)
 {
 	LocalAttributeModifierStates.RemoveAll([RemovedAttributeModiferState](const FAttributeModifierState& ModifierState)
 	{
@@ -955,8 +1107,7 @@ void USimpleAttributeComponent::ClientOnAttributeModiferStateRemoved(
 	});
 }
 
-void USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded(
-	const FAttributeModifierMutation& NewModifierMutation)
+void USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded(const FAttributeModifierMutation& NewModifierMutation)
 {
 	// Get the local version of NewAttributeModifierSnapshot if it exists
 	const FAttributeModifierMutation* PredictedMutation = LocalAttributeModiferMutations.FindByPredicate(
@@ -972,10 +1123,27 @@ void USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded(
 		LocalActionStackResults = PredictedMutation->ActionStackResult;
 	}
 
-	USimpleAttributeModifier* LocalRunningModifierInstance = GetAttributeModifierInstance(NewModifierMutation.ModifierClass);
-	//LocalRunningModifierInstance->OnClientReceivedServerActionsResult(NewModifierMutation.ModifierClass);
-	                                                                  
+	USimpleAttributeModifier* LocalRunningModifierInstance = GetAttributeModifierInstance(NewModifierMutation.ModifierClass, false);
+	LocalRunningModifierInstance->ModifierID = NewModifierMutation.ModifierID;
+	const FAttributeModifierState* AuthorityState = AuthorityAttributeModifierStates.ModifierStates.FindByPredicate(
+		[NewModifierMutation](const FAttributeModifierState& State)
+		{
+			return State.ModifierID == NewModifierMutation.ModifierID;
+		});
 
+	if (AuthorityState)
+	{
+		LocalRunningModifierInstance->InstigatorAttributeComponent = AuthorityState->InstigatorAttributeComponent;
+		LocalRunningModifierInstance->TargetAttributeComponent = AuthorityState->TargetAttributeComponent;
+		LocalRunningModifierInstance->OnClientReceivedServerActionsResult(NewModifierMutation.ActionStackResult, LocalActionStackResults);
+	}
+	else
+	{
+		SIMPLE_LOG(this, FString::Printf(
+			TEXT("[USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded]: Modifier with ID %s not found in AuthorityAttributeModifierStates array"),
+			*NewModifierMutation.ModifierID.ToString()));
+	}
+	
 	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
 	if (PredictedMutation)
 	{

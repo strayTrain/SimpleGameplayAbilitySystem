@@ -24,54 +24,61 @@ bool USimpleAttributeModifier::ApplyModifier(const FGuid NewModifierID, USimpleA
 	
 	ActivationTime = InstigatorAttributeComponent->GetServerTime();
 	IsActive = true;
+	
+	OnPreApplyModifierActions();
+
+	if (DoesModifierReplicate)
+	{
+		OnModifierApplied.Broadcast(this);
+	}
 
 	// Add permanent gameplay tags from this modifier
 	for (const FGameplayTag& Tag : PermanentlyAppliedTags)
 	{
 		TargetAttributeComponent->AddGameplayTag(Tag);
 	}
-
-	OnPreApplyModifierActions();
 	
 	ModifierActionScratchPad = InitialScratchPadValues;
-	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierApplied() })));
+	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierApplied() })));
 	
-	// If we're an instant modifier we apply the action stack immediately and then end.
-	// SetDuration modifiers with a duration of 0 also apply immediately and end.
-	
-	if (DurationType == EAttributeModifierDurationType::Instant || (DurationType == EAttributeModifierDurationType::SetDuration && Duration <= 0))
+	switch (DurationType)
 	{
-		EndModifier(FDefaultTags::AttributeModifierEnded(), FInstancedStruct());
-		return true;
-	}
-	
-	// Otherwise we're a duration modifier (either SetDuration with a duration > 0 or InfiniteDuration)
-
-	for (const FGameplayTag& Tag : TemporarilyAppliedTags)
-	{
-		TargetAttributeComponent->AddGameplayTag(Tag);
-	}
-
-	// Set the tick timer
-	if (TickInterval > 0)
-	{
-		GetWorld()->GetTimerManager().SetTimer(TickTimerHandle, this, &USimpleAttributeModifier::OnTickTimerTriggered, TickInterval, true);
-	}
-	
-	if (DurationType == EAttributeModifierDurationType::SetDuration && Duration > 0)
-	{
-		// Set the duration timer
-		GetWorld()->GetTimerManager().SetTimer(
-			DurationTimerHandle,
-			this,
-			&USimpleAttributeModifier::OnDurationTimerExpired,
-			Duration,
-			false
-		);
+		case EAttributeModifierDurationType::Instant:
+			EndModifier(FDefaultTags::AttributeModifierEnded(), FInstancedStruct());
+			return true;
 		
-		return true;
+		case EAttributeModifierDurationType::SetDuration:
+			if (Duration <= 0)
+			{
+				EndModifier(FDefaultTags::AttributeModifierEnded(), FInstancedStruct());
+				return true;
+			}
+		
+			// Set the duration timer
+			GetWorld()->GetTimerManager().SetTimer(
+				DurationTimerHandle,
+				this,
+				&USimpleAttributeModifier::OnDurationTimerExpired,
+				Duration,
+				false
+			);
+		
+			// No break in the case of SetDuration because it also shares the same logic as InfiniteDuration
+		case EAttributeModifierDurationType::InfiniteDuration:
+			for (const FGameplayTag& Tag : TemporarilyAppliedTags)
+			{
+				TargetAttributeComponent->AddGameplayTag(Tag);
+			}
+
+			// Set the tick timer if applicable
+			if (TickInterval > 0)
+			{
+				GetWorld()->GetTimerManager().SetTimer(TickTimerHandle, this, &USimpleAttributeModifier::OnTickTimerTriggered, TickInterval, true);
+			}
+		
+			return true;
 	}
-	
+
 	return false;
 }
 
@@ -92,7 +99,11 @@ void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstanced
 
 	IsActive = false;
 	OnModifierEnded(EndingStatus, EndingContext);
-	OnAttributeModifierEnded.Broadcast(ModifierID, EndingStatus, EndingContext);
+
+	if (DoesModifierReplicate)
+	{
+		OnAttributeModifierEnded.Broadcast(this, EndingStatus, EndingContext);
+	}
 }
 
 void USimpleAttributeModifier::CancelModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
@@ -112,7 +123,11 @@ void USimpleAttributeModifier::CancelModifier(FGameplayTag EndingStatus, FInstan
 
 	IsActive = false;
 	OnModifierCancelled(EndingStatus, EndingContext);
-	OnAttributeModifierCancelled.Broadcast(ModifierID, EndingStatus, EndingContext);
+
+	if (DoesModifierReplicate)
+	{
+		OnAttributeModifierCancelled.Broadcast(this, EndingStatus, EndingContext);
+	}
 }
 
 bool USimpleAttributeModifier::CanApplyModifierInternal()
@@ -159,12 +174,16 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 		UModifierAction* Action = ModifierActions[i];
 		Action->InitializeAction(ModifierActionScratchPad, OwningModifier);
 
-		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerOnly && !OwningModifier->InstigatorAttributeComponent->HasAuthority())
+		const bool CanRunOnServer = (Action->ActivationPolicy & static_cast<uint8>(EModifierActionActivationPolicy::RunOnServer)) != 0;
+		const bool CanRunOnClient = (Action->ActivationPolicy & static_cast<uint8>(EModifierActionActivationPolicy::RunOnClient)) != 0;
+		const bool IsServer = OwningModifier->InstigatorAttributeComponent->HasAuthority();
+		
+		if (IsServer && !CanRunOnServer)
 		{
 			continue;
 		}
 
-		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyClientOnly && OwningModifier->InstigatorAttributeComponent->HasAuthority())
+		if (!IsServer && !CanRunOnClient)
 		{
 			continue;
 		}
@@ -177,17 +196,12 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 		const FAttributeModifierActionScratchPad InputScratchpad = ModifierActionScratchPad;
 		const FInstancedStruct ActionResult = Action->ApplyAction();
 		
-		// Add the result of the action if applicable
-		if (Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyClientPredicted ||
-			Action->ApplicationPolicy == EAttributeModifierActionPolicy::ApplyServerInitiated)
-		{
-			ActionResults.Add({
-				i,
-				Action->GetClass(),
-				InputScratchpad,
-				ActionResult
-			});
-		}
+		ActionResults.Add({
+			i,
+			Action->GetClass(),
+			InputScratchpad,
+			ActionResult
+		});
 	}
 	
 	if (ActionResults.Num() > 0)
@@ -195,8 +209,12 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 		FModifierActionStackResults ActionStackResult;
 		ActionStackResult.ModifierClass = GetClass();
 		ActionStackResult.ActionsResults = ActionResults;
-		// The attribute component listens for this event to track in AuthorityAttributeModifierMutations and ultimately replicate to clients.
-		OnActionStackApplied.Broadcast(ModifierID, ActionStackResult);
+
+		if (DoesModifierReplicate)
+		{
+			// The attribute component listens for this event to track in AuthorityAttributeModifierMutations and ultimately replicate to clients.
+			OnActionStackApplied.Broadcast(this, ActionStackResult);
+		}
 	}
 
 	OnPostApplyModifierActions();
@@ -226,36 +244,12 @@ void USimpleAttributeModifier::AddModifierStack(int32 StackCount)
 	OnStacksAdded(StackCount, ModifierStacks);
 }
 
-void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FInstancedStruct ServerSnapshot, FInstancedStruct ClientSnapshot)
+void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation)
 {
-	const FModifierActionStackResults* ServerSnapshotPtr = ServerSnapshot.GetPtr<FModifierActionStackResults>();
-	const FModifierActionStackResults* ClientSnapshotPtr = ClientSnapshot.GetPtr<FModifierActionStackResults>();
-
-	TArray<FModifierActionResult> ServerActionResults;
-	TArray<FModifierActionResult> ClientActionResults;
-	
-	if (!ServerSnapshotPtr)
-	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeModifier::OnClientReceivedServerActionsResult]: Server snapshot is null and this should never be the case. Something went wrong :/"));
-		return;
-	}
-
-	ServerActionResults = ServerSnapshotPtr->ActionsResults;
-	
-	// It's possible that the client didn't take a snapshot itself but is receiving a snapshot from the server i.e. ActionApplicationPolicy is AppluServerInitiated
-	if (!ClientSnapshotPtr)
-	{
-		ClientActionResults = TArray<FModifierActionResult>();
-	}
-	else
-	{
-		ClientActionResults = ClientSnapshotPtr->ActionsResults;
-	}
-	
 	// Create maps for server and client action results to compare them easily.
 	TMap<int32, FModifierActionResult> ServerMap, ClientMap;
-	for (const FModifierActionResult& ActionResult : ServerActionResults) ServerMap.Add(ActionResult.ActionIndex, ActionResult);
-	for (const FModifierActionResult& ActionResult : ClientActionResults) ClientMap.Add(ActionResult.ActionIndex, ActionResult);
+	for (const FModifierActionResult& ActionResult : ServerMutation.ActionsResults) ServerMap.Add(ActionResult.ActionIndex, ActionResult);
+	for (const FModifierActionResult& ActionResult : ClientMutation.ActionsResults) ClientMap.Add(ActionResult.ActionIndex, ActionResult);
 	
 	TArray<int32> ServerMapKeys, ClientMapKeys;
 	ServerMap.GetKeys(ServerMapKeys);

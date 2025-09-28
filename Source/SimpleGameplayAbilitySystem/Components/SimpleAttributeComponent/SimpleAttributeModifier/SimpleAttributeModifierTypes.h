@@ -13,11 +13,11 @@
 
 #include "SimpleAttributeModifierTypes.generated.h"
 
+class USimpleAttributeModifier;
+class USimpleAttributeComponent;
 class UModifierAction;
 
 /* Enums */
-
-class USimpleAttributeModifier;
 
 UENUM(BlueprintType)
 enum class EAttributeModifierDurationType : uint8
@@ -70,7 +70,6 @@ UENUM(BlueprintType)
 enum class EModifierStatus : uint8
 {
 	Applied,
-	AppliedFailed,
 	Cancelled,
 	Ended,
 };
@@ -167,7 +166,16 @@ struct FAttributeModifierState : public FFastArraySerializerItem
 	TSubclassOf<USimpleAttributeModifier> ModifierClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FInstancedStruct ModifierContext;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EModifierStatus ModifierStatus;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	USimpleAttributeComponent* InstigatorAttributeComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	USimpleAttributeComponent* TargetAttributeComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float ApplicationTimestamp;
@@ -249,27 +257,28 @@ struct FAttributeModifierMutation : public FFastArraySerializerItem
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 MutationCounter = 0;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid ModifierID;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TSubclassOf<USimpleAttributeModifier> ModifierClass;
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float MutationTimestamp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FModifierActionStackResults ActionStackResult;
-	
-	bool operator==(const FAttributeModifierState& Other) const
+
+	bool operator==(const FAttributeModifierMutation& Other) const
 	{
-		return ModifierID == Other.ModifierID;
+		// Identity by ModifierID (+ MutationCounter if you want stricter identity)
+		return ModifierID == Other.ModifierID && MutationCounter == Other.MutationCounter;
 	}
 
 	friend uint32 GetTypeHash(const FAttributeModifierMutation& State)
 	{
-		return GetTypeHash(State.ModifierID);
+		return HashCombine(GetTypeHash(State.ModifierID), ::GetTypeHash(State.MutationCounter));
 	}
 };
 
@@ -330,5 +339,6 @@ DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FAttributeModifierMutationContainer)
 
 /* Event Dispatchers */
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActionStackAppliedSignature, FGuid, ModifierID, FModifierActionStackResults, Results);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnModifierEndedSignature, FGuid, ModifierID, FGameplayTag, EndStatus, FInstancedStruct, EndContext);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnModifierAppliedSignature, USimpleAttributeModifier*, ModifierInstance);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActionStackAppliedSignature, USimpleAttributeModifier*, ModifierInstance, FModifierActionStackResults, Results);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnModifierEndedSignature, USimpleAttributeModifier*, ModifierInstance, FGameplayTag, EndStatus, FInstancedStruct, EndContext);

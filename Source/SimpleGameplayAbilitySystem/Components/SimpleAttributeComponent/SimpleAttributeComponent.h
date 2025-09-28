@@ -70,87 +70,60 @@ public:
 	FAttributeModifierMutationContainer AuthorityAttributeModifierMutations;
 	UPROPERTY(VisibleAnywhere, Category = "AttributeComponent|State", meta = (TitleProperty = "AbilityClass"))
 	TArray<FAttributeModifierMutation> LocalAttributeModiferMutations;
-
-	/* Event Dispatchers */
-
-	// Gameplay Tags
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|GameplayTags")
-	FOnGameplayTagAddedSignature OnGameplayTagAdded;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|GameplayTags")
-	FOnGameplayTagRemovedSignature OnGameplayTagRemoved;
-	
-	// Float Attributes
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeAddedSignature OnFloatAttributeAdded;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeRemovedSignature OnFloatAttributeRemoved;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeValueChangedSignature OnFloatAttributeBaseValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeValueChangedSignature OnFloatAttributeCurrentValueChanged;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeValueChangedSignature OnFloatAttributeMinBaseValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeValueChangedSignature OnFloatAttributeMinCurrentValueChanged;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeValueChangedSignature OnFloatAttributeMaxBaseValueChanged;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeValueChangedSignature OnFloatAttributeMaxCurrentValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeBoolChangedSignature OnUseMinBaseValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeBoolChangedSignature OnUseMinCurrentValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeBoolChangedSignature OnUseMaxBaseValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeBoolChangedSignature OnUseMaxCurrentValueChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeLimitReachedSignature OnMinBaseValueReached;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeLimitReachedSignature OnMinCurrentValueReached;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeLimitReachedSignature OnMaxBaseValueReached;
-	
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
-	FOnFloatAttributeLimitReachedSignature OnMaxCurrentValueReached;
-
-	// Struct Attributes
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Struct")
-	FOnStructAttributeAddedSignature OnStructAttributeAdded;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Struct")
-	FOnStructAttributeRemovedSignature OnStructAttributeRemoved;
-
-	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Struct")
-	FOnStructAttributeChangedSignature OnStructAttributeChanged;
 	
 	/* Attribute Modifier Functions */
 	
+	/**
+	 * Applies an attribute modifier to a target attribute component without any replication. Use this function
+	 * for single player or server/client only abilities.
+	 * @param ModifierID The ID of the applied modifier. This can be used to cancel the modifier later.
+	 * @param ModifierClass The class of the modifier to apply
+	 * @param ModifierTarget The target attribute component to apply the modifier to
+	 * @param Magnitude Optional magnitude of the modifier. This can be used in the modifier's logic.
+	 * @param ModifierContext Optional context struct that can be used to pass additional data to the modifier.
+	 * @return True if the modifier was applied successfully, false otherwise
+	 */
 	UFUNCTION(Category = "AttributeComponent|Attributes")
 	bool ApplyAttributeModifierToTarget(
-		FGuid ModifierID,
+		FGuid& ModifierID,
 		const TSubclassOf<USimpleAttributeModifier>& ModifierClass,
 		USimpleAttributeComponent* ModifierTarget,
 		float Magnitude,
 		const FInstancedStruct& ModifierContext);
 
+	/**
+	 *	Applies an attribute modifier to a target attribute component with client prediction. If this function is
+	 *	called on a client, it will attempt to apply the modifier locally and then call the server to apply the modifier.
+	 *	If the server rejects the modifier, it will be cancelled on the client. If called on the server, the behaviour is
+	 *	the same as ApplyAttributeModifierToTargetServerInitiated.
+	 *	@param ModifierID The ID of the applied modifier. This can be used to cancel the modifier later.
+	 *	@param ModifierClass The class of the modifier to apply
+	 *	@param ModifierTarget The target attribute component to apply the modifier to
+	 *	@param Magnitude Optional magnitude of the modifier. This can be used in the modifier's logic.
+	 *	@param ModifierContext Optional context struct that can be used to pass additional data to the modifier.
+	 *	@return True if the modifier was applied successfully, false otherwise
+	 */
 	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
 	bool ApplyAttributeModifierToTargetPredicted(
+		FGuid& ModifierID,
+		TSubclassOf<USimpleAttributeModifier> ModifierClass,
+		USimpleAttributeComponent* ModifierTarget,
+		float Magnitude,
+		FInstancedStruct ModifierContext);
+
+	/**
+	 *	Applies an attribute modifier to a target attribute component. Can be invoked by the client but will only run
+	 *	on the server with the results of the modifier replicated to the client. Use this function if your attribute
+	 *	modifier does things which need to happen on the server (e.g. spawning actors, picking a random number, etc).
+	 *	@param ModifierID The ID of the applied modifier. This can be used to cancel the modifier later.
+	 *	@param ModifierClass The class of the modifier to apply
+	 *	@param ModifierTarget The target attribute component to apply the modifier to
+	 *	@param Magnitude Optional magnitude of the modifier. This can be used in the modifier's logic.
+	 *	@param ModifierContext Optional context struct that can be used to pass additional data to the modifier.
+	 *	@return True if the modifier was applied successfully, false otherwise
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void ApplyAttributeModifierToTargetServerInitiated(
 		FGuid& ModifierID,
 		TSubclassOf<USimpleAttributeModifier> ModifierClass,
 		USimpleAttributeComponent* ModifierTarget,
@@ -178,6 +151,13 @@ public:
 		float Magnitude,
 		FInstancedStruct ModifierContext);
 
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void ApplyAttributeModifierToSelfServerInitiated(
+		FGuid& ModifierID,
+		TSubclassOf<USimpleAttributeModifier> ModifierClass,
+		float Magnitude,
+		FInstancedStruct ModifierContext);
+
 	/**
 	 * Cancels a modifier.
 	 * If it is an active duration modifier, it is cancelled.
@@ -188,7 +168,25 @@ public:
 	void CancelAttributeModifier(FGuid ModifierID);
 
 	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifierPredicted(FGuid ModifierID);
+
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifierServerInitiated(FGuid ModifierID);
+
+	UFUNCTION(Server, Reliable, Category = "AttributeComponent|Attributes")
+	void ServerCancelAttributeModifier(FGuid ModifierID);
+	
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
 	void CancelAttributeModifiersWithTags(FGameplayTagContainer ModifierTags);
+
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifiersWithTagsPredicted(FGameplayTagContainer ModifierTags);
+
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifiersWithTagsServerInitiated(FGameplayTagContainer ModifierTags);
+
+	UFUNCTION(Server, Reliable, Category = "AttributeComponent|Attributes")
+	void ServerCancelAttributeModifiersWithTags(FGameplayTagContainer ModifierTags);
 
 	/**
 	 * This function checks if there is an active attribute modifiers with ModifierTags matching the specified tags.
@@ -301,10 +299,19 @@ protected:
 	TArray<USimpleAttributeHandler*> InstancedAttributeHandlers;
 
 private:
-	USimpleAttributeModifier* GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass);
+	USimpleAttributeModifier* GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass, bool ShouldReplicate = true);
 
 	UFUNCTION()
-	void OnAttributeModifierActionStackApplied(FGuid ModifierID, FModifierActionStackResults ActionResult);
+	void OnAttributeModifierInitiallyApplied(USimpleAttributeModifier* ModifierInstance);
+	
+	UFUNCTION()
+	void OnAttributeModifierActionStackApplied(USimpleAttributeModifier* ModifierInstance, FModifierActionStackResults ActionResult);
+
+	UFUNCTION()
+	void OnAttributeModifierEnded(USimpleAttributeModifier* ModifierInstance, FGameplayTag EndStatus, FInstancedStruct EndContext);
+
+	UFUNCTION()
+	void OnAttributeModifierCancelled(USimpleAttributeModifier* ModifierInstance, FGameplayTag EndStatus, FInstancedStruct EndContext);
 	
 	void ClientOnAttributeModiferStateAdded(const FAttributeModifierState& NewAttributeModiferState);
 	void ClientOnAttributeModifierStateChanged(const FAttributeModifierState& ChangedAttributeModiferState);
@@ -324,4 +331,73 @@ private:
 	void ClientOnGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag);
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
+public:
+	/* Event Dispatchers */
+
+	// Gameplay Tags
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|GameplayTags")
+	FOnGameplayTagAddedSignature OnGameplayTagAdded;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|GameplayTags")
+	FOnGameplayTagRemovedSignature OnGameplayTagRemoved;
+	
+	// Float Attributes
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeAddedSignature OnFloatAttributeAdded;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeRemovedSignature OnFloatAttributeRemoved;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeValueChangedSignature OnFloatAttributeBaseValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeValueChangedSignature OnFloatAttributeCurrentValueChanged;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeValueChangedSignature OnFloatAttributeMinBaseValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeValueChangedSignature OnFloatAttributeMinCurrentValueChanged;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeValueChangedSignature OnFloatAttributeMaxBaseValueChanged;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeValueChangedSignature OnFloatAttributeMaxCurrentValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeBoolChangedSignature OnUseMinBaseValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeBoolChangedSignature OnUseMinCurrentValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeBoolChangedSignature OnUseMaxBaseValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeBoolChangedSignature OnUseMaxCurrentValueChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeLimitReachedSignature OnMinBaseValueReached;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeLimitReachedSignature OnMinCurrentValueReached;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeLimitReachedSignature OnMaxBaseValueReached;
+	
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Float")
+	FOnFloatAttributeLimitReachedSignature OnMaxCurrentValueReached;
+
+	// Struct Attributes
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Struct")
+	FOnStructAttributeAddedSignature OnStructAttributeAdded;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Struct")
+	FOnStructAttributeRemovedSignature OnStructAttributeRemoved;
+
+	UPROPERTY(BlueprintAssignable, Category = "AttributeComponent|Events|Attributes|Struct")
+	FOnStructAttributeChangedSignature OnStructAttributeChanged;
 };
