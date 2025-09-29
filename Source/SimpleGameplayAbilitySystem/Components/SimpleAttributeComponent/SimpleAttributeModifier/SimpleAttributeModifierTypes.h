@@ -167,6 +167,9 @@ struct FAttributeModifierState : public FFastArraySerializerItem
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FInstancedStruct ModifierContext;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float ModifierMagnitude = 0.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EModifierStatus ModifierStatus;

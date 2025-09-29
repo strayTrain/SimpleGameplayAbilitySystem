@@ -7,14 +7,13 @@
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 
-bool USimpleAttributeModifier::ApplyModifier(const FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, const float Magnitude, const FInstancedStruct Context)
+bool USimpleAttributeModifier::ApplyModifier()
 {
-	ModifierID = NewModifierID;
-	InstigatorAttributeComponent = Instigator;
-	TargetAttributeComponent = Target;
-	ModifierContext = Context;
-	ModifierActionScratchPad = FAttributeModifierActionScratchPad();
-	ModifierMagnitude = Magnitude;
+	if (!WasInitialized)
+	{
+		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeModifier::ApplyModifier]: Modifier %s was not initialized before applying."), *GetName());
+		return false;
+	}
 
 	if (!CanApplyModifierInternal())
 	{
@@ -176,7 +175,7 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 
 		const bool CanRunOnServer = (Action->ActivationPolicy & static_cast<uint8>(EModifierActionActivationPolicy::RunOnServer)) != 0;
 		const bool CanRunOnClient = (Action->ActivationPolicy & static_cast<uint8>(EModifierActionActivationPolicy::RunOnClient)) != 0;
-		const bool IsServer = OwningModifier->InstigatorAttributeComponent->HasAuthority();
+		const bool IsServer = InstigatorAttributeComponent->HasAuthority();
 		
 		if (IsServer && !CanRunOnServer)
 		{

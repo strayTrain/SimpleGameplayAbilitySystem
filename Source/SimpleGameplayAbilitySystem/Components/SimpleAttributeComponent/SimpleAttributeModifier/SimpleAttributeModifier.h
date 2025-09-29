@@ -149,8 +149,6 @@ public:
 	USimpleAttributeComponent* TargetAttributeComponent;
 
 	/* Event Dispatchers */
-
-
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|Events|Lifecycle")
 	FOnModifierAppliedSignature OnModifierApplied;
@@ -165,9 +163,20 @@ public:
 	FOnModifierEndedSignature OnAttributeModifierCancelled;
 	
 	/* Callable Functions */
+
+	void InitializeModifier(FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate)
+	{
+		ModifierID = NewModifierID;
+		InstigatorAttributeComponent = Instigator;
+		TargetAttributeComponent = Target;
+		ModifierContext = Context;
+		ModifierMagnitude = Magnitude;
+		WasInitialized = true;
+		DoesModifierReplicate = DoesReplicate;
+	}
 	
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application", meta = (AdvancedDisplay=3))
-	bool ApplyModifier(FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context);
+	bool ApplyModifier();
 
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
 	void EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
@@ -177,9 +186,6 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void AddModifierStack(int32 StackCount);
-
-	// If set to false, this modifier will not call any event dispatchers (which the attribute component uses to replicate state)
-	void SetModifierCanReplicate(const bool CanReplicate) { DoesModifierReplicate = CanReplicate; }
 	
 	/* Blueprint Implementable Events */
 
@@ -223,7 +229,8 @@ public:
 	{
 		return ModifierActionScratchPad;
 	}
-	
+
+	bool WasModifierInitialized() const { return WasInitialized; }
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
 	float ActivationTime;
@@ -244,4 +251,5 @@ private:
 	void OnTickTimerTriggered();
 
 	bool DoesModifierReplicate = true;
+	bool WasInitialized = false;
 };

@@ -299,7 +299,7 @@ protected:
 	TArray<USimpleAttributeHandler*> InstancedAttributeHandlers;
 
 private:
-	USimpleAttributeModifier* GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass, bool ShouldReplicate = true);
+	USimpleAttributeModifier* GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass, FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate);
 
 	UFUNCTION()
 	void OnAttributeModifierInitiallyApplied(USimpleAttributeModifier* ModifierInstance);
