@@ -4,7 +4,6 @@
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "SimpleGameplayAbilitySystem/AsyncActions/AsyncActionTypes.h"
-#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventTypes.h"
 #include "WaitForFloatAttributeChange.generated.h"
 
 class UWaitForSimpleEvent;

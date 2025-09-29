@@ -3,8 +3,6 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "SimpleGameplayAbilitySystem/AsyncActions/AsyncActionTypes.h"
-#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventTypes.h"
-#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/WaitForSimpleEvent/WaitForSimpleEvent.h"
 #include "WaitForAbility.generated.h"
 
 class USimpleGameplayAbilityComponent;

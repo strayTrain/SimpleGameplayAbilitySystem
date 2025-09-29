@@ -6,8 +6,6 @@
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/SimpleAbilitySet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
-#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubSystem.h"
 
 class USimpleEventSubsystem;
 
@@ -63,12 +61,6 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
     
 	// Clear collections
 	InstancedAbilities.Empty();
-    
-	// Unsubscribe from events
-	if (USimpleEventSubsystem* EventSubsystem = GetWorld() ? GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>() : nullptr)
-	{
-		EventSubsystem->StopListeningForAllEvents(this);
-	}
 	
 	Super::EndPlay(EndPlayReason);
 }

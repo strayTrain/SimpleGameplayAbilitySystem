@@ -1,7 +1,6 @@
 #include "WaitForGameplayTag.h"
 
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
-#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/WaitForSimpleEvent/WaitForSimpleEvent.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 
 // UWaitForGameplayTag* UWaitForGameplayTag::WaitForGameplayTag(
