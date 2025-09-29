@@ -4,7 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "SimpleAbilityComponentTypes.h"
 #include "Components/ActorComponent.h"
-#include "SimpleAbility/SimpleAbilityTypes.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
 
 struct FAbilitySideEffect;

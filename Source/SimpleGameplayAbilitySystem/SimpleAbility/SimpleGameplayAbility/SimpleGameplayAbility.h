@@ -2,8 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Tickable.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "SimpleGameplayAbility.generated.h"
 
 class USimpleAttributeComponent;

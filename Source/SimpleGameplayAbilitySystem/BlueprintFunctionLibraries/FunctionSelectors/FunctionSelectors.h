@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent//SimpleAbility/SimpleAbilityTypes.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "FunctionSelectors.generated.h"
 
 class USimpleAttributeModifier;

@@ -2,7 +2,7 @@
 
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
-#include "SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/SimpleAbilitySet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"

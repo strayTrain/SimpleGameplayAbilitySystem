@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "SimpleAttributeModifierTypes.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "SimpleAttributeModifier.generated.h"
 
 class USimpleAttributeComponent;

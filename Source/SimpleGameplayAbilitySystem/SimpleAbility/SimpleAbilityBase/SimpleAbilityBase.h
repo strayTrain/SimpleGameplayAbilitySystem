@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbility/SimpleAbilityTypes.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
 	#include "StructUtils/InstancedStruct.h"
 #else
