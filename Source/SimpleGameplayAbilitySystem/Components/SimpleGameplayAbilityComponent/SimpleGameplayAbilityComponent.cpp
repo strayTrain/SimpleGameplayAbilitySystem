@@ -75,7 +75,7 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
 
 /* Ability Functions */
 
-bool USimpleGameplayAbilityComponent::ActivateAbilityLocal(
+bool USimpleGameplayAbilityComponent::ActivateAbility(
 	const TSubclassOf<USimpleGameplayAbility> AbilityClass,
 	FInstancedStruct AbilityContext,
 	FGuid& AbilityID)

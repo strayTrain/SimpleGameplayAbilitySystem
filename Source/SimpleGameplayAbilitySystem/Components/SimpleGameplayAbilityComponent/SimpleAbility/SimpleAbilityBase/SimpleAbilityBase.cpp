@@ -4,7 +4,7 @@ bool USimpleAbilityBase::ActivateAbility(FInstancedStruct ActivationContext)
 {
 	Context = ActivationContext;
 	
-	if (!CanActivateInternal() || !CanActivate(Context))
+	if (!CanActivateInternal())
 	{
 		OnActivationFailed.Broadcast(this);
 		return false;

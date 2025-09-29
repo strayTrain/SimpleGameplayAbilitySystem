@@ -22,7 +22,7 @@ void USimpleGameplayAbility::OnGrantedStatic(TSubclassOf<USimpleGameplayAbility>
 	}
 }
 
-bool USimpleGameplayAbility::CanActivateInternal()
+bool USimpleGameplayAbility::	CanActivateInternal()
 {
 	// Check if the ability is granted
 	if (RequireGrantToActivate && !AbilityComponent->GrantedAbilities.Contains(GetClass()))

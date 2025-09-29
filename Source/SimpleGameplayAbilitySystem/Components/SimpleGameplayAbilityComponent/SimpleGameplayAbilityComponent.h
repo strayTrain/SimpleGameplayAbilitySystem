@@ -79,7 +79,7 @@ public:
 	 * @return 
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
-	bool ActivateAbilityLocal(
+	bool ActivateAbility(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct AbilityContext,
 		FGuid& AbilityID);

@@ -55,10 +55,6 @@ public:
 	void CancelAbility(FGameplayTag EndStatus, FInstancedStruct EndContext);
 	
 	/* Overridable functions */
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Ability")
-	bool CanActivate(const FInstancedStruct& ActivationContext);
-	virtual bool CanActivate_Implementation(const FInstancedStruct& ActivationContext) { return true; }
 
 	// Called after passing the CanActivate check but before calling OnActivate
 	UFUNCTION(BlueprintNativeEvent, Category = "Ability")

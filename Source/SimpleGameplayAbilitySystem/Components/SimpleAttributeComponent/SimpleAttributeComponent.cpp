@@ -88,9 +88,20 @@ void USimpleAttributeComponent::BeginPlay()
 	AuthorityGameplayTags.OnGameplayTagCounterRemoved.BindUObject(
 		this, &USimpleAttributeComponent::ClientOnGameplayTagRemoved);
 
-	LocalFloatAttributes = AuthorityFloatAttributes.Attributes;
-	LocalStructAttributes = AuthorityStructAttributes.Attributes;
-	LocalGameplayTags = AuthorityGameplayTags.Tags;
+	// Only initialize local state if we've already received initial replication data
+	// Otherwise, the FastArraySerializer callbacks will populate the local state
+	if (AuthorityFloatAttributes.Attributes.Num() > 0)
+	{
+		LocalFloatAttributes = AuthorityFloatAttributes.Attributes;
+	}
+	if (AuthorityStructAttributes.Attributes.Num() > 0)
+	{
+		LocalStructAttributes = AuthorityStructAttributes.Attributes;
+	}
+	if (AuthorityGameplayTags.Tags.Num() > 0)
+	{
+		LocalGameplayTags = AuthorityGameplayTags.Tags;
+	}
 }
 
 void USimpleAttributeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -149,7 +160,12 @@ void USimpleAttributeComponent::RemoveGameplayTag(FGameplayTag Tag)
 		return TagCounter.GameplayTag.MatchesTagExact(Tag);
 	});
 
-	if (TagCounter && TagCounter->ReferenceCounter > 1)
+	if (!TagCounter)
+	{
+		return;
+	}
+
+	if (TagCounter->ReferenceCounter > 1)
 	{
 		TagCounter->ReferenceCounter--;
 
@@ -182,7 +198,7 @@ bool USimpleAttributeComponent::HasGameplayTag(FGameplayTag Tag)
 
 bool USimpleAttributeComponent::HasAllGameplayTags(FGameplayTagContainer Tags)
 {
-	TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
+	const TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
 
 	for (const FGameplayTag& Tag : Tags)
 	{
@@ -200,7 +216,7 @@ bool USimpleAttributeComponent::HasAllGameplayTags(FGameplayTagContainer Tags)
 
 bool USimpleAttributeComponent::HasAnyGameplayTags(FGameplayTagContainer Tags)
 {
-	TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
+	const TArray<FGameplayTagCounter>& TagCounters = HasAuthority() ? AuthorityGameplayTags.Tags : LocalGameplayTags;
 
 	for (const FGameplayTag& Tag : Tags)
 	{
@@ -459,7 +475,7 @@ float USimpleAttributeComponent::ClampFloatAttributeValue(const FFloatAttribute&
 
 		if (Attribute.ValueLimits.UseMinBaseValue && NewValue < Attribute.ValueLimits.MinBaseValue)
 		{
-			Overflow = Attribute.ValueLimits.MinBaseValue + NewValue;
+			Overflow = NewValue - Attribute.ValueLimits.MinBaseValue;
 			return Attribute.ValueLimits.MinBaseValue;
 		}
 
@@ -474,7 +490,7 @@ float USimpleAttributeComponent::ClampFloatAttributeValue(const FFloatAttribute&
 
 		if (Attribute.ValueLimits.UseMinCurrentValue && NewValue < Attribute.ValueLimits.MinCurrentValue)
 		{
-			Overflow = Attribute.ValueLimits.MinCurrentValue + NewValue;
+			Overflow = NewValue - Attribute.ValueLimits.MinCurrentValue;
 			return Attribute.ValueLimits.MinCurrentValue;
 		}
 
@@ -864,6 +880,7 @@ void USimpleAttributeComponent::OnAttributeModifierEnded(USimpleAttributeModifie
 				State.ModifierStatus = EModifierStatus::Ended;
 				State.EndedTimestamp = GetServerTime();
 				AuthorityAttributeModifierStates.MarkItemDirty(State);
+				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
 		}
@@ -876,6 +893,7 @@ void USimpleAttributeComponent::OnAttributeModifierEnded(USimpleAttributeModifie
 			{
 				State.ModifierStatus = EModifierStatus::Ended;
 				State.EndedTimestamp = GetServerTime();
+				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
 		}
@@ -897,6 +915,7 @@ void USimpleAttributeComponent::OnAttributeModifierCancelled(USimpleAttributeMod
 				State.ModifierStatus = EModifierStatus::Cancelled;
 				State.EndedTimestamp = GetServerTime();
 				AuthorityAttributeModifierStates.MarkItemDirty(State);
+				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
 		}
@@ -909,6 +928,7 @@ void USimpleAttributeComponent::OnAttributeModifierCancelled(USimpleAttributeMod
 			{
 				State.ModifierStatus = EModifierStatus::Cancelled;
 				State.EndedTimestamp = GetServerTime();
+				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
 		}
@@ -930,9 +950,31 @@ void USimpleAttributeComponent::OnAttributeModifierActionStackApplied(USimpleAtt
 
 	if (!HasAuthority())
 	{
+		// Find the highest mutation counter for this modifier and increment
+		int32 HighestCounter = 0;
+		for (const FAttributeModifierMutation& Mutation : LocalAttributeModiferMutations)
+		{
+			if (Mutation.ModifierID == ModifierInstance->ModifierID && Mutation.MutationCounter > HighestCounter)
+			{
+				HighestCounter = Mutation.MutationCounter;
+			}
+		}
+		NewMutation.MutationCounter = HighestCounter + 1;
+
 		LocalAttributeModiferMutations.Add(NewMutation);
 		return;
 	}
+
+	// Find the highest mutation counter for this modifier and increment
+	int32 HighestCounter = 0;
+	for (const FAttributeModifierMutation& Mutation : AuthorityAttributeModifierMutations.Mutations)
+	{
+		if (Mutation.ModifierID == ModifierInstance->ModifierID && Mutation.MutationCounter > HighestCounter)
+		{
+			HighestCounter = Mutation.MutationCounter;
+		}
+	}
+	NewMutation.MutationCounter = HighestCounter + 1;
 
 	FAttributeModifierMutation& AddedRef = AuthorityAttributeModifierMutations.Mutations.Add_GetRef(NewMutation);
 	AuthorityAttributeModifierMutations.MarkItemDirty(AddedRef);
@@ -1109,6 +1151,14 @@ void USimpleAttributeComponent::ClientOnAttributeModiferStateRemoved(const FAttr
 
 void USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded(const FAttributeModifierMutation& NewModifierMutation)
 {
+	if (!NewModifierMutation.ModifierClass)
+	{
+		SIMPLE_LOG(this, FString::Printf(
+			TEXT("[USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded]: ModifierClass is null for modifier ID %s"),
+			*NewModifierMutation.ModifierID.ToString()));
+		return;
+	}
+
 	// Get the local version of NewAttributeModifierSnapshot if it exists
 	const FAttributeModifierMutation* PredictedMutation = LocalAttributeModiferMutations.FindByPredicate(
 		[NewModifierMutation](const FAttributeModifierMutation& Mutation)
@@ -1124,6 +1174,14 @@ void USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded(const FAt
 	}
 
 	USimpleAttributeModifier* LocalRunningModifierInstance = GetAttributeModifierInstance(NewModifierMutation.ModifierClass, false);
+	if (!LocalRunningModifierInstance)
+	{
+		SIMPLE_LOG(this, FString::Printf(
+			TEXT("[USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded]: Failed to get modifier instance for class %s"),
+			*NewModifierMutation.ModifierClass->GetName()));
+		return;
+	}
+
 	LocalRunningModifierInstance->ModifierID = NewModifierMutation.ModifierID;
 	const FAttributeModifierState* AuthorityState = AuthorityAttributeModifierStates.ModifierStates.FindByPredicate(
 		[NewModifierMutation](const FAttributeModifierState& State)
@@ -1143,7 +1201,7 @@ void USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded(const FAt
 			TEXT("[USimpleAttributeComponent::ClientOnAttributeModifierMutationAdded]: Modifier with ID %s not found in AuthorityAttributeModifierStates array"),
 			*NewModifierMutation.ModifierID.ToString()));
 	}
-	
+
 	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
 	if (PredictedMutation)
 	{
@@ -1322,7 +1380,6 @@ void USimpleAttributeComponent::ClientOnGameplayTagAdded(const FGameplayTagCount
 	}
 
 	AddGameplayTag(NewGameplayTag.GameplayTag);
-	OnGameplayTagAdded.Broadcast(NewGameplayTag.GameplayTag);
 }
 
 void USimpleAttributeComponent::ClientOnGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag)

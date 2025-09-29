@@ -87,6 +87,10 @@ public:
 		ESubAbilityCancellationPolicy CancellationPolicy = ESubAbilityCancellationPolicy::CancelOnParentAbilityEndedOrCancelled);
 	
 	/* Overridable Functions */
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Ability")
+	bool CanActivate(const FInstancedStruct& ActivationContext);
+	virtual bool CanActivate_Implementation(const FInstancedStruct& ActivationContext) { return true; }
 	
 	/*
 	 * Override this if your AttributeComponent and AbilityComponent don't exist on the same actor.
