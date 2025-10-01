@@ -2,7 +2,7 @@
 
 bool USimpleAbilityBase::ActivateAbility(FInstancedStruct ActivationContext)
 {
-	Context = ActivationContext;
+	AbilityContext = ActivationContext;
 	
 	if (!CanActivateInternal())
 	{
@@ -13,7 +13,7 @@ bool USimpleAbilityBase::ActivateAbility(FInstancedStruct ActivationContext)
 	IsActive = true;
 	PreActivateInternal();
 	OnPreActivate();
-	OnActivate(Context);
+	OnActivate(AbilityContext);
 	OnActivationSuccess.Broadcast(this);
 	return true;
 }

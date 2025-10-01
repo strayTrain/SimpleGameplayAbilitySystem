@@ -1,4 +1,4 @@
-﻿//  Copyright 2025 Ahmed Elgoni
+﻿// Copyright 2025 Ahmed Elgoni
 
 #include "SimpleTimeSynchronizer.h"
 
@@ -9,15 +9,15 @@ USimpleTimeSynchronizer::USimpleTimeSynchronizer()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void USimpleTimeSynchronizer::BeginPlay()
-{
-	Super::BeginPlay();
-	SetIsReplicated(true);
-}
-
 double USimpleTimeSynchronizer::GetServerTime_Implementation()
 {
-	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+	if (UWorld* World = GetWorld())
+	{
+		if (const AGameStateBase* GameState = World->GetGameState())
+		{
+			return GameState->GetServerWorldTimeSeconds();
+		}
+	}
+	
+	return 0.0;
 }
-
-

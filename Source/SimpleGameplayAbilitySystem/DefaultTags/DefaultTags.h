@@ -18,6 +18,10 @@ class FDefaultTags
 
 		// Misc
 		static FGameplayTag ScratchPadFloatOverflow() { return FindTag("SimpleGAS.ModifierActionScratchpadTags.FloatAttributeOverflow"); }
+
+		// Async action events
+		static FGameplayTag SubAbilityEnded() { return FindTag("SimpleGAS.Events.SubAbility.Ended"); }
+		static FGameplayTag SubAbilityCancelled() { return FindTag("SimpleGAS.Events.SubAbility.Cancelled"); }
 	
 	private:
 		static FGameplayTag FindTag(const FName TagName)

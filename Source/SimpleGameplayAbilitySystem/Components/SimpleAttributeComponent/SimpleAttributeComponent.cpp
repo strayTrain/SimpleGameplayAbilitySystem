@@ -6,7 +6,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent//AttributeHandler/SimpleAttributeHandler.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleTimeSynchronizerComponent/SimpleTimeSynchronizer.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleTimeSynchronizerComponent/ExtendedTimeSynchronizer/SimpleTimeSynchronizerExtended.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/ChangeFloatAttributeAction/FloatAttributeActionTypes.h"
@@ -108,12 +108,6 @@ void USimpleAttributeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason
 {
 	InstancedAttributeModifiers.Empty();
 	Super::EndPlay(EndPlayReason);
-}
-
-USimpleTimeSynchronizer* USimpleAttributeComponent::GetTimeSynchronizerComponent_Implementation()
-{
-	// Default to assuming the owner actor has a time synchronizer component
-	return GetOwner()->GetComponentByClass<USimpleTimeSynchronizer>();
 }
 
 /* Gameplay Tags */
@@ -1037,6 +1031,12 @@ bool USimpleAttributeComponent::HasAuthority() const
 	}
 
 	return false;
+}
+
+USimpleTimeSynchronizer* USimpleAttributeComponent::GetTimeSynchronizerComponent_Implementation()
+{
+	// Default to assuming the owner actor has a time synchronizer component
+	return GetOwner()->GetComponentByClass<USimpleTimeSynchronizerExtended>();
 }
 
 double USimpleAttributeComponent::GetServerTime()

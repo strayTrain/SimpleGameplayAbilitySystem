@@ -4,6 +4,7 @@
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleSubAbility/SimpleSubAbility.h"
 
 USimpleAttributeComponent* USimpleGameplayAbility::GetAttributeComponent_Implementation()
 {
@@ -47,15 +48,15 @@ bool USimpleGameplayAbility::	CanActivateInternal()
 	// Check required context types
 	if (RequiredContextType)
 	{
-		if (!Context.GetScriptStruct())
+		if (!AbilityContext.GetScriptStruct())
 		{
 			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::CanActivate]: Ability %s requires a context type of %s but no context was passed in."), *GetName(), *RequiredContextType->GetName()));
 			return false;
 		}
 		
-		if (Context.GetScriptStruct() != RequiredContextType)
+		if (AbilityContext.GetScriptStruct() != RequiredContextType)
 		{
-			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::CanActivate]: Ability %s requires a context type of %s but context of type %s was passed in."), *GetName(), *RequiredContextType->GetName(), *Context.GetScriptStruct()->GetName()));
+			SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::CanActivate]: Ability %s requires a context type of %s but context of type %s was passed in."), *GetName(), *RequiredContextType->GetName(), *AbilityContext.GetScriptStruct()->GetName()));
 			return false;
 		}
 	}
@@ -78,7 +79,7 @@ bool USimpleGameplayAbility::	CanActivateInternal()
 		}
 	}
 	
-	return CanActivate(Context);
+	return CanActivate(AbilityContext);
 }
 
 void USimpleGameplayAbility::Initialize(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FGuid NewAbilityID)
@@ -88,6 +89,75 @@ void USimpleGameplayAbility::Initialize(USimpleGameplayAbilityComponent* Activat
 	// Cache a reference to the attribute component
 	AttributeComponent = GetAttributeComponent();
 	ActivationTime = AbilityComponent->GetServerTime();
+}
+
+USimpleSubAbility* USimpleGameplayAbility::ActivateSubAbility(TSubclassOf<USimpleSubAbility> AbilityClass, FInstancedStruct ActivationContext, EAbilityActivationResult& ActivationResult)
+{
+	if (!AbilityClass)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::ActivateSubAbility]: AbilityClass is null for parent ability %s"), *GetName()));
+		return nullptr;
+	}
+
+	// Create a new instance of the sub-ability
+	USimpleSubAbility* SubAbilityInstance = GetSubAbilityInstance(AbilityClass);
+
+	if (!SubAbilityInstance)
+	{
+		ActivationResult = EAbilityActivationResult::ActivationFailed;
+		return nullptr;
+	}
+
+	// Activate the sub-ability
+	const bool WasActivated = SubAbilityInstance->ActivateAbility(ActivationContext);
+
+	if (!WasActivated)
+	{
+		// Also unbind the delegates we just bound since it never activated
+		SubAbilityInstance->OnAbilityEnded.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
+		SubAbilityInstance->OnAbilityCancelled.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
+		
+		// Remove from tracked list if activation failed
+		SubAbilityInstances.RemoveAll([SubAbilityInstance](const FActivatedSubAbility& Item)
+		{
+			return Item.SubAbilityInstance == SubAbilityInstance;
+		});
+		
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::ActivateSubAbility]: Failed to activate sub-ability of class %s"), *AbilityClass->GetName()));
+		ActivationResult = EAbilityActivationResult::ActivationFailed;
+		return nullptr;
+	}
+
+	ActivationResult = EAbilityActivationResult::Activated;
+	return SubAbilityInstance;
+}
+
+USimpleSubAbility* USimpleGameplayAbility::GetSubAbilityInstance(const TSubclassOf<USimpleSubAbility> AbilityClass)
+{
+	// Create a new instance of the sub-ability
+	USimpleSubAbility* SubAbilityInstance = NewObject<USimpleSubAbility>(this, AbilityClass);
+	if (!SubAbilityInstance)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::ActivateSubAbility]: Failed to create sub-ability instance of class %s"), *AbilityClass->GetName()));
+		return nullptr;
+	}
+
+	// Initialize the sub-ability with reference to this parent ability
+	SubAbilityInstance->Initialize(this, AbilityID);
+
+	// Set up lifecycle listeners to track when the sub-ability completes
+	FActivatedSubAbility ActivatedSubAbility;
+	ActivatedSubAbility.AbilityID = FGuid::NewGuid();
+	ActivatedSubAbility.SubAbilityInstance = SubAbilityInstance;
+
+	// Store the sub-ability info before activation
+	SubAbilityInstances.Add(ActivatedSubAbility);
+
+	// Bind to the sub-ability's lifecycle events to handle cleanup
+	SubAbilityInstance->OnAbilityEnded.AddDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
+	SubAbilityInstance->OnAbilityCancelled.AddDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
+
+	return SubAbilityInstance;
 }
 
 void USimpleGameplayAbility::PreActivateInternal()
@@ -110,27 +180,38 @@ void USimpleGameplayAbility::AbilityEndedInternal(FInstancedStruct EndingContext
 		AttributeComponent->RemoveGameplayTag(TempTag);
 	}
 
+	// Cancel/End sub-abilities based on their cancellation policy
 	TArray<ESubAbilityCancellationPolicy> CancelPolicies;
 	CancelPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityEndedOrCancelled);
-	CancelPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityCancelled);
-
-	TArray<ESubAbilityCancellationPolicy> EndPolicies;
-	EndPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityEndedOrCancelled);
-	EndPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityEnded);
-	
-	for (const FActivatedSubAbility SubAbility : ActivatedSubAbilities)
+	if (WasCancelled)
 	{
-		if (WasCancelled && !CancelPolicies.Contains(SubAbility.CancellationPolicy))
+		CancelPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityCancelled);
+	}
+	else
+	{
+		CancelPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityEnded);
+	}
+
+	for (const FActivatedSubAbility& SubAbility : SubAbilityInstances)
+	{
+		if (!SubAbility.SubAbilityInstance)
 		{
 			continue;
 		}
 
-		if (!EndPolicies.Contains(SubAbility.CancellationPolicy))
+		if (!SubAbility.SubAbilityInstance->IsActive)
 		{
 			continue;
 		}
 		
-		AbilityComponent->CancelAbility(SubAbility.AbilityID, EndingContext);
+		// Check if we should cancel this sub-ability based on its policy
+		if (!CancelPolicies.Contains(SubAbility.SubAbilityInstance->CancellationPolicy))
+		{
+			continue;
+		}
+		
+		// Cancel the sub-ability
+		SubAbility.SubAbilityInstance->CancelAbility(FDefaultTags::SubAbilityCancelled(), EndingContext);
 	}
 }
 
@@ -146,51 +227,33 @@ void USimpleGameplayAbility::TakeStateSnapshot(const FInstancedStruct SnapshotDa
 	PendingSnapshots.Add(SnapshotCounter, OnResolved);
 }
 
-EAbilityNetworkRole USimpleGameplayAbility::GetNetworkRole(bool& IsListenServer) const
+
+EAbilityNetworkRole USimpleGameplayAbility::GetNetworkRole() const
 {
-	IsListenServer = GetWorld()->GetNetMode() == NM_ListenServer;
-	
-	// Check if we're on a server
-	if (GetWorld()->GetNetMode() < NM_Client)
+	const UWorld* World = GetWorld();
+	if (!World)
 	{
-		return EAbilityNetworkRole::Server;
+		return EAbilityNetworkRole::Client;
 	}
 
-	return EAbilityNetworkRole::Client;
-}
-
-bool USimpleGameplayAbility::IsRunningOnClient() const
-{
-	bool IsListenServer = false;
-	return GetNetworkRole(IsListenServer) == EAbilityNetworkRole::Client;
-}
-
-bool USimpleGameplayAbility::IsRunningOnServer() const
-{
-	bool IsListenServer = false;
-	return GetNetworkRole(IsListenServer) == EAbilityNetworkRole::Server;
+	switch (World->GetNetMode())
+	{
+		case NM_DedicatedServer:
+			return EAbilityNetworkRole::DedicatedServer;
+		case NM_ListenServer:
+			return EAbilityNetworkRole::ListenServer;
+		case NM_Client:
+			return EAbilityNetworkRole::Client;
+		case NM_Standalone:
+		default:
+			// Treat standalone as ListenServer for network role purposes
+			return EAbilityNetworkRole::ListenServer;
+	}
 }
 
 bool USimpleGameplayAbility::HasAuthority() const
 {
 	return GetWorld()->GetNetMode() < NM_Client;
-}
-
-FGuid USimpleGameplayAbility::ActivateSubAbility(
-	TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	FInstancedStruct ActivationContext,
-	ESubAbilityCancellationPolicy CancellationPolicy)
-{
-	const FGuid SubAbilityID = FGuid::NewGuid();
-
-	FActivatedSubAbility SubAbility;
-	SubAbility.AbilityID = SubAbilityID;
-	SubAbility.CancellationPolicy = CancellationPolicy;
-	ActivatedSubAbilities.Add(SubAbility);
-
-	//AbilityComponent->ActivateAbilityWithID(SubAbilityID, AbilityClass, ActivationContext);
-
-	return SubAbilityID;
 }
 
 AActor* USimpleGameplayAbility::GetAvatarActor() const
@@ -257,4 +320,36 @@ double USimpleGameplayAbility::GetActivationTime() const
 double USimpleGameplayAbility::GetActivationDelay() const
 {
 	return AbilityComponent->GetServerTime() - GetActivationTime();
+}
+
+// --- Sub-ability delegate handlers ---
+
+void USimpleGameplayAbility::OnSubAbilityEnded(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext)
+{
+	RemoveTrackedSubAbilityByInstance(AbilityInstance);
+}
+
+void USimpleGameplayAbility::OnSubAbilityCancelled(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext)
+{
+	RemoveTrackedSubAbilityByInstance(AbilityInstance);
+}
+
+void USimpleGameplayAbility::RemoveTrackedSubAbilityByInstance(USimpleAbilityBase* AbilityInstance)
+{
+	if (!AbilityInstance)
+	{
+		return;
+	}
+
+	// Unbind our dynamic handlers from this sub-ability now that it's done
+	if (USimpleAbilityBase* Sub = AbilityInstance)
+	{
+		Sub->OnAbilityEnded.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
+		Sub->OnAbilityCancelled.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
+	}
+
+	SubAbilityInstances.RemoveAll([AbilityInstance](const FActivatedSubAbility& Item)
+	{
+		return Item.SubAbilityInstance == AbilityInstance;
+	});
 }

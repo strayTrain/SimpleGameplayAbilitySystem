@@ -15,6 +15,7 @@
 
 class USimpleAbilityBase;
 class USimpleGameplayAbility;
+class USimpleSubAbility;
 class USimpleAttributeModifier;
 class UAbilityStateResolver;
 
@@ -117,11 +118,18 @@ enum class EAbilityStatus :uint8
 UENUM(BlueprintType)
 enum class EAbilityNetworkRole :uint8
 {
-	/* This ability is running on either a dedicated server or a listen server or a single player game */
-	Server,
-	/* This ability is running on a client or listen server (because they're also clients) */
+	DedicatedServer,
+	ListenServer,
 	Client,
 };
+
+UENUM(BlueprintType)
+enum class EAbilityActivationResult : uint8
+{
+	Activated,
+	ActivationFailed,
+};
+
 
 /* Structs */
 
@@ -130,8 +138,11 @@ struct FActivatedSubAbility
 {
 	GENERATED_BODY()
 
+	UPROPERTY()
 	FGuid AbilityID;
-	ESubAbilityCancellationPolicy CancellationPolicy;
+
+	UPROPERTY()
+	TObjectPtr<USimpleSubAbility> SubAbilityInstance;
 };
 
 USTRUCT(BlueprintType)

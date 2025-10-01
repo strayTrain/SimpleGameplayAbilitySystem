@@ -1,4 +1,4 @@
-﻿//  Copyright 2025 Ahmed Elgoni
+﻿// Copyright 2025 Ahmed Elgoni
 
 #pragma once
 
@@ -15,8 +15,6 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleTimeSynchronizer : public UActorCom
 public:
 	USimpleTimeSynchronizer();
 
-	virtual void BeginPlay() override;
-
 	/**
 	 * Returns the server time if called on the server.
 	 * Returns the clients estimation of the server time if called on the client.
@@ -24,7 +22,7 @@ public:
 	 * Override this function to provide a custom network time synchronisation implementation.
 	 * @return The current server time in seconds
 	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AttributeComponent|Utility")
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "Time Sync")
 	double GetServerTime();
 	virtual double GetServerTime_Implementation();
 };

@@ -10,12 +10,10 @@
 #include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/SimpleAttributeSet.h"
 #include "SimpleAttributeComponent.generated.h"
 
-class USimpleTimeSynchronizer;
-class USimpleAbilityOverrideSet;
-class USimpleAbilitySet;
 class USimpleAttributeSet;
-class USimpleGameplayAbility;
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class USimpleTimeSynchronizer;
+
+UCLASS(Blueprintable, ClassGroup=(AttributeComponent), meta=(BlueprintSpawnableComponent))
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeComponent : public UActorComponent
 {
 	GENERATED_BODY()
@@ -291,6 +289,7 @@ protected:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AttributeComponent|Utility")
 	USimpleTimeSynchronizer* GetTimeSynchronizerComponent();
+	virtual USimpleTimeSynchronizer* GetTimeSynchronizerComponent_Implementation();
 	
 	UPROPERTY()
 	TArray<USimpleAttributeModifier*> InstancedAttributeModifiers;

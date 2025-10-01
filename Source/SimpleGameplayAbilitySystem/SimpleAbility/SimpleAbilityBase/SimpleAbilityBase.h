@@ -20,7 +20,7 @@ public:
 	/* Properties */
 	
 	UPROPERTY(BlueprintReadOnly, Category = "SimpleAbility|State")
-	FInstancedStruct Context;
+	FInstancedStruct AbilityContext;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SimpleAbility")
 	bool CanTick = false;

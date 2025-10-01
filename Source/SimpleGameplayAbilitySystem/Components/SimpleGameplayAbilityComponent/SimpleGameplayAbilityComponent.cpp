@@ -2,6 +2,7 @@
 
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleTimeSynchronizerComponent/ExtendedTimeSynchronizer/SimpleTimeSynchronizerExtended.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/SimpleAbilitySet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
@@ -63,6 +64,46 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
 	InstancedAbilities.Empty();
 	
 	Super::EndPlay(EndPlayReason);
+}
+
+/* Event Functions */
+
+void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+{
+	OnEventReceived.Broadcast(EventTag, AbilityID, EventContext);
+}
+
+void USimpleGameplayAbilityComponent::SendEventToServer(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+{
+	if (HasAuthority())
+	{
+		SendEvent(EventTag, AbilityID, EventContext);
+		return;
+	}
+
+	ServerSendEvent(EventTag, AbilityID, EventContext);
+}
+
+void USimpleGameplayAbilityComponent::SendEventToClient(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+{
+	if (!HasAuthority())
+	{
+		SIMPLE_LOG(this, TEXT("[USimpleGameplayAbilityComponent::SendEventToClient]: Called on client, ignoring!"));
+		return;
+	}
+
+	ClientSendEvent(EventTag, AbilityID, EventContext);
+}
+
+void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
+{
+	// TODO: Add validation here to check if the client is allowed to send this event
+	SendEvent(EventTag, AbilityID, EventContext);
+}
+
+void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
+{
+	SendEvent(EventTag, AbilityID, EventContext);
 }
 
 /* Ability Functions */
@@ -324,20 +365,19 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstanceByID(
 	return nullptr;
 }
 
-double USimpleGameplayAbilityComponent::GetServerTime_Implementation()
+USimpleTimeSynchronizer* USimpleGameplayAbilityComponent::GetTimeSynchronizerComponent_Implementation()
 {
-	if (!GetWorld())
+	// Default to assuming the owner actor has a time synchronizer component
+	return GetOwner()->GetComponentByClass<USimpleTimeSynchronizerExtended>();
+}
+
+double USimpleGameplayAbilityComponent::GetServerTime()
+{
+	if (GetTimeSynchronizerComponent())
 	{
-		SIMPLE_LOG(this, TEXT("GetServerTime called but GetWorld is not valid!"));
-		return 0.0;
+		return GetTimeSynchronizerComponent()->GetServerTime();
 	}
 
-	if (!GetWorld()->GetGameState())
-	{
-		SIMPLE_LOG(this, TEXT("GetServerTime called but GetGameState is not valid!"));
-		return 0.0;
-	}
-	
 	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
 }
 

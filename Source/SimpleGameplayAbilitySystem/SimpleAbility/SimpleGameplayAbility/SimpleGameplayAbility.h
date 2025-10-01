@@ -5,6 +5,7 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
 #include "SimpleGameplayAbility.generated.h"
 
+class USimpleSubAbility;
 class USimpleAttributeComponent;
 class USimpleGameplayAbilityComponent;
 
@@ -76,14 +77,12 @@ public:
 	 * for a StateSnapshot comparison between Server and Client.
 	 * @param AbilityClass The class of the ability to activate
 	 * @param ActivationContext Context to pass to the ability
-	 * @param CancellationPolicy If the parent ability ends, should the sub ability be cancelled?
-	 * @return The AbilityID of the sub ability
+	 * @return The activated sub ability instance
 	 */
-	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = 2))
-	FGuid ActivateSubAbility(
-		TSubclassOf<USimpleGameplayAbility> AbilityClass,
-		FInstancedStruct ActivationContext,
-		ESubAbilityCancellationPolicy CancellationPolicy = ESubAbilityCancellationPolicy::CancelOnParentAbilityEndedOrCancelled);
+	UFUNCTION(BlueprintCallable, Meta = (ExpandEnumAsExecs = "ActivationResult"))
+	USimpleSubAbility* ActivateSubAbility(TSubclassOf<USimpleSubAbility> AbilityClass, FInstancedStruct ActivationContext, EAbilityActivationResult& ActivationResult);
+
+	USimpleSubAbility* GetSubAbilityInstance(TSubclassOf<USimpleSubAbility> AbilityClass);
 	
 	/* Overridable Functions */
 
@@ -123,13 +122,7 @@ public:
 	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	EAbilityNetworkRole GetNetworkRole(bool& IsListenServer) const;
-
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	bool IsRunningOnClient() const;
-
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	bool IsRunningOnServer() const;
+	EAbilityNetworkRole GetNetworkRole() const;
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool HasAuthority() const;
@@ -166,6 +159,16 @@ protected:
 	
 	virtual bool IsTickable() const override { return CanTick && IsActive && GetWorld(); }
 	
+	// Delegate handlers for sub-ability lifecycle
+	UFUNCTION()
+	void OnSubAbilityEnded(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext);
+
+	UFUNCTION()
+	void OnSubAbilityCancelled(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext);
+
+	// Helper to remove a tracked sub-ability by its instance pointer
+	void RemoveTrackedSubAbilityByInstance(USimpleAbilityBase* AbilityInstance);
+	
 private:
 	UPROPERTY()
 	USimpleGameplayAbilityComponent* AbilityComponent;
@@ -177,9 +180,6 @@ private:
 	UPROPERTY()
 	double ActivationTime = 0;
 	
-	// Called when the ability is ended or cancelled. Removes temporary tags and cancels any sub abilities configured to cancel 
-	void OnAbilityStopped(FInstancedStruct& StopContext, bool WasCancelled);
-	
 	// Used to keep track of sub abilities which this ability has created which need to be ended when this ability ends/cancels
-	TArray<FActivatedSubAbility> ActivatedSubAbilities;
+	TArray<FActivatedSubAbility> SubAbilityInstances;
 };

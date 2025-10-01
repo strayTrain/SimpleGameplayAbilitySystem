@@ -16,7 +16,7 @@ public class SimpleGameplayAbilitySystem : ModuleRules
 			{
 				"Core",
 				"GameplayTags",
-				"NetCore"
+				"NetCore",
 			}
 			);
 		

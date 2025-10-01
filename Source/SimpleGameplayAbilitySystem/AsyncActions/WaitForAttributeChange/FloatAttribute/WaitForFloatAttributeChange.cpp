@@ -1,6 +1,5 @@
 ﻿#include "WaitForFloatAttributeChange.h"
 
-#include "SimpleGameplayAbilitySystem/AsyncActions/WaitForAbility/WaitForAbility.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/ChangeFloatAttributeAction/FloatAttributeActionTypes.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 

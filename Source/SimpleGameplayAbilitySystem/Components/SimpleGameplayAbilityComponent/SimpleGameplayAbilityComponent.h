@@ -7,11 +7,8 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
 
-struct FAbilitySideEffect;
-struct FAbilityOverride;
-class USimpleAbilityOverrideSet;
+class USimpleTimeSynchronizer;
 class USimpleAbilitySet;
-class USimpleAttributeSet;
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
@@ -50,8 +47,31 @@ public:
 	TArray<FAbilitySnapshot> LocalPendingAbilitySnapshots;
 
 	/* Event Dispatchers */
-	
-	
+
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnEventReceived, FGameplayTag, EventTag, FGuid, AbilityID, FInstancedStruct, EventContext);
+	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Events")
+	FOnEventReceived OnEventReceived;
+
+	/* Event Functions */
+
+	// Sends an event locally (does not replicate)
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
+	void SendEvent(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+
+	// Sends an event to the server
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
+	void SendEventToServer(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+
+	// Sends an event to the client
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
+	void SendEventToClient(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
+
+	UFUNCTION(Client, Reliable)
+	void ClientSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
+
 	/* Avatar Actor Functions */
 	
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AvatarActor")
@@ -153,9 +173,8 @@ public:
 	 * Override this function to provide a custom network time synchronisation implementation.
 	 * @return The current server time in seconds
 	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
 	double GetServerTime();
-	virtual double GetServerTime_Implementation();
 	
 	USimpleGameplayAbility* GetAbilityInstanceByID(FGuid AbilityInstanceID);
 	USimpleGameplayAbility* GetAbilityInstanceByClass(TSubclassOf<USimpleGameplayAbility> AbilityClass);
@@ -163,6 +182,10 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AttributeComponent|Utility")
+	USimpleTimeSynchronizer* GetTimeSynchronizerComponent();
+	virtual USimpleTimeSynchronizer* GetTimeSynchronizerComponent_Implementation();
 	
 	bool ActivateAbilityInternal(
 		const FGuid AbilityID,
