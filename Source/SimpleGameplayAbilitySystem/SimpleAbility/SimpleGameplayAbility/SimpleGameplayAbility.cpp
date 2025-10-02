@@ -9,7 +9,18 @@
 USimpleAttributeComponent* USimpleGameplayAbility::GetAttributeComponent_Implementation()
 {
 	// By default, we assume the attribute component is on the same actor as the ability component
-	return AbilityComponent->GetOwner()->GetComponentByClass<USimpleAttributeComponent>();
+	if (!AbilityComponent)
+	{
+		return nullptr;
+	}
+
+	AActor* Owner = AbilityComponent->GetOwner();
+	if (!Owner)
+	{
+		return nullptr;
+	}
+
+	return Owner->GetComponentByClass<USimpleAttributeComponent>();
 }
 
 void USimpleGameplayAbility::OnGrantedStatic(TSubclassOf<USimpleGameplayAbility> AbilityClass, USimpleGameplayAbilityComponent* GrantedAbilityComponent)
@@ -23,7 +34,7 @@ void USimpleGameplayAbility::OnGrantedStatic(TSubclassOf<USimpleGameplayAbility>
 	}
 }
 
-bool USimpleGameplayAbility::	CanActivateInternal()
+bool USimpleGameplayAbility::CanActivateInternal()
 {
 	// Check if the ability is granted
 	if (RequireGrantToActivate && !AbilityComponent->GrantedAbilities.Contains(GetClass()))
@@ -108,21 +119,23 @@ USimpleSubAbility* USimpleGameplayAbility::ActivateSubAbility(TSubclassOf<USimpl
 		return nullptr;
 	}
 
+	// Bind to the sub-ability's lifecycle events before activation to handle same-frame end/cancel
+	SubAbilityInstance->OnAbilityEnded.AddDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
+	SubAbilityInstance->OnAbilityCancelled.AddDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
+
 	// Activate the sub-ability
 	const bool WasActivated = SubAbilityInstance->ActivateAbility(ActivationContext);
 
 	if (!WasActivated)
 	{
-		// Also unbind the delegates we just bound since it never activated
 		SubAbilityInstance->OnAbilityEnded.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
 		SubAbilityInstance->OnAbilityCancelled.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
-		
-		// Remove from tracked list if activation failed
+
 		SubAbilityInstances.RemoveAll([SubAbilityInstance](const FActivatedSubAbility& Item)
 		{
 			return Item.SubAbilityInstance == SubAbilityInstance;
 		});
-		
+
 		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbility::ActivateSubAbility]: Failed to activate sub-ability of class %s"), *AbilityClass->GetName()));
 		ActivationResult = EAbilityActivationResult::ActivationFailed;
 		return nullptr;
@@ -152,10 +165,6 @@ USimpleSubAbility* USimpleGameplayAbility::GetSubAbilityInstance(const TSubclass
 
 	// Store the sub-ability info before activation
 	SubAbilityInstances.Add(ActivatedSubAbility);
-
-	// Bind to the sub-ability's lifecycle events to handle cleanup
-	SubAbilityInstance->OnAbilityEnded.AddDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
-	SubAbilityInstance->OnAbilityCancelled.AddDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
 
 	return SubAbilityInstance;
 }
@@ -203,16 +212,19 @@ void USimpleGameplayAbility::AbilityEndedInternal(FInstancedStruct EndingContext
 		{
 			continue;
 		}
-		
+
 		// Check if we should cancel this sub-ability based on its policy
 		if (!CancelPolicies.Contains(SubAbility.SubAbilityInstance->CancellationPolicy))
 		{
 			continue;
 		}
-		
+
 		// Cancel the sub-ability
 		SubAbility.SubAbilityInstance->CancelAbility(FDefaultTags::SubAbilityCancelled(), EndingContext);
 	}
+
+	// Clear pending snapshots to prevent memory leak
+	PendingSnapshots.Empty();
 }
 
 void USimpleGameplayAbility::TakeStateSnapshot(const FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved)
@@ -341,12 +353,8 @@ void USimpleGameplayAbility::RemoveTrackedSubAbilityByInstance(USimpleAbilityBas
 		return;
 	}
 
-	// Unbind our dynamic handlers from this sub-ability now that it's done
-	if (USimpleAbilityBase* Sub = AbilityInstance)
-	{
-		Sub->OnAbilityEnded.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
-		Sub->OnAbilityCancelled.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
-	}
+	AbilityInstance->OnAbilityEnded.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityEnded);
+	AbilityInstance->OnAbilityCancelled.RemoveDynamic(this, &USimpleGameplayAbility::OnSubAbilityCancelled);
 
 	SubAbilityInstances.RemoveAll([AbilityInstance](const FActivatedSubAbility& Item)
 	{

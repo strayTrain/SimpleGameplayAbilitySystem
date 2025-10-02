@@ -458,9 +458,14 @@ void USimpleGameplayAbilityComponent::OnAbilityActivationFailed(USimpleAbilityBa
 			{
 				AuthorityAbilityStates.MarkItemDirty(AbilityState);
 			}
-			
-			return;
+
+			break;
 		}
+	}
+
+	if (Ability && Ability->InstancingPolicy == EAbilityInstancingPolicy::MultipleInstances)
+	{
+		InstancedAbilities.Remove(Ability);
 	}
 }
 
@@ -485,8 +490,13 @@ void USimpleGameplayAbilityComponent::OnAbilityEnded(USimpleAbilityBase* Ability
 				CleanupOldAbilityStates();
 			}
 
-			return;
+			break;
 		}
+	}
+
+	if (Ability && Ability->InstancingPolicy == EAbilityInstancingPolicy::MultipleInstances)
+	{
+		InstancedAbilities.Remove(Ability);
 	}
 }
 
@@ -512,8 +522,13 @@ void USimpleGameplayAbilityComponent::OnAbilityCancelled(USimpleAbilityBase* Abi
 				CleanupOldAbilityStates();
 			}
 
-			return;
+			break;
 		}
+	}
+
+	if (Ability && Ability->InstancingPolicy == EAbilityInstancingPolicy::MultipleInstances)
+	{
+		InstancedAbilities.Remove(Ability);
 	}
 }
 
