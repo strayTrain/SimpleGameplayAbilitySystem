@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleAbilityComponentTypes.h"
 #include "Widgets/SBoxPanel.h"
 
 class SIMPLEGAMEPLAYABILITYSYSTEMEDITOR_API FStructAttributeCustomization : public IPropertyTypeCustomization

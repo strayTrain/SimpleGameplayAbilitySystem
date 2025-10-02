@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "SimpleAbilityComponentTypes.h"
 #include "Components/ActorComponent.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
@@ -45,6 +44,10 @@ public:
 	FAbilitySnapshotContainer AuthorityAbilitySnapshots;
 	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|State", meta = (TitleProperty = "AbilityClass"))
 	TArray<FAbilitySnapshot> LocalPendingAbilitySnapshots;
+
+	// Queue for snapshots that arrived before their ability was active (to resolve race condition)
+	UPROPERTY()
+	TArray<FAbilitySnapshot> DeferredSnapshots;
 
 	/* Event Dispatchers */
 
@@ -208,7 +211,10 @@ private:
 	void OnAbilityCancelled(USimpleAbilityBase* AbilityInstance, FGameplayTag CancelStatus, FInstancedStruct CancellationContext);
 
 	void ResolveLocalAbilityState(const FAbilityState& UpdatedAbilityState);
-	
+	void ProcessDeferredSnapshots(FGuid AbilityID);
+	void TryResolveSnapshot(const FAbilitySnapshot& Snapshot);
+	void CleanupOldAbilityStates();
+
 	// These functions are called on the client when the authoritative version of the variable changes on the server
 	void ClientOnAbilityStateAdded(const FAbilityState& NewAbilityState);
 	void ClientOnAbilityStateChanged(const FAbilityState& ChangedAbilityState);

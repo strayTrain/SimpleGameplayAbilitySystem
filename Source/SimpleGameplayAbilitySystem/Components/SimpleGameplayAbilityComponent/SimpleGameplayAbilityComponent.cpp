@@ -207,8 +207,22 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(
 		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ServerActivateAbility]: AbilityClass is null!")));
 		return;
 	}
-	
-	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, true, ActivationTime);
+
+	const double ServerTime = GetServerTime();
+	const double ClientTime = ActivationTime;
+	const double TimeDifference = FMath::Abs(ServerTime - ClientTime);
+	const double MaxAllowedTimeDrift = 2.0; // Allow up to 2 seconds of drift for high latency
+
+	double ValidatedTime = ActivationTime;
+	if (TimeDifference > MaxAllowedTimeDrift)
+	{
+		// Client time is too far off, use server time instead
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ServerActivateAbility]: Client timestamp %.2f differs from server %.2f by %.2f seconds (max allowed: %.2f). Using server time."),
+			ClientTime, ServerTime, TimeDifference, MaxAllowedTimeDrift));
+		ValidatedTime = ServerTime;
+	}
+
+	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, true, ValidatedTime);
 }
 
 USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstanceByClass(TSubclassOf<USimpleGameplayAbility> AbilityClass)
@@ -467,8 +481,10 @@ void USimpleGameplayAbilityComponent::OnAbilityEnded(USimpleAbilityBase* Ability
 			if (HasAuthority())
 			{
 				AuthorityAbilityStates.MarkItemDirty(AbilityState);
+				// Clean up old states periodically on server
+				CleanupOldAbilityStates();
 			}
-			
+
 			return;
 		}
 	}
@@ -478,7 +494,7 @@ void USimpleGameplayAbilityComponent::OnAbilityCancelled(USimpleAbilityBase* Abi
 {
 	USimpleGameplayAbility* Ability = Cast<USimpleGameplayAbility>(AbilityInstance);
 	const FGuid AbilityID = Ability ? Ability->AbilityID : FGuid();
-	
+
 	TArray<FAbilityState>& AbilityStates = HasAuthority() ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
 
 	for (int i = 0; i < AbilityStates.Num(); i++)
@@ -492,11 +508,39 @@ void USimpleGameplayAbilityComponent::OnAbilityCancelled(USimpleAbilityBase* Abi
 			if (HasAuthority())
 			{
 				AuthorityAbilityStates.MarkItemDirty(AbilityStates[i]);
+				// Clean up old states periodically on server
+				CleanupOldAbilityStates();
 			}
-			
+
 			return;
 		}
 	}
+}
+
+void USimpleGameplayAbilityComponent::CleanupOldAbilityStates()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	const double CurrentTime = GetServerTime();
+	const double CleanupThreshold = 5.0; // Remove states older than 5 seconds
+
+	// Remove ended/cancelled states that are old enough
+	AuthorityAbilityStates.AbilityStates.RemoveAll([CurrentTime, CleanupThreshold](const FAbilityState& State)
+	{
+		const bool bIsFinished = (State.AbilityStatus == Ended || State.AbilityStatus == Cancelled);
+		const bool bIsOldEnough = (CurrentTime - State.EndingTimeStamp) > CleanupThreshold;
+		return bIsFinished && bIsOldEnough;
+	});
+
+	// Also cleanup old snapshots
+	const double SnapshotCleanupThreshold = 10.0; // Keep snapshots a bit longer for late clients
+	AuthorityAbilitySnapshots.Snapshots.RemoveAll([CurrentTime, SnapshotCleanupThreshold](const FAbilitySnapshot& Snapshot)
+	{
+		return (CurrentTime - Snapshot.TimeStamp) > SnapshotCleanupThreshold;
+	});
 }
 
 /* Replication */
@@ -514,12 +558,14 @@ void USimpleGameplayAbilityComponent::ClientOnAbilityStateChanged(const FAbility
 void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilityState& UpdatedAbilityState)
 {
 	FAbilityState* LocalAbilityState = LocalAbilityStates.FindByPredicate([UpdatedAbilityState](const FAbilityState& AbilityState) { return AbilityState.AbilityID == UpdatedAbilityState.AbilityID; });
-	
+
 	const TSubclassOf<USimpleGameplayAbility> AbilityClass = static_cast<TSubclassOf<USimpleGameplayAbility>>(UpdatedAbilityState.AbilityClass);
 	USimpleGameplayAbility* AbilityInstance = GetAbilityInstanceByClass(AbilityClass);
 	const bool IsSingleInstanceAbility = AbilityInstance->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance;
 	const bool IsInstancedAbilityActive = AbilityInstance->IsActive;
-	
+
+	bool bAbilityJustActivated = false;
+
 	switch (UpdatedAbilityState.AbilityStatus)
 	{
 		// If an ability ends on the server but never existed locally it probably ended very quickly and we should activate it locally
@@ -529,33 +575,49 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 			{
 				AbilityInstance->Initialize(this, UpdatedAbilityState.AbilityID);
 				AbilityInstance->ActivateAbility(UpdatedAbilityState.ActivationContext);
-				return;
+				LocalAbilityStates.Add(UpdatedAbilityState);
 			}
-			break;
-		
+			// Update existing state if it exists
+			else
+			{
+				*LocalAbilityState = UpdatedAbilityState;
+			}
+			return;
+
 		case ActivationSuccess:
 			if (IsInstancedAbilityActive)
 			{
 				// If the ability is already running on the client using the UpdatedAbility state ID we don't need to do anything
 				if (AbilityInstance->AbilityID == UpdatedAbilityState.AbilityID)
 				{
+					// Check if there is a local ability state with the same ID and update it
+					if (LocalAbilityState)
+					{
+						*LocalAbilityState = UpdatedAbilityState;
+					}
+					else
+					{
+						LocalAbilityStates.Add(UpdatedAbilityState);
+					}
 					return;
 				}
 
 				// Otherwise an ability with a different ID is already running and needs to be cancelled first
 				AbilityInstance->CancelAbility(FGameplayTag::EmptyTag, FInstancedStruct());
 			}
-		
+
 			AbilityInstance->Initialize(this, UpdatedAbilityState.AbilityID);
 			AbilityInstance->ActivateAbility(UpdatedAbilityState.ActivationContext);
+			bAbilityJustActivated = true;
 
 			break;
-		
+
 		// In these cases the ability is not running on the server and so if it is running locally we need to cancel it
 		case PreActivation:
 		case ActivationFailed:
 		case Cancelled:
-			if (IsSingleInstanceAbility && AbilityInstance->AbilityID == UpdatedAbilityState.AbilityID)
+			// The server rejected this ability, so cancel whatever is running
+			if (IsSingleInstanceAbility && IsInstancedAbilityActive)
 			{
 				AbilityInstance->CancelAbility(FGameplayTag::EmptyTag, FInstancedStruct());
 			}
@@ -566,11 +628,17 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 	if (LocalAbilityState)
 	{
 		*LocalAbilityState = UpdatedAbilityState;
-		return;
+	}
+	else
+	{
+		// Otherwise add the new ability state to the local array
+		LocalAbilityStates.Add(UpdatedAbilityState);
 	}
 
-	// Otherwise add the new ability state to the local array
-	LocalAbilityStates.Add(UpdatedAbilityState);
+	if (bAbilityJustActivated)
+	{
+		ProcessDeferredSnapshots(UpdatedAbilityState.AbilityID);
+	}
 }
 
 void USimpleGameplayAbilityComponent::ClientOnAbilityStateRemoved(const FAbilityState& RemovedAbilityState)
@@ -593,6 +661,24 @@ void USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotAdded(const FAbilit
 		return;
 	}
 
+	// Try to resolve the snapshot immediately
+	TryResolveSnapshot(NewAbilitySnapshot);
+}
+
+void USimpleGameplayAbilityComponent::TryResolveSnapshot(const FAbilitySnapshot& NewAbilitySnapshot)
+{
+	// Get the local version of this snapshot
+	const FAbilitySnapshot* LocalSnapshot = LocalPendingAbilitySnapshots.FindByPredicate(
+		[NewAbilitySnapshot](const FAbilitySnapshot& Snapshot)
+		{
+			return Snapshot.AbilityID == NewAbilitySnapshot.AbilityID && Snapshot.SnapshotCounter == NewAbilitySnapshot.SnapshotCounter;
+		});
+
+	if (!LocalSnapshot)
+	{
+		return;
+	}
+
 	// We only want to resolve the snapshot if the ability is currently running
 	USimpleGameplayAbility* LocalRunningAbilityInstance = nullptr;
 	for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
@@ -603,9 +689,21 @@ void USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotAdded(const FAbilit
 			break;
 		}
 	}
-	
+
+	// If ability isn't running yet, defer this snapshot for later processing
 	if (!LocalRunningAbilityInstance || !LocalRunningAbilityInstance->IsActive)
 	{
+		// Add to deferred queue if not already there
+		const bool bAlreadyDeferred = DeferredSnapshots.ContainsByPredicate(
+			[NewAbilitySnapshot](const FAbilitySnapshot& Snapshot)
+			{
+				return Snapshot.AbilityID == NewAbilitySnapshot.AbilityID && Snapshot.SnapshotCounter == NewAbilitySnapshot.SnapshotCounter;
+			});
+
+		if (!bAlreadyDeferred)
+		{
+			DeferredSnapshots.Add(NewAbilitySnapshot);
+		}
 		return;
 	}
 
@@ -613,12 +711,34 @@ void USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotAdded(const FAbilit
 	LocalRunningAbilityInstance->OnServerSnapshotReceived(NewAbilitySnapshot.SnapshotCounter, NewAbilitySnapshot.SnapshotData, LocalSnapshot->SnapshotData);
 
 	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
-	if (LocalSnapshot)
+	LocalPendingAbilitySnapshots.RemoveAll([LocalSnapshot](const FAbilitySnapshot& Snapshot)
 	{
-		LocalPendingAbilitySnapshots.RemoveAll([LocalSnapshot](const FAbilitySnapshot& Snapshot)
+		return Snapshot.AbilityID == LocalSnapshot->AbilityID && Snapshot.SnapshotCounter == LocalSnapshot->SnapshotCounter;
+	});
+
+	// Also remove from deferred queue if it was there
+	DeferredSnapshots.RemoveAll([NewAbilitySnapshot](const FAbilitySnapshot& Snapshot)
+	{
+		return Snapshot.AbilityID == NewAbilitySnapshot.AbilityID && Snapshot.SnapshotCounter == NewAbilitySnapshot.SnapshotCounter;
+	});
+}
+
+void USimpleGameplayAbilityComponent::ProcessDeferredSnapshots(FGuid AbilityID)
+{
+	// Process any deferred snapshots for this ability now that it's active
+	TArray<FAbilitySnapshot> SnapshotsToProcess;
+
+	for (const FAbilitySnapshot& DeferredSnapshot : DeferredSnapshots)
+	{
+		if (DeferredSnapshot.AbilityID == AbilityID)
 		{
-			return Snapshot.AbilityID == LocalSnapshot->AbilityID && Snapshot.SnapshotCounter == LocalSnapshot->SnapshotCounter;
-		});
+			SnapshotsToProcess.Add(DeferredSnapshot);
+		}
+	}
+
+	for (const FAbilitySnapshot& Snapshot : SnapshotsToProcess)
+	{
+		TryResolveSnapshot(Snapshot);
 	}
 }
 
@@ -628,14 +748,21 @@ void USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotRemoved(const FAbil
 	{
 		return Snapshot.AbilityID == NewAbilitySnapshot.AbilityID && Snapshot.SnapshotCounter == NewAbilitySnapshot.SnapshotCounter;
 	});
+
+	// Also remove from deferred queue
+	DeferredSnapshots.RemoveAll([NewAbilitySnapshot](const FAbilitySnapshot& Snapshot)
+	{
+		return Snapshot.AbilityID == NewAbilitySnapshot.AbilityID && Snapshot.SnapshotCounter == NewAbilitySnapshot.SnapshotCounter;
+	});
 }
 
 void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(USimpleGameplayAbilityComponent, AvatarActor);
-	DOREPLIFETIME(USimpleGameplayAbilityComponent, GrantedAbilities);
+	DOREPLIFETIME_CONDITION(USimpleGameplayAbilityComponent, AvatarActor, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(USimpleGameplayAbilityComponent, GrantedAbilities, COND_OwnerOnly);
+	
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilitySnapshots);
 }
