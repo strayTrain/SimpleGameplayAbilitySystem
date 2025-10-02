@@ -114,14 +114,20 @@ bool USimpleGameplayAbilityComponent::ActivateAbility(
 	FGuid& AbilityID)
 {
 	AbilityID = FGuid::NewGuid();
-	return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, false, GetServerTime());
+	return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, false, GetServerTime(), EAbilityNetworkRole::Client); // We're not tracking state so ActivatedOn doesn't matter
 }
 
 bool USimpleGameplayAbilityComponent::ActivateAbilityPredicted(TSubclassOf<USimpleGameplayAbility> AbilityClass,
 	FInstancedStruct AbilityContext, FGuid& AbilityID)
 {
 	AbilityID = FGuid::NewGuid();
-	const bool WasActivated = ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, true, GetServerTime());
+	const bool WasActivated = ActivateAbilityInternal(
+		AbilityID,
+		AbilityClass,
+		AbilityContext,
+		true,
+		GetServerTime(),
+		HasAuthority() ? EAbilityNetworkRole::ListenServer : EAbilityNetworkRole::Client);
 
 	if (WasActivated && !HasAuthority())
 	{
@@ -137,7 +143,7 @@ void USimpleGameplayAbilityComponent::ActivateAbilityServerInitiated(TSubclassOf
 
 	if (HasAuthority())
 	{
-		ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, true, GetServerTime());
+		ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, true, GetServerTime(), EAbilityNetworkRole::ListenServer);
 		return;
 	}
 	
@@ -149,7 +155,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 	const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
 	const FInstancedStruct& AbilityContext,
 	const bool ShouldTrackState,
-	const double ActivationTime)
+	const double ActivationTime, const EAbilityNetworkRole ActivatedOn)
 {
 	if (!AbilityClass)
 	{
@@ -178,6 +184,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 		FAbilityState NewState;
 		NewState.AbilityID = AbilityID;
 		NewState.AbilityClass = AbilityClass;
+		NewState.ActivatedOn = ActivatedOn;
 		NewState.ActivationTimeStamp = ActivationTime;
 		NewState.ActivationContext = AbilityContext;
 		
@@ -222,7 +229,7 @@ void USimpleGameplayAbilityComponent::ServerActivateAbility_Implementation(
 		ValidatedTime = ServerTime;
 	}
 
-	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, true, ValidatedTime);
+	ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContexts, true, ValidatedTime, EAbilityNetworkRole::Client);
 }
 
 USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstanceByClass(TSubclassOf<USimpleGameplayAbility> AbilityClass)
@@ -588,6 +595,14 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 		case Ended:
 			if (!LocalAbilityState)
 			{
+				// Don't re-activate if this was a client-predicted ability that was originally activated on this client
+				// This prevents instant abilities from running twice (once predicted, once on state replication)
+				if (UpdatedAbilityState.ActivatedOn == EAbilityNetworkRole::Client && !HasAuthority())
+				{
+					LocalAbilityStates.Add(UpdatedAbilityState);
+					return;
+				}
+
 				AbilityInstance->Initialize(this, UpdatedAbilityState.AbilityID);
 				AbilityInstance->ActivateAbility(UpdatedAbilityState.ActivationContext);
 				LocalAbilityStates.Add(UpdatedAbilityState);
@@ -619,6 +634,22 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 
 				// Otherwise an ability with a different ID is already running and needs to be cancelled first
 				AbilityInstance->CancelAbility(FGameplayTag::EmptyTag, FInstancedStruct());
+			}
+
+			// Don't re-activate if this was a client-predicted ability that was originally activated on this client
+			// This handles the case where an instant ability completed before the ActivationSuccess state replicated
+			if (UpdatedAbilityState.ActivatedOn == EAbilityNetworkRole::Client && !HasAuthority())
+			{
+				// Check if there is a local ability state with the same ID and update it
+				if (LocalAbilityState)
+				{
+					*LocalAbilityState = UpdatedAbilityState;
+				}
+				else
+				{
+					LocalAbilityStates.Add(UpdatedAbilityState);
+				}
+				break;
 			}
 
 			AbilityInstance->Initialize(this, UpdatedAbilityState.AbilityID);
@@ -775,9 +806,9 @@ void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(USimpleGameplayAbilityComponent, AvatarActor, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(USimpleGameplayAbilityComponent, GrantedAbilities, COND_OwnerOnly);
 	
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AvatarActor);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilitySnapshots);
 }

@@ -195,7 +195,7 @@ protected:
 		const TSubclassOf<USimpleGameplayAbility>& AbilityClass,
 		const FInstancedStruct& AbilityContext,
 		bool ShouldTrackState,
-		double ActivationTime = -1);
+		double ActivationTime, EAbilityNetworkRole ActivatedOn);
 	
 	UPROPERTY()
 	TArray<USimpleGameplayAbility*> InstancedAbilities;

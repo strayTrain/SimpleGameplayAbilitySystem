@@ -203,6 +203,10 @@ struct FAbilityState : public FFastArraySerializerItem
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGuid AbilityID;
 
+	// Keep track of who activated the ability (server/listen server/client)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	EAbilityNetworkRole ActivatedOn;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EAbilityStatus AbilityStatus = EAbilityStatus::PreActivation;
 	

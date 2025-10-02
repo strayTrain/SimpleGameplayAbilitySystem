@@ -201,8 +201,12 @@ void USimpleGameplayAbility::AbilityEndedInternal(FInstancedStruct EndingContext
 		CancelPolicies.Add(ESubAbilityCancellationPolicy::CancelOnParentAbilityEnded);
 	}
 
-	for (const FActivatedSubAbility& SubAbility : SubAbilityInstances)
+	// Iterate backwards to safely handle removal during iteration
+	// (CancelAbility triggers OnAbilityCancelled which calls RemoveTrackedSubAbilityByInstance)
+	for (int32 i = SubAbilityInstances.Num() - 1; i >= 0; --i)
 	{
+		const FActivatedSubAbility& SubAbility = SubAbilityInstances[i];
+
 		if (!SubAbility.SubAbilityInstance)
 		{
 			continue;
