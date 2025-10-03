@@ -308,25 +308,25 @@ float USimpleAttributeComponent::GetFloatAttributeValue(EFloatAttributeValueType
 
 		switch (ValueType)
 		{
-		case EFloatAttributeValueType::BaseValue:
-			return Attribute->BaseValue;
-		case EFloatAttributeValueType::CurrentValue:
-			return Attribute->CurrentValue;
-		case EFloatAttributeValueType::MaxCurrentValue:
-			return Attribute->ValueLimits.MaxCurrentValue;
-		case EFloatAttributeValueType::MinCurrentValue:
-			return Attribute->ValueLimits.MinCurrentValue;
-		case EFloatAttributeValueType::MaxBaseValue:
-			return Attribute->ValueLimits.MaxBaseValue;
-		case EFloatAttributeValueType::MinBaseValue:
-			return Attribute->ValueLimits.MinBaseValue;
-		default:
-			SIMPLE_LOG(this, FString::Printf(
-				           TEXT(
-					           "[USimpleAttributeFunctionLibrary::GetFloatAttributeValue]: ValueType %d not supported."),
-				           static_cast<int32>(ValueType)));
-			WasFound = false;
-			return 0.0f;
+			case EFloatAttributeValueType::BaseValue:
+				return Attribute->BaseValue;
+			case EFloatAttributeValueType::CurrentValue:
+				return Attribute->CurrentValue;
+			case EFloatAttributeValueType::MaxCurrentValue:
+				return Attribute->ValueLimits.MaxCurrentValue;
+			case EFloatAttributeValueType::MinCurrentValue:
+				return Attribute->ValueLimits.MinCurrentValue;
+			case EFloatAttributeValueType::MaxBaseValue:
+				return Attribute->ValueLimits.MaxBaseValue;
+			case EFloatAttributeValueType::MinBaseValue:
+				return Attribute->ValueLimits.MinBaseValue;
+			default:
+				SIMPLE_LOG(this, FString::Printf(
+					           TEXT(
+						           "[USimpleAttributeFunctionLibrary::GetFloatAttributeValue]: ValueType %d not supported."),
+					           static_cast<int32>(ValueType)));
+				WasFound = false;
+				return 0.0f;
 		}
 	}
 
@@ -359,6 +359,15 @@ bool USimpleAttributeComponent::SetFloatAttributeValue(EFloatAttributeValueType 
 			{
 				OnFloatAttributeBaseValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
 			}
+			// Broadcast limit reached events if the value reached or exceeded a limit
+			if (Attribute->ValueLimits.UseMaxBaseValue && ClampedValue == Attribute->ValueLimits.MaxBaseValue && OldValue < ClampedValue)
+			{
+				OnMaxBaseValueReached.Broadcast(AttributeTag, Overflow);
+			}
+			else if (Attribute->ValueLimits.UseMinBaseValue && ClampedValue == Attribute->ValueLimits.MinBaseValue && OldValue > ClampedValue)
+			{
+				OnMinBaseValueReached.Broadcast(AttributeTag, Overflow);
+			}
 			break;
 
 		case EFloatAttributeValueType::CurrentValue:
@@ -367,6 +376,15 @@ bool USimpleAttributeComponent::SetFloatAttributeValue(EFloatAttributeValueType 
 			if (OldValue != ClampedValue)
 			{
 				OnFloatAttributeCurrentValueChanged.Broadcast(AttributeTag, OldValue, ClampedValue);
+			}
+			// Broadcast limit reached events if the value reached or exceeded a limit
+			if (Attribute->ValueLimits.UseMaxCurrentValue && ClampedValue == Attribute->ValueLimits.MaxCurrentValue && OldValue < ClampedValue)
+			{
+				OnMaxCurrentValueReached.Broadcast(AttributeTag, Overflow);
+			}
+			else if (Attribute->ValueLimits.UseMinCurrentValue && ClampedValue == Attribute->ValueLimits.MinCurrentValue && OldValue > ClampedValue)
+			{
+				OnMinCurrentValueReached.Broadcast(AttributeTag, Overflow);
 			}
 			break;
 
