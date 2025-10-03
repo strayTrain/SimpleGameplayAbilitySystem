@@ -1,89 +1,108 @@
 #include "WaitForGameplayTag.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeComponent.h"
 
-#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
-#include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+// ============================================================================
+// UWaitForGameplayTagAdded
+// ============================================================================
 
-// UWaitForGameplayTag* UWaitForGameplayTag::WaitForGameplayTag(
-// 	UObject* WorldContextObject,
-// 	USimpleGameplayAbilityComponent* TagOwner,
-// 	const FGameplayTag GameplayTag,
-// 	const bool OnlyTriggerOnce)
-// {
-// 	UWaitForGameplayTag* Node = NewObject<UWaitForGameplayTag>();
-// 	Node->WorldContext = WorldContextObject->GetWorld();
-// 	Node->TaskOwner = TagOwner;
-// 	Node->GameplayTag = GameplayTag;
-// 	Node->OnlyTriggerOnce = OnlyTriggerOnce;
-// 	
-// 	return Node;
-// }
-//
-// void UWaitForGameplayTag::Activate()
-// {
-// 	if (!TaskOwner.IsValid() || !WorldContext.IsValid())
-// 	{
-// 		SetReadyToDestroy();
-// 		return;
-// 	}
-//
-// 	FGameplayTagContainer TagEvents;
-// 	TagEvents.AddTag(FDefaultTags::GameplayTagAdded());
-// 	TagEvents.AddTag(FDefaultTags::GameplayTagRemoved());
-// 	
-// 	// Listen for WaitForAbility node to end
-// 	SimpleEventTask = UWaitForSimpleEvent::WaitForSimpleEvent(
-// 		WorldContext.Get(),
-// 		this,
-// 		OnlyTriggerOnce,
-// 		TagEvents,
-// 		FGameplayTagContainer(),
-// 		{  },
-// 		{ TaskOwner.Get() },
-// 		true,
-// 		false);
-// 	
-// 	if (SimpleEventTask)
-// 	{
-// 		SimpleEventTask->OnEventReceived.AddDynamic(this, &UWaitForGameplayTag::OnSimpleEventReceived);
-// 		SimpleEventTask->Activate();
-// 	}
-// 	
-// 	Super::Activate();
-// }
-//
-// void UWaitForGameplayTag::OnSimpleEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag,
-// 	FInstancedStruct Payload, UObject* Sender, FGuid EventSubscriptionID)
-// {
-// 	if (!DomainTag.MatchesTagExact(GameplayTag))
-// 	{
-// 		return;
-// 	}
-//
-// 	if (EventTag.MatchesTagExact(FDefaultTags::GameplayTagAdded()))
-// 	{
-// 		TagAdded.Broadcast();
-// 	}
-//
-// 	if (EventTag.MatchesTagExact(FDefaultTags::GameplayTagRemoved()))
-// 	{
-// 		TagRemoved.Broadcast();
-// 	}
-// 	
-// 	if (OnlyTriggerOnce)
-// 	{
-// 		SetReadyToDestroy();
-// 	}
-// }
-//
-// void UWaitForGameplayTag::SetReadyToDestroy()
-// {
-// 	// Clean up event tasks
-// 	if (SimpleEventTask)
-// 	{
-// 		SimpleEventTask->OnEventReceived.RemoveDynamic(this, &UWaitForGameplayTag::OnSimpleEventReceived);
-// 	}
-// 	
-// 	Super::SetReadyToDestroy();
-// }
+UWaitForGameplayTagAdded* UWaitForGameplayTagAdded::WaitForGameplayTagAdded(
+	USimpleAttributeComponent* AttributeComponent,
+	FGameplayTag GameplayTag,
+	bool OnlyTriggerOnce)
+{
+	UWaitForGameplayTagAdded* AsyncAction = NewObject<UWaitForGameplayTagAdded>();
+	AsyncAction->AttributeComponentPtr = AttributeComponent;
+	AsyncAction->TargetTag = GameplayTag;
+	AsyncAction->bOnlyTriggerOnce = OnlyTriggerOnce;
+	return AsyncAction;
+}
+
+void UWaitForGameplayTagAdded::Activate()
+{
+	if (!AttributeComponentPtr.IsValid())
+	{
+		SetReadyToDestroy();
+		return;
+	}
+
+	AttributeComponentPtr->OnGameplayTagAdded.AddDynamic(this, &UWaitForGameplayTagAdded::OnGameplayTagAddedEvent);
+}
+
+void UWaitForGameplayTagAdded::OnGameplayTagAddedEvent(FGameplayTag Tag)
+{
+	if (!Tag.MatchesTagExact(TargetTag))
+	{
+		return;
+	}
+
+	OnTagAdded.Broadcast(Tag);
+
+	if (bOnlyTriggerOnce)
+	{
+		SetReadyToDestroy();
+	}
+}
+
+void UWaitForGameplayTagAdded::SetReadyToDestroy()
+{
+	if (AttributeComponentPtr.IsValid())
+	{
+		AttributeComponentPtr->OnGameplayTagAdded.RemoveDynamic(this, &UWaitForGameplayTagAdded::OnGameplayTagAddedEvent);
+	}
+
+	Super::SetReadyToDestroy();
+}
+
+// ============================================================================
+// UWaitForGameplayTagRemoved
+// ============================================================================
+
+UWaitForGameplayTagRemoved* UWaitForGameplayTagRemoved::WaitForGameplayTagRemoved(
+	USimpleAttributeComponent* AttributeComponent,
+	FGameplayTag GameplayTag,
+	bool OnlyTriggerOnce)
+{
+	UWaitForGameplayTagRemoved* AsyncAction = NewObject<UWaitForGameplayTagRemoved>();
+	AsyncAction->AttributeComponentPtr = AttributeComponent;
+	AsyncAction->TargetTag = GameplayTag;
+	AsyncAction->bOnlyTriggerOnce = OnlyTriggerOnce;
+	return AsyncAction;
+}
+
+void UWaitForGameplayTagRemoved::Activate()
+{
+	if (!AttributeComponentPtr.IsValid())
+	{
+		SetReadyToDestroy();
+		return;
+	}
+
+	AttributeComponentPtr->OnGameplayTagRemoved.AddDynamic(this, &UWaitForGameplayTagRemoved::OnGameplayTagRemovedEvent);
+}
+
+void UWaitForGameplayTagRemoved::OnGameplayTagRemovedEvent(FGameplayTag Tag)
+{
+	if (!Tag.MatchesTagExact(TargetTag))
+	{
+		return;
+	}
+
+	OnTagRemoved.Broadcast(Tag);
+
+	if (bOnlyTriggerOnce)
+	{
+		SetReadyToDestroy();
+	}
+}
+
+void UWaitForGameplayTagRemoved::SetReadyToDestroy()
+{
+	if (AttributeComponentPtr.IsValid())
+	{
+		AttributeComponentPtr->OnGameplayTagRemoved.RemoveDynamic(this, &UWaitForGameplayTagRemoved::OnGameplayTagRemovedEvent);
+	}
+
+	Super::SetReadyToDestroy();
+}
 
 
