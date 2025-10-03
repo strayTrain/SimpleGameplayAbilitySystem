@@ -243,7 +243,6 @@ void USimpleGameplayAbility::TakeStateSnapshot(const FInstancedStruct SnapshotDa
 	PendingSnapshots.Add(SnapshotCounter, OnResolved);
 }
 
-
 EAbilityNetworkRole USimpleGameplayAbility::GetNetworkRole() const
 {
 	const UWorld* World = GetWorld();

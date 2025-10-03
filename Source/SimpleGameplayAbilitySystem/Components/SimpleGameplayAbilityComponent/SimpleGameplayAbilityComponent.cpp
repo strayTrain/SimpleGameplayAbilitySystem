@@ -95,13 +95,32 @@ void USimpleGameplayAbilityComponent::SendEventToClient(FGameplayTag EventTag, F
 	ClientSendEvent(EventTag, AbilityID, EventContext);
 }
 
+void USimpleGameplayAbilityComponent::SendEventToAllClients(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+{
+	if (!HasAuthority())
+	{
+		ServerSendEvent(EventTag, AbilityID, EventContext);
+		return;
+	}
+
+	MulticastSendEvent(EventTag, AbilityID, EventContext);
+}
+
 void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
 {
-	// TODO: Add validation here to check if the client is allowed to send this event
+	// Broadcast locally on server
 	SendEvent(EventTag, AbilityID, EventContext);
+
+	// Also multicast to all clients so they receive the event too
+	MulticastSendEvent(EventTag, AbilityID, EventContext);
 }
 
 void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
+{
+	SendEvent(EventTag, AbilityID, EventContext);
+}
+
+void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
 {
 	SendEvent(EventTag, AbilityID, EventContext);
 }
@@ -256,6 +275,21 @@ USimpleGameplayAbility* USimpleGameplayAbilityComponent::GetAbilityInstanceByCla
 	InstancedAbilities.Add(NewAbilityInstance);
 	
 	return NewAbilityInstance;	
+}
+
+FAbilityState* USimpleGameplayAbilityComponent::GetAbilityStateByID(FGuid AbilityInstanceID)
+{
+	TArray<FAbilityState>& AbilityStates = HasAuthority() ? AuthorityAbilityStates.AbilityStates : LocalAbilityStates;
+
+	for (FAbilityState& AbilityState : AbilityStates)
+	{
+		if (AbilityState.AbilityID == AbilityInstanceID)
+		{
+			return &AbilityState;
+		}
+	}
+
+	return nullptr;
 }
 
 void USimpleGameplayAbilityComponent::CancelAbility(const FGuid AbilityInstanceID, const FInstancedStruct CancellationContext)
@@ -638,17 +672,11 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 
 			// Don't re-activate if this was a client-predicted ability that was originally activated on this client
 			// This handles the case where an instant ability completed before the ActivationSuccess state replicated
-			if (UpdatedAbilityState.ActivatedOn == EAbilityNetworkRole::Client && !HasAuthority())
+			// We check if we have a local state for this ability ID - if we do, this client predicted it
+			if (UpdatedAbilityState.ActivatedOn == EAbilityNetworkRole::Client && !HasAuthority() && LocalAbilityState)
 			{
-				// Check if there is a local ability state with the same ID and update it
-				if (LocalAbilityState)
-				{
-					*LocalAbilityState = UpdatedAbilityState;
-				}
-				else
-				{
-					LocalAbilityStates.Add(UpdatedAbilityState);
-				}
+				// Update the existing local state
+				*LocalAbilityState = UpdatedAbilityState;
 				break;
 			}
 

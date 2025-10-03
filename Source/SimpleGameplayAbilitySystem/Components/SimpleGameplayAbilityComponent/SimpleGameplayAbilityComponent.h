@@ -69,11 +69,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
 	void SendEventToClient(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
 
+	// Sends an event to all clients (multicast)
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
+	void SendEventToAllClients(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+
 	UFUNCTION(Server, Reliable)
 	void ServerSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
-
+	
 	UFUNCTION(Client, Reliable)
 	void ClientSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
 
 	/* Avatar Actor Functions */
 	
@@ -181,6 +188,7 @@ public:
 	
 	USimpleGameplayAbility* GetAbilityInstanceByID(FGuid AbilityInstanceID);
 	USimpleGameplayAbility* GetAbilityInstanceByClass(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+	FAbilityState* GetAbilityStateByID(FGuid AbilityInstanceID);
 
 protected:
 	virtual void BeginPlay() override;

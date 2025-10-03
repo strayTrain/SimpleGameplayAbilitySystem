@@ -123,7 +123,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	EAbilityNetworkRole GetNetworkRole() const;
-	
+
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool HasAuthority() const;
 
