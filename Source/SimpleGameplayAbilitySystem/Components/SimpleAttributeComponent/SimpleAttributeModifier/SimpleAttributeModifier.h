@@ -65,15 +65,42 @@ public:
 		EditConditionHides,
 		EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
 	bool ResetScratchPadOnTick = true;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
-	bool CanStack = false;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (InlineEditConditionToggle))
-	bool HasMaxStacks;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (EditCondition = "HasMaxStacks && DurationType != EAttributeModifierDurationType::Instant"))
-	int32 MaxStacks = 1;
+	/**
+	 * If enabled, this modifier will be part of a stack group identified by StackGroupTag.
+	 * Multiple instances of modifiers with the same StackGroupTag will be treated as a stack.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
+		meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
+	bool bUseStackGroup = false;
+
+	/**
+	 * Tag that identifies which stack group this modifier belongs to.
+	 * All modifiers with the same StackGroupTag on the same target will be considered part of the same stack.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
+		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant"))
+	FGameplayTag StackGroupTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
+		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant",
+				InlineEditConditionToggle))
+	bool bHasMaxStacksInGroup = false;
+
+	/**
+	 * Maximum number of modifier instances allowed in this stack group.
+	 * When exceeded, OverflowBehavior determines what happens.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
+		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant"))
+	int32 MaxStacksInGroup = 1;
+
+	/**
+	 * Determines what happens when trying to apply a new modifier when the stack group is at max capacity.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
+		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant"))
+	EStackGroupOverflowBehavior OverflowBehavior = EStackGroupOverflowBehavior::DenyNew;
 
 	/**
 	 * Tags that can be used to classify this modifier. e.g. "DamageOverTime", "StatusEffect" etc.
@@ -121,12 +148,6 @@ public:
 	 */
 	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
 	float ModifierMagnitude = 0;
-	
-	/**
-	 * Keeps track of the number of stacks this modifier has. Only applies to duration type modifiers with a stackable configuration.
-	 */
-	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
-	int32 ModifierStacks = 1;
 
 	/**
 	 * Keeps track of the number of ticks that have occurred since the modifier was applied if the modifier is a duration type.
@@ -183,10 +204,31 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
 	void CancelModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
-	
-	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void AddModifierStack(int32 StackCount);
-	
+
+	/**
+	 * Get the remaining duration in seconds (returns 0 if not a SetDuration modifier or if already expired).
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Duration")
+	float GetRemainingDuration() const;
+
+	/**
+	 * Extend the duration by additional seconds. Only works for SetDuration modifiers.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Duration")
+	void ExtendDuration(float AdditionalSeconds);
+
+	/**
+	 * Set a new remaining duration. Only works for SetDuration modifiers.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Duration")
+	void SetRemainingDuration(float NewDuration);
+
+	/**
+	 * Get the time this modifier was activated (server time).
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier")
+	float GetActivationTime() const { return ActivationTime; }
+
 	/* Blueprint Implementable Events */
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Application")
@@ -208,18 +250,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnModifierCancelled(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
 	void OnModifierCancelled_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext) {}
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void OnStacksAdded(int32 AddedStacks, int32 CurrentStacks);
-	void OnStacksAdded_Implementation(int32 AddedStacks, int32 CurrentStacks) {}
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void OnStacksRemoved(int32 RemovedStacks, int32 CurrentStacks);
-	void OnStacksRemoved_Implementation(int32 RemovedStacks, int32 CurrentStacks) {}
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void OnMaxStacksReached();
-	void OnMaxStacksReached_Implementation() {}
 
 	UFUNCTION()
 	void OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation);
@@ -243,7 +273,13 @@ protected:
 
 private:
 	bool CanApplyModifierInternal();
-	
+
+	/**
+	 * Handles stack group reapplication logic and overflow behavior.
+	 * Returns false if the application should be denied, true if it should proceed.
+	 */
+	bool HandleStackGroupReapplication();
+
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
 

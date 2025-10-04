@@ -193,7 +193,42 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes")
 	bool IsModifierWithTagsActive(FGameplayTagContainer ModifierTags) const;
-	
+
+	/* Stack Group Functions */
+
+	/**
+	 * Get the number of active modifier instances in a stack group.
+	 * Stack count = number of active instances with the same StackGroupTag.
+	 * @param StackGroupTag The tag identifying the stack group
+	 * @return The number of active modifier instances in the group
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	int32 GetModifierStackCountInGroup(FGameplayTag StackGroupTag) const;
+
+	/**
+	 * Get all active modifiers in a stack group.
+	 * @param StackGroupTag The tag identifying the stack group
+	 * @return Array of all active modifiers in the group
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	TArray<USimpleAttributeModifier*> GetModifiersInStackGroup(FGameplayTag StackGroupTag) const;
+
+	/**
+	 * Get the oldest modifier in a stack group (earliest activation time).
+	 * @param StackGroupTag The tag identifying the stack group
+	 * @return The oldest modifier in the group, or nullptr if group is empty
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	USimpleAttributeModifier* GetOldestModifierInGroup(FGameplayTag StackGroupTag) const;
+
+	/**
+	 * Get the newest modifier in a stack group (latest activation time).
+	 * @param StackGroupTag The tag identifying the stack group
+	 * @return The newest modifier in the group, or nullptr if group is empty
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	USimpleAttributeModifier* GetNewestModifierInGroup(FGameplayTag StackGroupTag) const;
+
 	/* Attribute Functions */
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AttributeComponent|Attributes", meta = (AdvancedDisplay=1))
@@ -297,8 +332,37 @@ protected:
 	UPROPERTY()
 	TArray<USimpleAttributeHandler*> InstancedAttributeHandlers;
 
+	/** Snapshots of attributes for predicted modifiers to enable rollback */
+	UPROPERTY()
+	TArray<FPredictedModifierSnapshot> PredictedModifierSnapshots;
+
+	/** Queue of mutations that arrived before their corresponding state */
+	UPROPERTY()
+	TArray<FAttributeModifierMutation> PendingMutationQueue;
+
+	/** Timer handle for periodic state cleanup */
+	FTimerHandle CleanupTimerHandle;
+
 private:
 	USimpleAttributeModifier* GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass, FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate);
+
+	/** Captures current attribute state for rollback */
+	FAttributeSnapshot CaptureAttributeSnapshot() const;
+
+	/** Restores attributes from a snapshot */
+	void RestoreAttributeSnapshot(const FAttributeSnapshot& Snapshot);
+
+	/** Processes queued mutations for a given modifier ID */
+	void ProcessPendingMutations(FGuid ModifierID);
+
+	/** Cleans up old ended/cancelled modifier states and snapshots */
+	void CleanupOldModifierStates();
+
+	/** Max time in seconds to keep ended/cancelled states before cleanup */
+	static constexpr float MaxStateRetentionTime = 30.0f;
+
+	/** Max number of predicted snapshots to keep (oldest removed first) */
+	static constexpr int32 MaxPredictedSnapshots = 50;
 
 	UFUNCTION()
 	void OnAttributeModifierInitiallyApplied(USimpleAttributeModifier* ModifierInstance);

@@ -39,9 +39,43 @@ enum class EAttributeModifierDurationType : uint8
 UENUM(BlueprintType)
 enum class EDurationModifierReApplicationConfig : uint8
 {
+	/**
+	 * Allow multiple instances to exist simultaneously (default behavior).
+	 */
+	AllowMultiple,
+	/**
+	 * Cancel the oldest instance in the stack group and apply new one with fresh duration.
+	 */
 	ResetDurationTimer,
+	/**
+	 * Extend the oldest instance's duration and deny the new application.
+	 */
 	ExtendDurationTimer,
-	AddStack,
+	/**
+	 * Reset duration on ALL instances in the stack group and deny the new application.
+	 */
+	RefreshAll,
+};
+
+UENUM(BlueprintType)
+enum class EStackGroupOverflowBehavior : uint8
+{
+	/**
+	 * Deny the new application if at max stacks.
+	 */
+	DenyNew,
+	/**
+	 * Remove the oldest instance and apply the new one.
+	 */
+	ReplaceOldest,
+	/**
+	 * Remove the newest instance and apply the new one.
+	 */
+	ReplaceNewest,
+	/**
+	 * Extend the oldest instance's duration and deny the new application.
+	 */
+	ExtendOldest,
 };
 
 UENUM(BlueprintType)
@@ -339,6 +373,43 @@ struct FAttributeModifierMutationContainer : public FFastArraySerializer
 };
 
 DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FAttributeModifierMutationContainer)
+
+/* Attribute Snapshots for Rollback */
+
+USTRUCT(BlueprintType)
+struct FAttributeSnapshot
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<struct FFloatAttribute> FloatAttributes;
+
+	UPROPERTY()
+	TArray<struct FStructAttribute> StructAttributes;
+
+	UPROPERTY()
+	TArray<struct FGameplayTagCounter> GameplayTags;
+};
+
+USTRUCT()
+struct FPredictedModifierSnapshot
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FGuid ModifierID;
+
+	UPROPERTY()
+	FAttributeSnapshot AttributeSnapshot;
+
+	UPROPERTY()
+	double SnapshotTimestamp;
+
+	bool operator==(const FPredictedModifierSnapshot& Other) const
+	{
+		return ModifierID == Other.ModifierID;
+	}
+};
 
 /* Event Dispatchers */
 

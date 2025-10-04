@@ -15,6 +15,15 @@ bool USimpleAttributeModifier::ApplyModifier()
 		return false;
 	}
 
+	// Check for stack group overflow and reapplication
+	if (bUseStackGroup && StackGroupTag.IsValid() && DurationType == EAttributeModifierDurationType::SetDuration)
+	{
+		if (!HandleStackGroupReapplication())
+		{
+			return false; // Denied by reapplication logic
+		}
+	}
+
 	if (!CanApplyModifierInternal())
 	{
 		CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
@@ -221,27 +230,6 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 	return true;
 }
 
-void USimpleAttributeModifier::AddModifierStack(int32 StackCount)
-{
-	if (OnReapplication != EDurationModifierReApplicationConfig::AddStack)
-	{
-		UE_LOG(LogSimpleGAS, Warning, TEXT("[USimpleAttributeModifier::AddModifierStack]: Modifier %s cannot stack."), *GetName());
-		return;
-	}
-
-	if (HasMaxStacks)
-	{
-		if (ModifierStacks + StackCount > MaxStacks)
-		{
-			ModifierStacks = MaxStacks;
-			OnMaxStacksReached();
-			return;
-		}
-	}
-
-	ModifierStacks += StackCount;
-	OnStacksAdded(StackCount, ModifierStacks);
-}
 
 void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation)
 {
@@ -309,7 +297,7 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 			case EDurationTickTagRequirementBehaviour::CancelOnTagRequirementFailed:
 				CancelModifier(FDefaultTags::AttributeModifierTickFailedCancel(), FInstancedStruct());
 				return;
-			
+
 			case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
 			{
 				ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierTickFailedSkip() })));
@@ -319,11 +307,157 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 	}
 
 	TickCount += 1;
-	
+
 	if (ResetScratchPadOnTick)
 	{
 		ModifierActionScratchPad = InitialScratchPadValues;
 	}
-	
+
 	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({FDefaultTags::AttributeModifierTicked()})));
+}
+
+bool USimpleAttributeModifier::HandleStackGroupReapplication()
+{
+	TArray<USimpleAttributeModifier*> ExistingInGroup =
+		TargetAttributeComponent->GetModifiersInStackGroup(StackGroupTag);
+
+	int32 CurrentStackCount = ExistingInGroup.Num();
+
+	// Handle reapplication behavior first
+	if (CurrentStackCount > 0)
+	{
+		switch (OnReapplication)
+		{
+			case EDurationModifierReApplicationConfig::ResetDurationTimer:
+			{
+				// Cancel oldest, allow new application
+				USimpleAttributeModifier* Oldest = TargetAttributeComponent->GetOldestModifierInGroup(StackGroupTag);
+				if (Oldest)
+				{
+					Oldest->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
+				}
+				return true; // Allow new application
+			}
+
+			case EDurationModifierReApplicationConfig::ExtendDurationTimer:
+			{
+				// Extend oldest, deny new
+				USimpleAttributeModifier* Oldest = TargetAttributeComponent->GetOldestModifierInGroup(StackGroupTag);
+				if (Oldest)
+				{
+					Oldest->ExtendDuration(Duration);
+				}
+				return false; // Deny new application
+			}
+
+			case EDurationModifierReApplicationConfig::RefreshAll:
+			{
+				// Reset duration on all instances
+				for (USimpleAttributeModifier* Existing : ExistingInGroup)
+				{
+					if (Existing)
+					{
+						Existing->SetRemainingDuration(Duration);
+					}
+				}
+				return false; // Deny new application
+			}
+
+			case EDurationModifierReApplicationConfig::AllowMultiple:
+			default:
+				// Continue to overflow check below
+				break;
+		}
+	}
+
+	// Check max stacks (after reapplication, count may have changed)
+	CurrentStackCount = TargetAttributeComponent->GetModifierStackCountInGroup(StackGroupTag);
+
+	if (bHasMaxStacksInGroup && CurrentStackCount >= MaxStacksInGroup)
+	{
+		switch (OverflowBehavior)
+		{
+			case EStackGroupOverflowBehavior::DenyNew:
+				SIMPLE_LOG(this, FString::Printf(TEXT("Max stacks (%d) reached for group %s"), MaxStacksInGroup, *StackGroupTag.ToString()));
+				return false;
+
+			case EStackGroupOverflowBehavior::ReplaceOldest:
+			{
+				USimpleAttributeModifier* Oldest = TargetAttributeComponent->GetOldestModifierInGroup(StackGroupTag);
+				if (Oldest)
+				{
+					Oldest->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
+				}
+				return true;
+			}
+
+			case EStackGroupOverflowBehavior::ReplaceNewest:
+			{
+				USimpleAttributeModifier* Newest = TargetAttributeComponent->GetNewestModifierInGroup(StackGroupTag);
+				if (Newest)
+				{
+					Newest->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
+				}
+				return true;
+			}
+
+			case EStackGroupOverflowBehavior::ExtendOldest:
+			{
+				USimpleAttributeModifier* Oldest = TargetAttributeComponent->GetOldestModifierInGroup(StackGroupTag);
+				if (Oldest)
+				{
+					Oldest->ExtendDuration(Duration);
+				}
+				return false;
+			}
+		}
+	}
+
+	return true; // Allow application
+}
+
+float USimpleAttributeModifier::GetRemainingDuration() const
+{
+	if (DurationType != EAttributeModifierDurationType::SetDuration || !DurationTimerHandle.IsValid())
+		return 0.0f;
+
+	return GetWorld()->GetTimerManager().GetTimerRemaining(DurationTimerHandle);
+}
+
+void USimpleAttributeModifier::ExtendDuration(float AdditionalSeconds)
+{
+	if (DurationType != EAttributeModifierDurationType::SetDuration)
+		return;
+
+	float CurrentRemaining = GetRemainingDuration();
+	SetRemainingDuration(CurrentRemaining + AdditionalSeconds);
+}
+
+void USimpleAttributeModifier::SetRemainingDuration(float NewDuration)
+{
+	if (DurationType != EAttributeModifierDurationType::SetDuration)
+		return;
+
+	// Clear existing timer
+	if (DurationTimerHandle.IsValid())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
+	}
+
+	// Set new timer
+	if (NewDuration > 0)
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			DurationTimerHandle,
+			this,
+			&USimpleAttributeModifier::OnDurationTimerExpired,
+			NewDuration,
+			false
+		);
+	}
+	else
+	{
+		// Duration expired, end immediately
+		EndModifier(FDefaultTags::AttributeModifierEnded(), FInstancedStruct());
+	}
 }
