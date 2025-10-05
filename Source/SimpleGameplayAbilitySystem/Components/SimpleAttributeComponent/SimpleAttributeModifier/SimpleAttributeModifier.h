@@ -71,7 +71,7 @@ public:
 	 * Multiple instances of modifiers with the same StackGroupTag will be treated as a stack.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
+		meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
 	bool bUseStackGroup = false;
 
 	/**
@@ -79,12 +79,11 @@ public:
 	 * All modifiers with the same StackGroupTag on the same target will be considered part of the same stack.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant"))
+		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
 	FGameplayTag StackGroupTag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant",
-				InlineEditConditionToggle))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (
+		EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
 	bool bHasMaxStacksInGroup = false;
 
 	/**
@@ -92,14 +91,14 @@ public:
 	 * When exceeded, OverflowBehavior determines what happens.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant"))
+		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
 	int32 MaxStacksInGroup = 1;
 
 	/**
 	 * Determines what happens when trying to apply a new modifier when the stack group is at max capacity.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant"))
+		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides ))
 	EStackGroupOverflowBehavior OverflowBehavior = EStackGroupOverflowBehavior::DenyNew;
 
 	/**
