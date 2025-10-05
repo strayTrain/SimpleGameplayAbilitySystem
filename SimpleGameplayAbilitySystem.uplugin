@@ -24,6 +24,11 @@
 			"Name": "SimpleGameplayAbilitySystemEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SimpleGameplayAbilitySystemDebugger",
+			"Type": "DeveloperTool",
+			"LoadingPhase": "Default"
 		}
 	],
 	"Plugins": [

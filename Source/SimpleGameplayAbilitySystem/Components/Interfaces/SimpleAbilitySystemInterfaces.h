@@ -4,32 +4,32 @@
 #include "UObject/Interface.h"
 #include "SimpleAbilitySystemInterfaces.generated.h"
 
-UINTERFACE(MinimalAPI, Blueprintable)
-class UAttributeComponentInterface : public UInterface
+UINTERFACE(Blueprintable)
+class SIMPLEGAMEPLAYABILITYSYSTEM_API UAttributeComponentInterface : public UInterface
 {
 	GENERATED_BODY()
 };
  
-class IAttributeComponentInterface
+class SIMPLEGAMEPLAYABILITYSYSTEM_API IAttributeComponentInterface
 {
 	GENERATED_BODY()
- 
+
 public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SimpleGAS|AttributeComponent")
 	class USimpleAttributeComponent* GetSimpleAttributeComponent() const;
 };
 
-UINTERFACE(MinimalAPI, Blueprintable)
-class UAbilityComponentInterface : public UInterface
+UINTERFACE(Blueprintable)
+class SIMPLEGAMEPLAYABILITYSYSTEM_API UAbilityComponentInterface : public UInterface
 {
 	GENERATED_BODY()
 };
  
-class IAbilityComponentInterface
+class SIMPLEGAMEPLAYABILITYSYSTEM_API IAbilityComponentInterface
 {
 	GENERATED_BODY()
- 
+
 public:
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SimpleGAS|AttributeComponent")
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SimpleGAS|AbilityComponent")
 	class USimpleGameplayAbilityComponent* GetSimpleAbilityComponent() const;
 };
