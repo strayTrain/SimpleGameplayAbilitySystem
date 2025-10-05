@@ -952,6 +952,43 @@ void USimpleAttributeComponent::ServerCancelAttributeModifiersWithTags_Implement
 	CancelAttributeModifiersWithTags(ModifierTags);
 }
 
+void USimpleAttributeComponent::CancelAttributeModifiersWithClass(TSubclassOf<USimpleAttributeModifier> ModifierClass)
+{
+	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
+	{
+		if (Modifier && Modifier->IsActive && Modifier->IsA(ModifierClass))
+		{
+			Modifier->CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
+		}
+	}
+}
+
+void USimpleAttributeComponent::CancelAttributeModifiersWithClassPredicted(TSubclassOf<USimpleAttributeModifier> ModifierClass)
+{
+	CancelAttributeModifiersWithClass(ModifierClass);
+
+	if (!HasAuthority())
+	{
+		ServerCancelAttributeModifiersWithClass(ModifierClass);
+	}
+}
+
+void USimpleAttributeComponent::CancelAttributeModifiersWithClassServerInitiated(TSubclassOf<USimpleAttributeModifier> ModifierClass)
+{
+	if (!HasAuthority())
+	{
+		ServerCancelAttributeModifiersWithClass(ModifierClass);
+		return;
+	}
+
+	CancelAttributeModifiersWithClass(ModifierClass);
+}
+
+void USimpleAttributeComponent::ServerCancelAttributeModifiersWithClass_Implementation(TSubclassOf<USimpleAttributeModifier> ModifierClass)
+{
+	CancelAttributeModifiersWithClass(ModifierClass);
+}
+
 bool USimpleAttributeComponent::IsModifierWithTagsActive(const FGameplayTagContainer ModifierTags) const
 {
 	for (const USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)

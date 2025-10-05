@@ -166,6 +166,15 @@ public:
 	UFUNCTION(Server, Reliable, Category = "AbilityComponent|AbilityActivation")
 	void ServerCancelAbilitiesWithTags(FGameplayTagContainer Tags, FInstancedStruct CancellationContext);
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|AbilityActivation")
+	TArray<FGuid> CancelAbilitiesWithClass(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext);
+
+	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|AbilityActivation")
+	TArray<FGuid> CancelAbilitiesWithClassPredicted(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext);
+
+	UFUNCTION(Server, Reliable, Category = "AbilityComponent|AbilityActivation")
+	void ServerCancelAbilitiesWithClass(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext);
+
 	int32 AddGameplayAbilitySnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
 	
 	/* Utility Functions */

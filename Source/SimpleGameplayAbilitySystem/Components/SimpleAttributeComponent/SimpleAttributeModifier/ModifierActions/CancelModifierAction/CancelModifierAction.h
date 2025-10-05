@@ -14,4 +14,8 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTagContainer CancelModifiersWithTags;
+
+	/* ModifierAction overrides */
+	virtual bool SupportsClientPrediction_Implementation() const override { return false; }
+	virtual FInstancedStruct ApplyAction_Implementation() override;
 };

@@ -182,20 +182,55 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 		UModifierAction* Action = ModifierActions[i];
 		Action->InitializeAction(ModifierActionScratchPad, OwningModifier);
 
-		const bool CanRunOnServer = (Action->ActivationPolicy & static_cast<uint8>(EModifierActionActivationPolicy::RunOnServer)) != 0;
-		const bool CanRunOnClient = (Action->ActivationPolicy & static_cast<uint8>(EModifierActionActivationPolicy::RunOnClient)) != 0;
 		const bool IsServer = InstigatorAttributeComponent->HasAuthority();
-		
-		if (IsServer && !CanRunOnServer)
+
+		// Determine if this action should run and if it should generate a mutation
+		bool ShouldRun = false;
+		bool ShouldGenerateMutation = false;
+
+		switch (Action->PredictionPolicy)
+		{
+			case EModifierActionPredictionPolicy::PredictIfPossible:
+				if (!Action->SupportsClientPrediction())
+				{
+					// Server-only action that doesn't support prediction
+					// Don't generate mutations - if this action modifies replicated state (e.g. attributes),
+					// the replication system will handle syncing to clients. This prevents double-application.
+					ShouldRun = IsServer;
+					ShouldGenerateMutation = false;
+				}
+				else
+				{
+					// Can predict - run on both client & server
+					ShouldRun = true;
+					ShouldGenerateMutation = DoesModifierReplicate;
+				}
+				break;
+
+			case EModifierActionPredictionPolicy::ServerInitiate:
+				// Only run on server, replicate to clients
+				ShouldRun = IsServer;
+				ShouldGenerateMutation = IsServer && DoesModifierReplicate;
+				break;
+
+			case EModifierActionPredictionPolicy::ServerOnly:
+				// Only run on server, never replicate
+				ShouldRun = IsServer;
+				ShouldGenerateMutation = false;
+				break;
+
+			case EModifierActionPredictionPolicy::ClientOnly:
+				// Only run on clients (ListenServer counts as client), never replicate
+				ShouldRun = !IsServer;
+				ShouldGenerateMutation = false;
+				break;
+		}
+
+		if (!ShouldRun)
 		{
 			continue;
 		}
 
-		if (!IsServer && !CanRunOnClient)
-		{
-			continue;
-		}
-		
 		if (!Action->EventTriggers.HasAnyExact(ActionTriggers) || !Action->CanApply())
 		{
 			continue;
@@ -203,13 +238,17 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 
 		const FAttributeModifierActionScratchPad InputScratchpad = ModifierActionScratchPad;
 		const FInstancedStruct ActionResult = Action->ApplyAction();
-		
-		ActionResults.Add({
-			i,
-			Action->GetClass(),
-			InputScratchpad,
-			ActionResult
-		});
+
+		// Only add to results if we should generate a mutation
+		if (ShouldGenerateMutation)
+		{
+			ActionResults.Add({
+				i,
+				Action->GetClass(),
+				InputScratchpad,
+				ActionResult
+			});
+		}
 	}
 	
 	if (ActionResults.Num() > 0)
@@ -229,7 +268,6 @@ bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* Ow
 	
 	return true;
 }
-
 
 void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation)
 {

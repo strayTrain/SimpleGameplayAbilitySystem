@@ -2,10 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/Base/ModifierAction.h"
-#include "ApplyModifierAction.generated.h"
+#include "ApplyAttributeModifierAction.generated.h"
 
 UCLASS()
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UApplyModifierAction : public UModifierAction
+class SIMPLEGAMEPLAYABILITYSYSTEM_API UApplyAttributeModifierAction : public UModifierAction
 {
 	GENERATED_BODY()
 
@@ -16,7 +16,10 @@ public:
 	UPROPERTY(EditAnywhere, meta=(
 		FunctionReference,
 		AllowFunctionLibraries,
-		PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetContextCollection",
+		PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_GetStructContext",
 		DefaultBindingName="GetModifierActionContext"))
 	FMemberReference ContextFunction;
+
+	/* ModifierAction overrides */
+	virtual FInstancedStruct ApplyAction_Implementation() override;
 };

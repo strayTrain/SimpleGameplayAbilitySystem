@@ -329,7 +329,7 @@ TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithTags(const FGa
 	
 	for (USimpleGameplayAbility* AbilityInstance : InstancedAbilities)
 	{
-		if (AbilityInstance->AbilityTags.HasAnyExact(Tags))
+		if (AbilityInstance->AbilityTags.HasAnyExact(Tags) && AbilityInstance->IsActive)
 		{
 			AbilityInstance->CancelAbility(FGameplayTag::EmptyTag, CancellationContext);
 			CancelledAbilities.Add(AbilityInstance->AbilityID);
@@ -351,9 +351,43 @@ TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithTagsPredicted(
 	return CancelledAbilities;
 }
 
+
 void USimpleGameplayAbilityComponent::ServerCancelAbilitiesWithTags_Implementation(FGameplayTagContainer Tags, FInstancedStruct CancellationContext)
 {
 	CancelAbilitiesWithTags(Tags, CancellationContext);
+}
+
+TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithClass(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext)
+{
+	TArray<FGuid> CancelledAbilities;
+	
+	for (USimpleGameplayAbility* AbilityInstance : InstancedAbilities)
+	{
+		if (AbilityInstance->GetClass() == AbilityClass && AbilityInstance->IsActive)
+		{
+			AbilityInstance->CancelAbility(FGameplayTag::EmptyTag, CancellationContext);
+			CancelledAbilities.Add(AbilityInstance->AbilityID);
+		}
+	}
+	
+	return CancelledAbilities;
+}
+
+TArray<FGuid> USimpleGameplayAbilityComponent::CancelAbilitiesWithClassPredicted(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext)
+{
+	if (HasAuthority())
+	{
+		return CancelAbilitiesWithClass(AbilityClass, CancellationContext);	
+	}
+	
+	TArray<FGuid> CancelledAbilities = CancelAbilitiesWithClass(AbilityClass, CancellationContext);
+	ServerCancelAbilitiesWithClass(AbilityClass, CancellationContext);
+	return CancelledAbilities;
+}
+
+void USimpleGameplayAbilityComponent::ServerCancelAbilitiesWithClass_Implementation(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext)
+{
+	CancelAbilitiesWithClass(AbilityClass, CancellationContext);
 }
 
 bool USimpleGameplayAbilityComponent::IsAvatarActorOfType(TSubclassOf<AActor> AvatarClass) const

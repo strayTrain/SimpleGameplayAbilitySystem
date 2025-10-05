@@ -184,6 +184,18 @@ public:
 	UFUNCTION(Server, Reliable, Category = "AttributeComponent|Attributes")
 	void ServerCancelAttributeModifiersWithTags(FGameplayTagContainer ModifierTags);
 
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifiersWithClass(TSubclassOf<USimpleAttributeModifier> ModifierClass);
+
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifiersWithClassPredicted(TSubclassOf<USimpleAttributeModifier> ModifierClass);
+
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes")
+	void CancelAttributeModifiersWithClassServerInitiated(TSubclassOf<USimpleAttributeModifier> ModifierClass);
+
+	UFUNCTION(Server, Reliable, Category = "AttributeComponent|Attributes")
+	void ServerCancelAttributeModifiersWithClass(TSubclassOf<USimpleAttributeModifier> ModifierClass);
+
 	/**
 	 * This function checks if there is an active attribute modifiers with ModifierTags matching the specified tags.
 	 * @param ModifierTags The tags to check for in the active attribute modifiers. Only exact matches are considered.
