@@ -44,6 +44,16 @@ void UWaitForClientSubAbility::Activate()
 		return;
 	}
 
+	// Verify this is a client-predicted or server-initiated ability
+	const EAbilityNetworkRole NetworkRole = ParentAbility->GetNetworkRole();
+	if (NetworkRole == EAbilityNetworkRole::DedicatedServer)
+	{
+		// Dedicated server with no client prediction - this async node won't work correctly
+		OnCancelled.Broadcast(FDefaultTags::SubAbilityCancelled(), FInstancedStruct());
+		SetReadyToDestroy();
+		return;
+	}
+
 	// Set up timeout if specified
 	if (Timeout > 0.0f)
 	{
@@ -53,20 +63,23 @@ void UWaitForClientSubAbility::Activate()
 		}
 	}
 
-	// True if this async node is running on the client that owns the ability component
-	const bool IsLocallyControlled = AbilityComponent->GetOwnerRole() < ROLE_Authority;
+	// Check if this is the owning client (works for both pure clients and listen servers)
+	const bool IsOwningClient = AbilityComponent->IsOwnedByLocalPlayer();
 
-	if (!IsLocallyControlled)
+	if (!IsOwningClient)
 	{
+		// Server or other clients: Wait for the owning client to send the result via multicast event
 		AbilityComponent->OnEventReceived.AddDynamic(this, &UWaitForClientSubAbility::OnEventReceived);
 		return;
 	}
-	
+
+	// Owning client: Actually run the sub-ability
 	USimpleSubAbility* SubAbilityInstance = ParentAbility->GetSubAbilityInstance(SubAbilityClassToActivate);
 	if (!SubAbilityInstance)
 	{
 		OnCancelled.Broadcast(FDefaultTags::SubAbilityCancelled(),FInstancedStruct());
 		CleanupAndFinish();
+		return;
 	}
 
 	SubAbilityInstance->OnAbilityEnded.AddDynamic(this, &UWaitForClientSubAbility::OnSubAbilityEnded);
@@ -95,23 +108,25 @@ void UWaitForClientSubAbility::OnEventReceived(FGameplayTag EventTag, FGuid Abil
 
 void UWaitForClientSubAbility::OnSubAbilityEnded(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext)
 {
-	if (ParentAbilityInstance->GetNetworkRole() == EAbilityNetworkRole::Client)
+	// Send event to all clients (server + other clients) so everyone receives the result
+	if (USimpleGameplayAbilityComponent* AbilityComponent = ParentAbilityInstance->GetAbilityComponent())
 	{
-		ParentAbilityInstance->GetAbilityComponent()->SendEventToServer(FDefaultTags::SubAbilityEnded(), ExpectedAbilityID, StopContext);
+		AbilityComponent->SendEventToAllClients(FDefaultTags::SubAbilityEnded(), ExpectedAbilityID, StopContext);
 	}
 
-	OnEnded.Broadcast(StopStatus,StopContext);
-	CleanupAndFinish();	
+	OnEnded.Broadcast(StopStatus, StopContext);
+	CleanupAndFinish();
 }
 
 void UWaitForClientSubAbility::OnSubAbilityCancelled(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext)
 {
-	if (ParentAbilityInstance->GetNetworkRole() == EAbilityNetworkRole::Client)
+	// Send event to all clients (server + other clients) so everyone receives the result
+	if (USimpleGameplayAbilityComponent* AbilityComponent = ParentAbilityInstance->GetAbilityComponent())
 	{
-		ParentAbilityInstance->GetAbilityComponent()->SendEventToServer(FDefaultTags::SubAbilityCancelled(), ExpectedAbilityID, StopContext);
+		AbilityComponent->SendEventToAllClients(FDefaultTags::SubAbilityCancelled(), ExpectedAbilityID, StopContext);
 	}
-	
-	OnCancelled.Broadcast(StopStatus,StopContext);
+
+	OnCancelled.Broadcast(StopStatus, StopContext);
 	CleanupAndFinish();
 }
 

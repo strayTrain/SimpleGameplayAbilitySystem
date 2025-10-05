@@ -174,6 +174,9 @@ public:
 	bool HasAuthority() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
+	bool IsOwnedByLocalPlayer() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Utility")
 	bool IsAnyAbilityActive() const;
 	
 	/**

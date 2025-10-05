@@ -1,6 +1,7 @@
 ﻿#include "SimpleGameplayAbilityComponent.h"
 
 #include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleTimeSynchronizerComponent/ExtendedTimeSynchronizer/SimpleTimeSynchronizerExtended.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
@@ -444,6 +445,33 @@ bool USimpleGameplayAbilityComponent::HasAuthority() const
 	}
 
 	return false;
+}
+
+bool USimpleGameplayAbilityComponent::IsOwnedByLocalPlayer() const
+{
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return false;
+	}
+
+	// Case 1: Component is on a Pawn
+	if (APawn* OwnerPawn = Cast<APawn>(Owner))
+	{
+		return OwnerPawn->IsLocallyControlled();
+	}
+
+	// Case 2: Component is on a PlayerState
+	if (APlayerState* OwnerPlayerState = Cast<APlayerState>(Owner))
+	{
+		if (APlayerController* PC = Cast<APlayerController>(OwnerPlayerState->GetOwner()))
+		{
+			return PC->IsLocalController();
+		}
+	}
+
+	// Fallback: Use role-based check
+	return Owner->GetLocalRole() == ROLE_AutonomousProxy;
 }
 
 bool USimpleGameplayAbilityComponent::IsAnyAbilityActive() const
