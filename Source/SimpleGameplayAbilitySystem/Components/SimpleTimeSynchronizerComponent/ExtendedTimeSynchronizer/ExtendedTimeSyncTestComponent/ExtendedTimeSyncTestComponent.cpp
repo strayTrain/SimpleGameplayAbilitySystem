@@ -1,5 +1,3 @@
-// Copyright 2025 Ahmed Elgoni
-
 #include "ExtendedTimeSyncTestComponent.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleTimeSynchronizerComponent/ExtendedTimeSynchronizer/SimpleTimeSynchronizerExtended.h"
 #include "GameFramework/GameStateBase.h"

@@ -1,6 +1,4 @@
-﻿//  Copyright 2025 Ahmed Elgoni
-
-#include "SimpleAttributeComponent.h"
+﻿#include "SimpleAttributeComponent.h"
 
 #include "VREditorMode.h"
 #include "GameFramework/GameStateBase.h"

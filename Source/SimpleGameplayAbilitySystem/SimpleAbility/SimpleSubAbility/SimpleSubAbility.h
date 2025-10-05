@@ -1,6 +1,4 @@
-﻿//  Copyright 2025 Ahmed Elgoni
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"

@@ -1,5 +1,3 @@
-// Copyright 2025 Ahmed Elgoni
-
 #include "WaitForClientSubAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleSubAbility/SimpleSubAbility.h"

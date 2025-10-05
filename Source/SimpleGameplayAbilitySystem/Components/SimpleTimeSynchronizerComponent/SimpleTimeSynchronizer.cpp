@@ -1,6 +1,4 @@
-﻿// Copyright 2025 Ahmed Elgoni
-
-#include "SimpleTimeSynchronizer.h"
+﻿#include "SimpleTimeSynchronizer.h"
 
 #include "GameFramework/GameStateBase.h"
 

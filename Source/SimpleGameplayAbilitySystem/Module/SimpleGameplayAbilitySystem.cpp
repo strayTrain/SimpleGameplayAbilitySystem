@@ -1,8 +1,5 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 #include "SimpleGameplayAbilitySystem.h"
 #include "GameplayTagsManager.h"
-#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 
 #define LOCTEXT_NAMESPACE "FSimpleGameplayAbilitySystemModule"
 

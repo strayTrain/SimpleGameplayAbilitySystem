@@ -1,6 +1,4 @@
-﻿// Copyright 2025 Ahmed Elgoni
-
-#include "WaitForFloatAttributeChange.h"
+﻿#include "WaitForFloatAttributeChange.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeComponent.h"
 
 // ============================================================================

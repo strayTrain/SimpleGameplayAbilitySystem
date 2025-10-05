@@ -1,5 +1,3 @@
-// Copyright 2025 Ahmed Elgoni
-
 #pragma once
 
 #include "CoreMinimal.h"

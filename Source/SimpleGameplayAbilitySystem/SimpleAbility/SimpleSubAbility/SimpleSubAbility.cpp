@@ -1,6 +1,4 @@
-﻿//  Copyright 2025 Ahmed Elgoni
-
-#include "SimpleSubAbility.h"
+﻿#include "SimpleSubAbility.h"
 
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"

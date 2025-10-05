@@ -1,6 +1,4 @@
-﻿//  Copyright 2025 Ahmed Elgoni
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "SimpleAttributeComponentTypes.h"
@@ -318,6 +316,13 @@ public:
 	
 	USimpleAttributeHandler* GetStructAttributeHandlerInstance(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass);
 
+	/** Snapshots of attributes for predicted modifiers to enable rollback */
+	UPROPERTY()
+	TArray<FPredictedModifierSnapshot> PredictedModifierSnapshots;
+
+	/** Queue of mutations that arrived before their corresponding state */
+	UPROPERTY()
+	TArray<FAttributeModifierMutation> PendingMutationQueue;
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -331,14 +336,6 @@ protected:
 
 	UPROPERTY()
 	TArray<USimpleAttributeHandler*> InstancedAttributeHandlers;
-
-	/** Snapshots of attributes for predicted modifiers to enable rollback */
-	UPROPERTY()
-	TArray<FPredictedModifierSnapshot> PredictedModifierSnapshots;
-
-	/** Queue of mutations that arrived before their corresponding state */
-	UPROPERTY()
-	TArray<FAttributeModifierMutation> PendingMutationQueue;
 
 	/** Timer handle for periodic state cleanup */
 	FTimerHandle CleanupTimerHandle;
