@@ -19,11 +19,20 @@ public:
     // End of IPropertyTypeCustomization interface
 
 private:
+    // Constants for visual layout
+    static constexpr float DEFAULT_INDENT_AMOUNT = 16.0f;
+    static constexpr float DEFAULT_ROW_PADDING = 2.0f;
+    static constexpr float PROPERTY_NAME_WIDTH = 150.0f;
+    static constexpr float SEPARATOR_THICKNESS = 1.0f;
+    static constexpr float SEPARATOR_PADDING = 4.0f;
+    static constexpr int32 AUTO_EXPAND_PROPERTY_THRESHOLD = 5;
+    static constexpr int32 FLOAT_DISPLAY_PRECISION = 3;
+
     TSharedPtr<IPropertyHandle> AttributeValueHandle;
     TSharedPtr<IPropertyHandle> StructTypeHandle;
     TSharedPtr<SVerticalBox> StructContentWidget;
     TSharedPtr<IPropertyHandle> ParentPropertyHandle;
-    
+
     // Map to track expansion state of properties
     TMap<FName, bool> ExpandedState;
     
@@ -43,6 +52,41 @@ private:
      * @return String representation of the property value
      */
     FString GetPropertyValueString(const FProperty* Property, const void* ValuePtr);
+
+    /**
+     * Formats a float value with thousand separators and limited precision
+     * @param Value The float value to format
+     * @return Formatted string
+     */
+    FString FormatFloatValue(double Value) const;
+
+    /**
+     * Formats an integer value with thousand separators
+     * @param Value The integer value to format
+     * @return Formatted string
+     */
+    FString FormatIntValue(int64 Value) const;
+
+    /**
+     * Determines if a property should be auto-expanded based on its complexity
+     * @param StructType The struct type to check
+     * @return True if should auto-expand
+     */
+    bool ShouldAutoExpand(const UScriptStruct* StructType) const;
+
+    /**
+     * Gets background color based on indentation level
+     * @param Indent The indentation level
+     * @return Background color
+     */
+    FLinearColor GetBackgroundColorForIndent(int32 Indent, bool bIsPropertyName) const;
+
+    /**
+     * Gets the clean display name for a property (removes generated suffixes)
+     * @param Property The property to get the name for
+     * @return Clean property name
+     */
+    FString GetPropertyDisplayName(const FProperty* Property) const;
     
     /**
      * Toggles the expanded state for the given key

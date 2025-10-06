@@ -34,7 +34,7 @@ public class SimpleGameplayAbilitySystemEditor : ModuleRules
 				"InputCore",
 				"Slate",
 				"SlateCore",
-				"PropertyEditor", 
+				"PropertyEditor",
 				"EditorStyle"
 			}
 		);
