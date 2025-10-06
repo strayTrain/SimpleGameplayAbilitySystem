@@ -33,6 +33,7 @@ protected:
 	{
 		FString AttributeTag;
 		FString StructType;
+		FString StructData;
 
 		FStructAttributeData() {}
 	};
@@ -66,6 +67,10 @@ protected:
 	void PrevPage();
 	void NextViewMode();
 	void PrevViewMode();
+
+	// Helper function to format struct data for display
+	static FString FormatStructDataForDisplay(const UScriptStruct* StructType, const void* StructData, int32 IndentLevel = 0);
+	static FString GetPropertyValueAsString(const FProperty* Property, const void* ValuePtr, int32 IndentLevel = 0);
 };
 
 #endif // WITH_GAMEPLAY_DEBUGGER

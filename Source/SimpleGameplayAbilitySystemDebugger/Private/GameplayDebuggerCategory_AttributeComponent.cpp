@@ -58,6 +58,7 @@ void FGameplayDebuggerCategory_AttributeComponent::FRepData::Serialize(FArchive&
 	{
 		Ar << Data.AttributeTag;
 		Ar << Data.StructType;
+		Ar << Data.StructData;
 	}
 
 	for (FGameplayTagData& Data : GameplayTags)
@@ -65,6 +66,107 @@ void FGameplayDebuggerCategory_AttributeComponent::FRepData::Serialize(FArchive&
 		Ar << Data.Tag;
 		Ar << Data.RefCount;
 	}
+}
+
+FString FGameplayDebuggerCategory_AttributeComponent::GetPropertyValueAsString(const FProperty* Property, const void* ValuePtr, int32 IndentLevel)
+{
+	if (!Property || !ValuePtr)
+	{
+		return TEXT("N/A");
+	}
+
+	// Handle different property types
+	if (const FNumericProperty* NumericProp = CastField<FNumericProperty>(Property))
+	{
+		if (NumericProp->IsFloatingPoint())
+		{
+			return FString::Printf(TEXT("%.3f"), NumericProp->GetFloatingPointPropertyValue(ValuePtr));
+		}
+		else
+		{
+			return FString::Printf(TEXT("%lld"), NumericProp->GetSignedIntPropertyValue(ValuePtr));
+		}
+	}
+	else if (const FBoolProperty* BoolProp = CastField<FBoolProperty>(Property))
+	{
+		return BoolProp->GetPropertyValue(ValuePtr) ? TEXT("True") : TEXT("False");
+	}
+	else if (const FStrProperty* StrProp = CastField<FStrProperty>(Property))
+	{
+		return StrProp->GetPropertyValue(ValuePtr);
+	}
+	else if (const FNameProperty* NameProp = CastField<FNameProperty>(Property))
+	{
+		return NameProp->GetPropertyValue(ValuePtr).ToString();
+	}
+	else if (const FTextProperty* TextProp = CastField<FTextProperty>(Property))
+	{
+		return TextProp->GetPropertyValue(ValuePtr).ToString();
+	}
+	else if (const FEnumProperty* EnumProp = CastField<FEnumProperty>(Property))
+	{
+		int64 Value = EnumProp->GetUnderlyingProperty()->GetSignedIntPropertyValue(ValuePtr);
+		return EnumProp->GetEnum()->GetNameStringByValue(Value);
+	}
+	else if (const FByteProperty* ByteProp = CastField<FByteProperty>(Property))
+	{
+		if (ByteProp->Enum)
+		{
+			int64 Value = ByteProp->GetSignedIntPropertyValue(ValuePtr);
+			return ByteProp->Enum->GetNameStringByValue(Value);
+		}
+		return FString::Printf(TEXT("%d"), ByteProp->GetSignedIntPropertyValue(ValuePtr));
+	}
+	else if (const FObjectPropertyBase* ObjProp = CastField<FObjectPropertyBase>(Property))
+	{
+		UObject* Obj = ObjProp->GetObjectPropertyValue(ValuePtr);
+		return Obj ? Obj->GetName() : TEXT("None");
+	}
+	else if (const FStructProperty* StructProp = CastField<FStructProperty>(Property))
+	{
+		// Recursively format nested structs
+		FString NestedStructData = FormatStructDataForDisplay(StructProp->Struct, ValuePtr, IndentLevel + 1);
+		if (!NestedStructData.IsEmpty())
+		{
+			return FString::Printf(TEXT("(%s)\n%s"), *StructProp->Struct->GetName(), *NestedStructData);
+		}
+		return FString::Printf(TEXT("(%s)"), *StructProp->Struct->GetName());
+	}
+	else if (const FArrayProperty* ArrayProp = CastField<FArrayProperty>(Property))
+	{
+		FScriptArrayHelper ArrayHelper(ArrayProp, ValuePtr);
+		return FString::Printf(TEXT("Array[%d]"), ArrayHelper.Num());
+	}
+
+	return FString::Printf(TEXT("[%s]"), *Property->GetCPPType());
+}
+
+FString FGameplayDebuggerCategory_AttributeComponent::FormatStructDataForDisplay(const UScriptStruct* StructType, const void* StructData, int32 IndentLevel)
+{
+	if (!StructType || !StructData)
+	{
+		return TEXT("");
+	}
+
+	TArray<FString> Lines;
+
+	// Create indentation string (4 spaces per level, starting with 1 base indent)
+	FString Indent = FString::ChrN((IndentLevel + 1) * 4, TEXT(' '));
+
+	// Iterate through all properties in the struct
+	for (TFieldIterator<FProperty> PropIt(StructType); PropIt; ++PropIt)
+	{
+		FProperty* Property = *PropIt;
+		const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(StructData);
+
+		FString PropertyName = Property->GetDisplayNameText().ToString();
+		FString PropertyValue = GetPropertyValueAsString(Property, ValuePtr, IndentLevel);
+
+		// Format with color codes: cyan for property name, white for value
+		Lines.Add(FString::Printf(TEXT("%s{cyan}%s:{white} %s"), *Indent, *PropertyName, *PropertyValue));
+	}
+
+	return FString::Join(Lines, TEXT("\n"));
 }
 
 void FGameplayDebuggerCategory_AttributeComponent::CollectData(APlayerController* OwnerPC, AActor* DebugActor)
@@ -108,6 +210,17 @@ void FGameplayDebuggerCategory_AttributeComponent::CollectData(APlayerController
 		FStructAttributeData Data;
 		Data.AttributeTag = Attr.AttributeTag.ToString();
 		Data.StructType = Attr.StructType ? Attr.StructType->GetName() : TEXT("None");
+
+		// Format struct data for display
+		if (Attr.AttributeValue.IsValid() && Attr.StructType)
+		{
+			const void* StructMemory = Attr.AttributeValue.GetMemory();
+			Data.StructData = FormatStructDataForDisplay(Attr.StructType, StructMemory);
+		}
+		else
+		{
+			Data.StructData = TEXT("(Invalid)");
+		}
 
 		DataPack.StructAttributes.Add(Data);
 	}
@@ -252,6 +365,17 @@ void FGameplayDebuggerCategory_AttributeComponent::DrawData(APlayerController* O
 				Data.AttributeTag = Attr.AttributeTag.ToString();
 				Data.StructType = Attr.StructType ? Attr.StructType->GetName() : TEXT("None");
 
+				// Format struct data for display
+				if (Attr.AttributeValue.IsValid() && Attr.StructType)
+				{
+					const void* StructMemory = Attr.AttributeValue.GetMemory();
+					Data.StructData = FormatStructDataForDisplay(Attr.StructType, StructMemory);
+				}
+				else
+				{
+					Data.StructData = TEXT("(Invalid)");
+				}
+
 				// On client, check if predicted struct differs from server
 				if (!bIsServer)
 				{
@@ -357,10 +481,24 @@ void FGameplayDebuggerCategory_AttributeComponent::DrawData(APlayerController* O
 			{
 				bool bMismatch = MismatchedStructAttrs.Contains(Data.AttributeTag);
 				FString TagColor = bMismatch ? TEXT("red") : TEXT("cyan");
-				FString ValueColor = bMismatch ? TEXT("red") : TEXT("white");
 
-				CanvasContext.Printf(TEXT("{%s}%s"), *TagColor, *Data.AttributeTag);
-				CanvasContext.Printf(TEXT("  Type: {%s}%s"), *ValueColor, *Data.StructType);
+				// Display attribute tag with struct type in brackets (white color)
+				CanvasContext.Printf(TEXT("{%s}%s {white}(%s)"), *TagColor, *Data.AttributeTag, *Data.StructType);
+
+				// Display struct data contents (each property on its own line)
+				if (!Data.StructData.IsEmpty())
+				{
+					// Split the formatted data by newlines and print each line
+					TArray<FString> Lines;
+					Data.StructData.ParseIntoArray(Lines, TEXT("\n"), false);
+
+					for (const FString& Line : Lines)
+					{
+						// Line already contains color codes, so just print it directly
+						CanvasContext.Printf(TEXT("%s"), *Line);
+					}
+				}
+
 				CanvasContext.Printf(TEXT(""));
 			}
 		}
