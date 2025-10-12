@@ -21,6 +21,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Float Modification Params")
 	EAttributeModificationValueSource ModificationInputValueSource;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Float Modification Params", meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::FromScratchPadValue", EditConditionHides))
+	FGameplayTag ScratchPadValueTag;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Float Modification Params", meta = (EditCondition = "ModificationInputValueSource == EAttributeModificationValueSource::Manual", EditConditionHides))
 	float ManualInputValue;
 

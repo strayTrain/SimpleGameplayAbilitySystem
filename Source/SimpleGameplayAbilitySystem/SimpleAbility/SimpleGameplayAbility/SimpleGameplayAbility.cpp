@@ -226,9 +226,6 @@ void USimpleGameplayAbility::AbilityEndedInternal(FInstancedStruct EndingContext
 		// Cancel the sub-ability
 		SubAbility.SubAbilityInstance->CancelAbility(FDefaultTags::SubAbilityCancelled(), EndingContext);
 	}
-
-	// Clear pending snapshots to prevent memory leak
-	PendingSnapshots.Empty();
 }
 
 void USimpleGameplayAbility::TakeStateSnapshot(const FInstancedStruct SnapshotData, const FOnSnapshotResolved& OnResolved)

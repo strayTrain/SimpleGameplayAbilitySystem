@@ -57,7 +57,7 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnEventReceived(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+	void OnEventReceived(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender);
 
 	UFUNCTION()
 	void OnSubAbilityEnded(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext);
@@ -76,6 +76,8 @@ private:
 	FGuid ExpectedAbilityID;
 
 	FTimerHandle TimeoutTimerHandle;
+	FGuid EventSubscriptionID;
+	bool bIsCleaningUp = false;
 
 	void CleanupAndFinish();
 };

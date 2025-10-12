@@ -6,13 +6,14 @@
 #include "SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
 #include "SimpleAttributeModifier/ModifierActions/ChangeFloatAttributeAction/FloatAttributeActionTypes.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/SimpleAttributeSet.h"
+#include "SimpleGameplayAbilitySystem/Interfaces/SimpleEventReplicator.h"
 #include "SimpleAttributeComponent.generated.h"
 
 class USimpleAttributeSet;
 class USimpleTimeSynchronizer;
 
 UCLASS(Blueprintable, ClassGroup=(AttributeComponent), meta=(BlueprintSpawnableComponent))
-class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeComponent : public UActorComponent
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeComponent : public UActorComponent, public ISimpleEventReplicator
 {
 	GENERATED_BODY()
 
@@ -66,6 +67,64 @@ public:
 	FAttributeModifierMutationContainer AuthorityAttributeModifierMutations;
 	UPROPERTY(VisibleAnywhere, Category = "AttributeComponent|State", meta = (TitleProperty = "AbilityClass"))
 	TArray<FAttributeModifierMutation> LocalAttributeModiferMutations;
+
+	/* ISimpleEventReplicator Interface Implementation */
+
+	virtual void SendEvent(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
+
+	virtual void SendEventToServer(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
+
+	virtual void SendEventToClient(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
+
+	virtual void SendEventToAllClients(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
+
+	UFUNCTION(Server, Reliable)
+	void ServerSendEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
+
+	UFUNCTION(Client, Reliable)
+	void ClientSendEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSendEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
+
 	
 	/* Attribute Modifier Functions */
 	
@@ -279,6 +338,12 @@ public:
 
 	UFUNCTION()
 	float ClampFloatAttributeValue(const FFloatAttribute& Attribute, EFloatAttributeValueType ValueType, float NewValue, float& Overflow);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FFloatAttribute GetFloatAttributeCopy(FGameplayTag AttributeTag);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	FStructAttribute GetStructAttributeCopy(FGameplayTag AttributeTag);
 	
 	FFloatAttribute* GetFloatAttribute(FGameplayTag AttributeTag);
 	FStructAttribute* GetStructAttribute(FGameplayTag AttributeTag);
@@ -353,6 +418,28 @@ protected:
 	FTimerHandle CleanupTimerHandle;
 
 private:
+
+	/** Event IDs that were sent locally to prevent duplicate processing from multicasts (NOT replicated) */
+	TSet<FGuid> LocallySentEventIDs;
+
+	/** Timestamps of when EventIDs were added for periodic cleanup (NOT replicated) */
+	TMap<FGuid, double> EventIDTimestamps;
+
+	/** Timer handle for periodic EventID cleanup */
+	FTimerHandle EventIDCleanupTimerHandle;
+
+	/** Clean up EventIDs older than 30 seconds */
+	void CleanupOldEventIDs();
+
+	/** Process an incoming event, checking for duplicates before dispatching to SimpleEventSubsystem */
+	void ProcessIncomingEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
+
 	USimpleAttributeModifier* GetAttributeModifierInstance(const TSubclassOf<USimpleAttributeModifier>& ModifierClass, FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate);
 
 	/** Captures current attribute state for rollback */

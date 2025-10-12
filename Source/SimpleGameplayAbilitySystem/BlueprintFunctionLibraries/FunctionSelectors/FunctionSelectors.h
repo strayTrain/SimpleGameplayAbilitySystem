@@ -42,6 +42,14 @@ public:
 	bool Prototype_GetAttributeModifierSideEffectTargets(
 		USimpleGameplayAbilityComponent*& OutInstigator,
 		USimpleGameplayAbilityComponent*& OutTarget) { return false; }
+
+	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "ShouldRespond"))
+	void Prototype_ShouldRespondToEvent(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		bool& ShouldRespond) { ShouldRespond = false; }
 #endif
 
 	static bool GetCustomFloatInputValue(
@@ -78,4 +86,13 @@ public:
 		const FMemberReference& DynamicFunction,
 		USimpleGameplayAbilityComponent*& OutInstigator,
 		USimpleGameplayAbilityComponent*& OutTarget);
+
+	static void ShouldRespondToEvent(
+		USimpleAttributeModifier* OwningModifier,
+		const FMemberReference& DynamicFunction,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		bool& ShouldRespond);
 };

@@ -118,3 +118,37 @@ bool UFunctionSelectors::GetAttributeModifierSideEffectTargets(
 
 	return false;
 }
+
+void UFunctionSelectors::ShouldRespondToEvent(
+	USimpleAttributeModifier* OwningModifier,
+	const FMemberReference& DynamicFunction,
+	const FGameplayTag EventTag,
+	const FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	bool& ShouldRespond)
+{
+	if (!OwningModifier)
+	{
+		return;
+	}
+
+	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningModifier->GetClass()))
+	{
+		struct {
+			// Input arguments
+			FGameplayTag EventTag;
+			FGameplayTag DomainTag;
+			FInstancedStruct Payload;
+			UObject* Sender;
+			// Output argument
+			bool ShouldRespond;
+		} Params = { EventTag, DomainTag, Payload, Sender, ShouldRespond };
+
+		OwningModifier->ProcessEvent(Function, &Params);
+		ShouldRespond = Params.ShouldRespond;
+		return;
+	}
+
+	ShouldRespond = false;
+}

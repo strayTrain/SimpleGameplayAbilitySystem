@@ -9,6 +9,8 @@
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/ChangeFloatAttributeAction/FloatAttributeActionTypes.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
+#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
+#include "TimerManager.h"
 
 USimpleAttributeComponent::USimpleAttributeComponent()
 {
@@ -21,6 +23,18 @@ void USimpleAttributeComponent::BeginPlay()
 
 	SetIsReplicated(true);
 
+	// Start periodic EventID cleanup timer (every 30 seconds)
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			EventIDCleanupTimerHandle,
+			this,
+			&USimpleAttributeComponent::CleanupOldEventIDs,
+			30.0f,
+			true
+		);
+	}
+	
 	if (HasAuthority())
 	{
 		// Add default attributes defined on the component
@@ -548,6 +562,32 @@ float USimpleAttributeComponent::ClampFloatAttributeValue(const FFloatAttribute&
 	}
 }
 
+FFloatAttribute USimpleAttributeComponent::GetFloatAttributeCopy(FGameplayTag AttributeTag)
+{
+	if (FFloatAttribute* Attribute = GetFloatAttribute(AttributeTag))
+	{
+		return *Attribute;
+	}
+
+	SIMPLE_LOG(this, FString::Printf(
+		           TEXT("[USimpleAttributeFunctionLibrary::GetFloatAttributeCopy]: Attribute %s not found."),
+		           *AttributeTag.ToString()));
+	return FFloatAttribute();
+}
+
+FStructAttribute USimpleAttributeComponent::GetStructAttributeCopy(FGameplayTag AttributeTag)
+{
+	if (FStructAttribute* Attribute = GetStructAttribute(AttributeTag))
+	{
+		return *Attribute;
+	}
+
+	SIMPLE_LOG(this, FString::Printf(
+		           TEXT("[USimpleAttributeFunctionLibrary::GetStructAttributeCopy]: Attribute %s not found."),
+		           *AttributeTag.ToString()));
+	return FStructAttribute();
+}
+
 FFloatAttribute* USimpleAttributeComponent::GetFloatAttribute(FGameplayTag AttributeTag)
 {
 	TArray<FFloatAttribute>& FloatAttributes = HasAuthority() ? AuthorityFloatAttributes.Attributes : LocalFloatAttributes;
@@ -1015,7 +1055,6 @@ USimpleAttributeModifier* USimpleAttributeComponent::GetAttributeModifierInstanc
 	{
 		if (ExistingModifier && ExistingModifier->ModifierID == NewModifierID)
 		{
-			// Found existing instance with same ID (likely predicted on client)
 			// Don't reinitialize if already active to preserve state like ActivationTime
 			if (!ExistingModifier->IsActive)
 			{
@@ -1072,6 +1111,7 @@ void USimpleAttributeComponent::OnAttributeModifierEnded(USimpleAttributeModifie
 				State.ModifierStatus = EModifierStatus::Ended;
 				State.EndedTimestamp = GetServerTime();
 				AuthorityAttributeModifierStates.MarkItemDirty(State);
+				ModifierInstance->OnCleanupModifier();
 				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
@@ -1085,6 +1125,7 @@ void USimpleAttributeComponent::OnAttributeModifierEnded(USimpleAttributeModifie
 			{
 				State.ModifierStatus = EModifierStatus::Ended;
 				State.EndedTimestamp = GetServerTime();
+				ModifierInstance->OnCleanupModifier();
 				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
@@ -1107,6 +1148,7 @@ void USimpleAttributeComponent::OnAttributeModifierCancelled(USimpleAttributeMod
 				State.ModifierStatus = EModifierStatus::Cancelled;
 				State.EndedTimestamp = GetServerTime();
 				AuthorityAttributeModifierStates.MarkItemDirty(State);
+				ModifierInstance->OnCleanupModifier();
 				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
@@ -1120,6 +1162,7 @@ void USimpleAttributeComponent::OnAttributeModifierCancelled(USimpleAttributeMod
 			{
 				State.ModifierStatus = EModifierStatus::Cancelled;
 				State.EndedTimestamp = GetServerTime();
+				ModifierInstance->OnCleanupModifier();
 				InstancedAttributeModifiers.Remove(ModifierInstance);
 				return;
 			}
@@ -1889,4 +1932,172 @@ void USimpleAttributeComponent::GetLifetimeReplicatedProps(TArray<class FLifetim
 	DOREPLIFETIME(USimpleAttributeComponent, AuthorityAttributeModifierMutations);
 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+}
+
+/* ISimpleEventReplicator Interface Implementation */
+
+void USimpleAttributeComponent::SendEvent(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	ProcessIncomingEvent(FGuid(), EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::SendEventToServer(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	if (HasAuthority())
+	{
+		SendEvent(EventTag, DomainTag, Payload, Sender, ListenerFilter);
+		return;
+	}
+
+	const FGuid EventID = FGuid::NewGuid();
+	ServerSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::SendEventToClient(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	if (!HasAuthority())
+	{
+		SIMPLE_LOG(this, TEXT("[USimpleAttributeComponent::SendEventToClient]: Called on client, ignoring!"));
+		return;
+	}
+
+	const FGuid EventID = FGuid::NewGuid();
+	ClientSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::SendEventToAllClients(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	// Generate unique EventID for deduplication
+	const FGuid EventID = FGuid::NewGuid();
+
+	// Send locally first
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+
+	if (!HasAuthority())
+	{
+		// Request server to multicast
+		ServerSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+		return;
+	}
+
+	// Server multicasts to all clients
+	MulticastSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::ServerSendEvent_Implementation(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	// Broadcast locally on server
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+
+	// Also multicast to all clients
+	MulticastSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::ClientSendEvent_Implementation(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::MulticastSendEvent_Implementation(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleAttributeComponent::ProcessIncomingEvent(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	// Check if we've already processed this event
+	if (LocallySentEventIDs.Contains(EventID))
+	{
+		// Skip duplicate event (we already sent it locally)
+		return;
+	}
+
+	// Add EventID to our set and track timestamp
+	LocallySentEventIDs.Add(EventID);
+	if (UWorld* World = GetWorld())
+	{
+		EventIDTimestamps.Add(EventID, World->GetTimeSeconds());
+	}
+
+	// Get the SimpleEventSubsystem and dispatch the event
+	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	{
+		if (USimpleEventSubsystem* EventSubsystem = GameInstance->GetSubsystem<USimpleEventSubsystem>())
+		{
+			EventSubsystem->SendEvent(EventTag, DomainTag, Payload, Sender, ListenerFilter);
+		}
+	}
+}
+
+void USimpleAttributeComponent::CleanupOldEventIDs()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	const double CurrentTime = GetWorld()->GetTimeSeconds();
+	const double MaxRetentionTime = 30.0;
+
+	TArray<FGuid> EventIDsToRemove;
+
+	// Find EventIDs older than 30 seconds
+	for (const TPair<FGuid, double>& Pair : EventIDTimestamps)
+	{
+		if (CurrentTime - Pair.Value > MaxRetentionTime)
+		{
+			EventIDsToRemove.Add(Pair.Key);
+		}
+	}
+
+	// Remove old EventIDs
+	for (const FGuid& EventIDToRemove : EventIDsToRemove)
+	{
+		LocallySentEventIDs.Remove(EventIDToRemove);
+		EventIDTimestamps.Remove(EventIDToRemove);
+	}
 }

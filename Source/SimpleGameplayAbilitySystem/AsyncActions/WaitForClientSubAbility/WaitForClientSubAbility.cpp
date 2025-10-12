@@ -2,6 +2,7 @@
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleSubAbility/SimpleSubAbility.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
@@ -69,7 +70,33 @@ void UWaitForClientSubAbility::Activate()
 	if (!IsOwningClient)
 	{
 		// Server or other clients: Wait for the owning client to send the result via multicast event
-		AbilityComponent->OnEventReceived.AddDynamic(this, &UWaitForClientSubAbility::OnEventReceived);
+		if (UGameInstance* GameInstance = AbilityComponent->GetWorld()->GetGameInstance())
+		{
+			if (USimpleEventSubsystem* EventSubsystem = GameInstance->GetSubsystem<USimpleEventSubsystem>())
+			{
+				FGameplayTagContainer EventFilter;
+				EventFilter.AddTag(FDefaultTags::SubAbilityEnded());
+				EventFilter.AddTag(FDefaultTags::SubAbilityCancelled());
+
+				FGameplayTagContainer DomainFilter;
+				DomainFilter.AddTag(FDefaultTags::DomainAbility());
+
+				FSimpleEventDelegate EventDelegate;
+				EventDelegate.BindDynamic(this, &UWaitForClientSubAbility::OnEventReceived);
+
+				EventSubscriptionID = EventSubsystem->ListenForEvent(
+					this,
+					false, // OnlyTriggerOnce
+					EventFilter,
+					DomainFilter,
+					EventDelegate,
+					TArray<UScriptStruct*>(),
+					TArray<UObject*>(),
+					true, // OnlyMatchExactEvent
+					true  // OnlyMatchExactDomain
+				);
+			}
+		}
 		return;
 	}
 
@@ -88,30 +115,41 @@ void UWaitForClientSubAbility::Activate()
 
 }
 
-void UWaitForClientSubAbility::OnEventReceived(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+void UWaitForClientSubAbility::OnEventReceived(FGameplayTag EventTag, FGameplayTag Domain, FInstancedStruct Payload, UObject* Sender)
 {
-	if (AbilityID != ExpectedAbilityID)
-	{
-		return;
-	}
-
+	// The event is filtered by tag already, so we just need to handle it
 	if (EventTag == FDefaultTags::SubAbilityEnded())
 	{
-		OnEnded.Broadcast(FDefaultTags::SubAbilityEnded(),EventContext);
+		OnEnded.Broadcast(FDefaultTags::SubAbilityEnded(), Payload);
 		CleanupAndFinish();
 		return;
 	}
-	
-	OnCancelled.Broadcast(EventTag,EventContext);
+
+	OnCancelled.Broadcast(EventTag, Payload);
 	CleanupAndFinish();
 }
 
 void UWaitForClientSubAbility::OnSubAbilityEnded(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext)
 {
 	// Send event to all clients (server + other clients) so everyone receives the result
-	if (USimpleGameplayAbilityComponent* AbilityComponent = ParentAbilityInstance->GetAbilityComponent())
+	if (ParentAbilityInstance.IsValid())
 	{
-		AbilityComponent->SendEventToAllClients(FDefaultTags::SubAbilityEnded(), ExpectedAbilityID, StopContext);
+		if (USimpleGameplayAbilityComponent* AbilityComponent = ParentAbilityInstance->GetAbilityComponent())
+		{
+			AbilityComponent->SendEventToAllClients(
+				FDefaultTags::SubAbilityEnded(),
+				FDefaultTags::DomainAbility(),
+				StopContext,
+				nullptr, // Don't replicate the async action node
+				TArray<UObject*>());
+		}
+	}
+
+	// Unbind delegates before broadcasting to prevent re-entrancy issues
+	if (AbilityInstance)
+	{
+		AbilityInstance->OnAbilityEnded.RemoveDynamic(this, &UWaitForClientSubAbility::OnSubAbilityEnded);
+		AbilityInstance->OnAbilityCancelled.RemoveDynamic(this, &UWaitForClientSubAbility::OnSubAbilityCancelled);
 	}
 
 	OnEnded.Broadcast(StopStatus, StopContext);
@@ -121,9 +159,24 @@ void UWaitForClientSubAbility::OnSubAbilityEnded(USimpleAbilityBase* AbilityInst
 void UWaitForClientSubAbility::OnSubAbilityCancelled(USimpleAbilityBase* AbilityInstance, FGameplayTag StopStatus, FInstancedStruct StopContext)
 {
 	// Send event to all clients (server + other clients) so everyone receives the result
-	if (USimpleGameplayAbilityComponent* AbilityComponent = ParentAbilityInstance->GetAbilityComponent())
+	if (ParentAbilityInstance.IsValid())
 	{
-		AbilityComponent->SendEventToAllClients(FDefaultTags::SubAbilityCancelled(), ExpectedAbilityID, StopContext);
+		if (USimpleGameplayAbilityComponent* AbilityComponent = ParentAbilityInstance->GetAbilityComponent())
+		{
+			AbilityComponent->SendEventToAllClients(
+				FDefaultTags::SubAbilityCancelled(),
+				FDefaultTags::DomainAbility(),
+				StopContext,
+				nullptr, // Don't replicate the async action node
+				TArray<UObject*>());
+		}
+	}
+
+	// Unbind delegates before broadcasting to prevent re-entrancy issues
+	if (AbilityInstance)
+	{
+		AbilityInstance->OnAbilityEnded.RemoveDynamic(this, &UWaitForClientSubAbility::OnSubAbilityEnded);
+		AbilityInstance->OnAbilityCancelled.RemoveDynamic(this, &UWaitForClientSubAbility::OnSubAbilityCancelled);
 	}
 
 	OnCancelled.Broadcast(StopStatus, StopContext);
@@ -138,6 +191,18 @@ void UWaitForClientSubAbility::OnTimeoutExpired()
 
 void UWaitForClientSubAbility::CleanupAndFinish()
 {
+	// Prevent re-entrant cleanup
+	if (bIsCleaningUp)
+	{
+		return;
+	}
+	bIsCleaningUp = true;
+
+	// Note: We don't try to unbind sub-ability delegates here because:
+	// 1. They're already unbound in OnSubAbilityEnded/OnSubAbilityCancelled before calling this
+	// 2. Getting the sub-ability instance here could be unsafe if parent is being destroyed
+	// 3. RemoveDynamic is safe to call multiple times on the same delegate
+
 	// Clear the timeout timer
 	if (ParentAbilityInstance.IsValid())
 	{
@@ -148,8 +213,17 @@ void UWaitForClientSubAbility::CleanupAndFinish()
 				World->GetTimerManager().ClearTimer(TimeoutTimerHandle);
 			}
 
-			// Unbind from the event dispatcher
-			AbilityComponent->OnEventReceived.RemoveDynamic(this, &UWaitForClientSubAbility::OnEventReceived);
+			// Unsubscribe from event subsystem
+			if (EventSubscriptionID.IsValid())
+			{
+				if (UGameInstance* GameInstance = AbilityComponent->GetWorld()->GetGameInstance())
+				{
+					if (USimpleEventSubsystem* EventSubsystem = GameInstance->GetSubsystem<USimpleEventSubsystem>())
+					{
+						EventSubsystem->StopListeningForEventSubscriptionByID(EventSubscriptionID);
+					}
+				}
+			}
 		}
 	}
 

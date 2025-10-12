@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/MemberReference.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/ModifierActionTypes.h"
@@ -26,12 +27,23 @@ public:
 	 * This modifier will trigger when it receives any of these event tags from the OwningModifier
 	 */
 	UPROPERTY(EditDefaultsOnly, Category="Config", meta = (DisplayPriority = 0))
-	FGameplayTagContainer EventTriggers = FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierApplied() }));	
+	FGameplayTagContainer EventTriggers = FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierApplied() }));
 
-	void InitializeAction(FAttributeModifierActionScratchPad& NewScratchPad, USimpleAttributeModifier* NewOwningModifier)
+	/**
+	 * Optional custom event filter function. If set, this function will be called to determine if the action should respond to an event sent through the SimpleEventSubsystem.
+	 * The function should match the signature: bool FunctionName(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender)
+	 */
+	UPROPERTY(EditAnywhere, Category="Config", meta=(
+		FunctionReference,
+		AllowFunctionLibraries,
+		PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_ShouldRespondToEvent",
+		DefaultBindingName="ShouldActionRespondToEvent",
+		DisplayPriority = 0))
+	FMemberReference SimpleEventTriggers;	
+
+	void InitializeAction(USimpleAttributeModifier* NewOwningModifier)
 	{
 		OwningModifier = NewOwningModifier;
-		ScratchPad = NewScratchPad;
 	}
 
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
@@ -71,11 +83,17 @@ public:
 	 * @param ClientResult The value of SnapshotData from the client ApplyAction() call.
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	void OnClientPredictedCorrection(FAttributeModifierActionScratchPad ServerInputScratchPad, FInstancedStruct ServerResult, FAttributeModifierActionScratchPad
-	                                 ClientInputScratchPad, FInstancedStruct ClientResult);
+	void OnClientPredictedCorrection(
+		FAttributeModifierActionScratchPad ServerInputScratchPad,
+		FInstancedStruct ServerResult,
+		FAttributeModifierActionScratchPad ClientInputScratchPad,
+		FInstancedStruct ClientResult);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
 	USimpleAttributeModifier* GetOwningModifier() const { return OwningModifier; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	FAttributeModifierActionScratchPad& GetScratchPad();
 	
 	UFUNCTION(BlueprintCallable, Category="Modifier")
 	void AddScratchPadTag(FGameplayTag ScratchPadTag);
@@ -84,13 +102,13 @@ public:
 	void RemoveScratchPadTag(FGameplayTag ScratchPadTag);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
-	float GetScratchPadValue(FGameplayTag ScratchPadTag, bool& WasFound) const;
+	float GetScratchPadValue(FGameplayTag ScratchPadTag, bool& WasFound);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
-	bool HasScratchPadValue(FGameplayTag ScratchPadTag) const;
+	bool HasScratchPadValue(FGameplayTag ScratchPadTag);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
-	bool HasScratchPadTag(FGameplayTag ScratchPadTag) const;
+	bool HasScratchPadTag(FGameplayTag ScratchPadTag);
 
 	UFUNCTION(BlueprintCallable, Category="Modifier")
 	void SetScratchPadValue(FGameplayTag ScratchPadTag, float Value);
@@ -99,9 +117,14 @@ public:
 	void IncrementScratchPadValue(FGameplayTag ScratchPadTag, float IncrementAmount);
 
 protected:
-	UPROPERTY(BlueprintreadWrite, Category="Modifier")
-	FAttributeModifierActionScratchPad ScratchPad;
-	
 	UPROPERTY()
 	USimpleAttributeModifier* OwningModifier;
+
+private:
+	// Used by OnClientPredictedCorrection to force the scratchpad to reference what the server used
+	bool bOverrideScratchPadSource = false;
+	FAttributeModifierActionScratchPad OverrideScratchPad;
+
+	void OverrideScratchPadSource(const FAttributeModifierActionScratchPad& ScratchPadSource);
+	void ClearScratchPadSourceOverride() { bOverrideScratchPadSource = false; }
 };

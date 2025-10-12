@@ -12,9 +12,12 @@
 #include "SimpleGameplayAbilitySystem/UtilityClasses/FastArraySerializerMacros.h"
 #include "SimpleAttributeComponentTypes.generated.h"
 
+class USimpleAttributeModifier;
+
 /* Enums */
 
 class USimpleAttributeHandler;
+class USimpleAttributeComponent;
 
 UENUM(BlueprintType)
 enum class EAttributeType : uint8
@@ -53,6 +56,67 @@ struct FValueLimits
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "UseMaxCurrentValue"))
 	float MaxCurrentValue;
+};
+
+/**
+ * Payload for attribute modifier lifecycle events.
+ * Used for events like Applied, Ticked, Ended, Cancelled.
+ */
+USTRUCT(BlueprintType)
+struct SIMPLEGAMEPLAYABILITYSYSTEM_API FAttributeModifierEventPayload
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	FGuid ModifierID;
+
+	/**
+	 * The class of the attribute modifier that generated this event.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	TSubclassOf<USimpleAttributeModifier> ModifierClass;
+
+	/**
+	 * The attribute component that instigated this modifier (who applied it).
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	TObjectPtr<USimpleAttributeComponent> InstigatorComponent;
+
+	/**
+	 * The attribute component that this modifier is being applied to (the target).
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	TObjectPtr<USimpleAttributeComponent> TargetComponent;
+
+	/**
+	 * The magnitude value passed when the modifier was applied.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float Magnitude = 0.0f;
+
+	/**
+	 * Additional context data passed when the modifier was applied.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	FInstancedStruct Context;
+
+	FAttributeModifierEventPayload() = default;
+
+	FAttributeModifierEventPayload(
+		FGuid InModifierID,
+		TSubclassOf<USimpleAttributeModifier> InModifierClass,
+		USimpleAttributeComponent* InInstigatorComponent,
+		USimpleAttributeComponent* InTargetComponent,
+		float InMagnitude,
+		const FInstancedStruct& InContext)
+		: ModifierID(InModifierID)
+		, ModifierClass(InModifierClass)
+		, InstigatorComponent(InInstigatorComponent)
+		, TargetComponent(InTargetComponent)
+		, Magnitude(InMagnitude)
+		, Context(InContext)
+	{
+	}
 };
 
 /* FFastArraySerializer Structs */

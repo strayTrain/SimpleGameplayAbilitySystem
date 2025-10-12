@@ -4,6 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
+#include "SimpleGameplayAbilitySystem/Interfaces/SimpleEventReplicator.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
 
 class USimpleTimeSynchronizer;
@@ -11,7 +12,7 @@ class USimpleAbilitySet;
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
-class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public UActorComponent
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public UActorComponent, public ISimpleEventReplicator
 {
 	GENERATED_BODY()
 
@@ -49,38 +50,62 @@ public:
 	UPROPERTY()
 	TArray<FAbilitySnapshot> DeferredSnapshots;
 
-	/* Event Dispatchers */
+	/* ISimpleEventReplicator Interface Implementation */
 
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnEventReceived, FGameplayTag, EventTag, FGuid, AbilityID, FInstancedStruct, EventContext);
-	UPROPERTY(BlueprintAssignable, Category = "AbilityComponent|Events")
-	FOnEventReceived OnEventReceived;
+	virtual void SendEvent(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
 
-	/* Event Functions */
+	virtual void SendEventToServer(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
 
-	// Sends an event locally (does not replicate)
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
-	void SendEvent(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+	virtual void SendEventToClient(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
 
-	// Sends an event to the server
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
-	void SendEventToServer(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
-
-	// Sends an event to the client
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
-	void SendEventToClient(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
-
-	// Sends an event to all clients (multicast)
-	UFUNCTION(BlueprintCallable, Category = "AbilityComponent|Events")
-	void SendEventToAllClients(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext);
+	virtual void SendEventToAllClients(
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		FInstancedStruct Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter) override;
 
 	UFUNCTION(Server, Reliable)
-	void ServerSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
-	
+	void ServerSendEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
+
 	UFUNCTION(Client, Reliable)
-	void ClientSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
+	void ClientSendEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSendEvent(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext);
+	void MulticastSendEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
 
 	/* Avatar Actor Functions */
 	
@@ -221,6 +246,26 @@ protected:
 	TArray<USimpleGameplayAbility*> InstancedAbilities;
 
 private:
+	/** Event IDs that were sent locally to prevent duplicate processing from multicasts (NOT replicated) */
+	TSet<FGuid> LocallySentEventIDs;
+
+	/** Timestamps of when EventIDs were added for periodic cleanup (NOT replicated) */
+	TMap<FGuid, double> EventIDTimestamps;
+
+	/** Timer handle for periodic EventID cleanup */
+	FTimerHandle EventIDCleanupTimerHandle;
+
+	/** Clean up EventIDs older than 30 seconds */
+	void CleanupOldEventIDs();
+
+	/** Process an incoming event, checking for duplicates before dispatching to SimpleEventSubsystem */
+	void ProcessIncomingEvent(
+		const FGuid& EventID,
+		FGameplayTag EventTag,
+		FGameplayTag DomainTag,
+		const FInstancedStruct& Payload,
+		UObject* Sender,
+		const TArray<UObject*>& ListenerFilter);
 	UFUNCTION()
 	void OnAbilityActivationSuccess(USimpleAbilityBase* AbilityInstance);
 	UFUNCTION()

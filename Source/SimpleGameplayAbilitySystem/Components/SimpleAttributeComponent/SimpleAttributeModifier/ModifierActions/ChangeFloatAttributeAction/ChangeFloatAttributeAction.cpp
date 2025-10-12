@@ -38,6 +38,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 	bool WasTargetAttributeFound = false;
 	bool WasInstigatorAttributeFound = false;
 	bool WasOverflowFound = false;
+	bool WasScratchPadValueFound = false;
 
 	if (!HasScratchPadValue(FDefaultTags::ScratchPadFloatOverflow()))
 	{
@@ -65,6 +66,10 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 				SetScratchPadValue(FDefaultTags::ScratchPadFloatOverflow(), 0);
 			}
 		
+			break;
+
+		case EAttributeModificationValueSource::FromScratchPadValue:
+			ModificationInputValue = GetScratchPadValue(ScratchPadValueTag, WasScratchPadValueFound);
 			break;
 		
 		case EAttributeModificationValueSource::FromInstigatorAttribute:

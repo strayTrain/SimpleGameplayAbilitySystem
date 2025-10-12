@@ -8,8 +8,8 @@
 #include "SimpleGameplayAbilitySystem/DataAssets/AbilitySet/SimpleAbilitySet.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
-
-class USimpleEventSubsystem;
+#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
+#include "TimerManager.h"
 
 using enum EAbilityStatus;
 
@@ -24,7 +24,19 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	UActorComponent::BeginPlay();
 
 	SetIsReplicated(true);
-	
+
+	// Start periodic EventID cleanup timer (every 30 seconds)
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			EventIDCleanupTimerHandle,
+			this,
+			&USimpleGameplayAbilityComponent::CleanupOldEventIDs,
+			30.0f,
+			true
+		);
+	}
+
 	if (HasAuthority())
 	{
 		// For abilities granted directly through the editor
@@ -32,7 +44,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 		{
 			USimpleGameplayAbility::OnGrantedStatic(AbilityClass, this);
 		}
-		
+
 		// Grant abilities from ability sets
 		for (USimpleAbilitySet* AbilitySet : AbilitySets)
 		{
@@ -41,7 +53,7 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 				GrantAbility(AbilityClass);
 			}
 		}
-		
+
 		return;
 	}
 
@@ -67,25 +79,41 @@ void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlay
 	Super::EndPlay(EndPlayReason);
 }
 
-/* Event Functions */
+/* ISimpleEventReplicator Interface Implementation */
 
-void USimpleGameplayAbilityComponent::SendEvent(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+void USimpleGameplayAbilityComponent::SendEvent(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
-	OnEventReceived.Broadcast(EventTag, AbilityID, EventContext);
+	ProcessIncomingEvent(FGuid(), EventTag, DomainTag, Payload, Sender, ListenerFilter);
 }
 
-void USimpleGameplayAbilityComponent::SendEventToServer(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+void USimpleGameplayAbilityComponent::SendEventToServer(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
 	if (HasAuthority())
 	{
-		SendEvent(EventTag, AbilityID, EventContext);
+		SendEvent(EventTag, DomainTag, Payload, Sender, ListenerFilter);
 		return;
 	}
 
-	ServerSendEvent(EventTag, AbilityID, EventContext);
+	const FGuid EventID = FGuid::NewGuid();
+	ServerSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 }
 
-void USimpleGameplayAbilityComponent::SendEventToClient(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+void USimpleGameplayAbilityComponent::SendEventToClient(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
 	if (!HasAuthority())
 	{
@@ -93,37 +121,130 @@ void USimpleGameplayAbilityComponent::SendEventToClient(FGameplayTag EventTag, F
 		return;
 	}
 
-	ClientSendEvent(EventTag, AbilityID, EventContext);
+	const FGuid EventID = FGuid::NewGuid();
+	ClientSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 }
 
-void USimpleGameplayAbilityComponent::SendEventToAllClients(FGameplayTag EventTag, FGuid AbilityID, FInstancedStruct EventContext)
+void USimpleGameplayAbilityComponent::SendEventToAllClients(
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	FInstancedStruct Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
+	// Generate unique EventID for deduplication
+	const FGuid EventID = FGuid::NewGuid();
+
+	// Send locally first
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+
 	if (!HasAuthority())
 	{
-		ServerSendEvent(EventTag, AbilityID, EventContext);
+		// Request server to multicast
+		ServerSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 		return;
 	}
 
-	MulticastSendEvent(EventTag, AbilityID, EventContext);
+	// Server multicasts to all clients
+	MulticastSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 }
 
-void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
+void USimpleGameplayAbilityComponent::ServerSendEvent_Implementation(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
 	// Broadcast locally on server
-	SendEvent(EventTag, AbilityID, EventContext);
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 
-	// Also multicast to all clients so they receive the event too
-	MulticastSendEvent(EventTag, AbilityID, EventContext);
+	// Also multicast to all clients
+	MulticastSendEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 }
 
-void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
+void USimpleGameplayAbilityComponent::ClientSendEvent_Implementation(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
-	SendEvent(EventTag, AbilityID, EventContext);
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
 }
 
-void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(FGameplayTag EventTag, FGuid AbilityID, const FInstancedStruct& EventContext)
+void USimpleGameplayAbilityComponent::MulticastSendEvent_Implementation(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
 {
-	SendEvent(EventTag, AbilityID, EventContext);
+	ProcessIncomingEvent(EventID, EventTag, DomainTag, Payload, Sender, ListenerFilter);
+}
+
+void USimpleGameplayAbilityComponent::ProcessIncomingEvent(
+	const FGuid& EventID,
+	FGameplayTag EventTag,
+	FGameplayTag DomainTag,
+	const FInstancedStruct& Payload,
+	UObject* Sender,
+	const TArray<UObject*>& ListenerFilter)
+{
+	// Check if we've already processed this event
+	if (LocallySentEventIDs.Contains(EventID))
+	{
+		// Skip duplicate event (we already sent it locally)
+		return;
+	}
+
+	// Add EventID to our set and track timestamp
+	LocallySentEventIDs.Add(EventID);
+	if (UWorld* World = GetWorld())
+	{
+		EventIDTimestamps.Add(EventID, World->GetTimeSeconds());
+	}
+
+	// Get the SimpleEventSubsystem and dispatch the event
+	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	{
+		if (USimpleEventSubsystem* EventSubsystem = GameInstance->GetSubsystem<USimpleEventSubsystem>())
+		{
+			EventSubsystem->SendEvent(EventTag, DomainTag, Payload, Sender, ListenerFilter);
+		}
+	}
+}
+
+void USimpleGameplayAbilityComponent::CleanupOldEventIDs()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	const double CurrentTime = GetWorld()->GetTimeSeconds();
+	const double MaxRetentionTime = 30.0;
+
+	TArray<FGuid> EventIDsToRemove;
+
+	// Find EventIDs older than 30 seconds
+	for (const TPair<FGuid, double>& Pair : EventIDTimestamps)
+	{
+		if (CurrentTime - Pair.Value > MaxRetentionTime)
+		{
+			EventIDsToRemove.Add(Pair.Key);
+		}
+	}
+
+	// Remove old EventIDs
+	for (const FGuid& EventIDToRemove : EventIDsToRemove)
+	{
+		LocallySentEventIDs.Remove(EventIDToRemove);
+		EventIDTimestamps.Remove(EventIDToRemove);
+	}
 }
 
 /* Ability Functions */
@@ -204,6 +325,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 		FAbilityState NewState;
 		NewState.AbilityID = AbilityID;
 		NewState.AbilityClass = AbilityClass;
+		NewState.AbilityStatus = PreActivation;
 		NewState.ActivatedOn = ActivatedOn;
 		NewState.ActivationTimeStamp = ActivationTime;
 		NewState.ActivationContext = AbilityContext;
@@ -531,7 +653,7 @@ void USimpleGameplayAbilityComponent::OnAbilityActivationSuccess(USimpleAbilityB
 
 	for (FAbilityState& AbilityState : AbilityStates)
 	{
-		if (AbilityState.AbilityID == AbilityID)
+		if (AbilityState.AbilityID == AbilityID && AbilityState.AbilityStatus == PreActivation)
 		{
 			AbilityState.AbilityStatus = ActivationSuccess;
 
@@ -652,6 +774,7 @@ void USimpleGameplayAbilityComponent::CleanupOldAbilityStates()
 		const bool bIsOldEnough = (CurrentTime - State.EndingTimeStamp) > CleanupThreshold;
 		return bIsFinished && bIsOldEnough;
 	});
+	AuthorityAbilityStates.MarkArrayDirty();
 
 	// Also cleanup old snapshots
 	const double SnapshotCleanupThreshold = 10.0; // Keep snapshots a bit longer for late clients
@@ -659,6 +782,7 @@ void USimpleGameplayAbilityComponent::CleanupOldAbilityStates()
 	{
 		return (CurrentTime - Snapshot.TimeStamp) > SnapshotCleanupThreshold;
 	});
+	AuthorityAbilitySnapshots.MarkArrayDirty();
 }
 
 /* Replication */
@@ -706,6 +830,7 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 			// Update existing state if it exists
 			else
 			{
+				ProcessDeferredSnapshots(UpdatedAbilityState.AbilityID);
 				*LocalAbilityState = UpdatedAbilityState;
 			}
 			return;
@@ -815,19 +940,19 @@ void USimpleGameplayAbilityComponent::TryResolveSnapshot(const FAbilitySnapshot&
 		return;
 	}
 
-	// We only want to resolve the snapshot if the ability is currently running
-	USimpleGameplayAbility* LocalRunningAbilityInstance = nullptr;
+	// Find the ability instance (it can be active or already ended)
+	USimpleGameplayAbility* LocalAbilityInstance = nullptr;
 	for (USimpleGameplayAbility* InstancedAbility : InstancedAbilities)
 	{
 		if (InstancedAbility->AbilityID == LocalSnapshot->AbilityID)
 		{
-			LocalRunningAbilityInstance = InstancedAbility;
+			LocalAbilityInstance = InstancedAbility;
 			break;
 		}
 	}
 
-	// If ability isn't running yet, defer this snapshot for later processing
-	if (!LocalRunningAbilityInstance || !LocalRunningAbilityInstance->IsActive)
+	// If ability instance doesn't exist yet, defer this snapshot for later processing
+	if (!LocalAbilityInstance)
 	{
 		// Add to deferred queue if not already there
 		const bool bAlreadyDeferred = DeferredSnapshots.ContainsByPredicate(
@@ -843,8 +968,8 @@ void USimpleGameplayAbilityComponent::TryResolveSnapshot(const FAbilitySnapshot&
 		return;
 	}
 
-	// Call the resolve function on the local running ability instance
-	LocalRunningAbilityInstance->OnServerSnapshotReceived(NewAbilitySnapshot.SnapshotCounter, NewAbilitySnapshot.SnapshotData, LocalSnapshot->SnapshotData);
+	// Call the resolve function on the local ability instance
+	LocalAbilityInstance->OnServerSnapshotReceived(NewAbilitySnapshot.SnapshotCounter, NewAbilitySnapshot.SnapshotData, LocalSnapshot->SnapshotData);
 
 	// Remove the local snapshot from the pending snapshots array now that we've resolved the differences
 	LocalPendingAbilitySnapshots.RemoveAll([LocalSnapshot](const FAbilitySnapshot& Snapshot)

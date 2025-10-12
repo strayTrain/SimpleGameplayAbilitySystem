@@ -14,6 +14,8 @@ enum class EAttributeModificationValueSource : uint8
 	Manual,
 	// Use the magnitude value passed to the owning modifier as the float action input
 	FromMagnitude,
+	// Use a value stored in the modifier's scratch pad as the float action input
+	FromScratchPadValue,
 	// Use the overflow value from previous float actions as the float action input
 	FromOverflow,
 	// Use the value of an attribute on the instigator ability component as the float action input

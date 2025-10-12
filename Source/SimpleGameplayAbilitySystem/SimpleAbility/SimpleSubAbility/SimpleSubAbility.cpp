@@ -1,6 +1,7 @@
 ﻿#include "SimpleSubAbility.h"
 
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
+#include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleGameplayAbility/SimpleGameplayAbility.h"
 
@@ -73,7 +74,12 @@ void USimpleSubAbility::SendEventToServer(FGameplayTag EventTag, FInstancedStruc
 		return;
 	}
 
-	ParentAbilityInstance->GetAbilityComponent()->SendEventToServer(EventTag, ParentAbilityID, EventContext);
+	ParentAbilityInstance->GetAbilityComponent()->SendEventToServer(
+		EventTag,
+		FDefaultTags::DomainAbility(),
+		EventContext,
+		this,
+		TArray<UObject*>());
 }
 
 void USimpleSubAbility::SendEventToClient(FGameplayTag EventTag, FInstancedStruct EventContext)
@@ -83,7 +89,12 @@ void USimpleSubAbility::SendEventToClient(FGameplayTag EventTag, FInstancedStruc
 		return;
 	}
 
-	ParentAbilityInstance->GetAbilityComponent()->SendEventToClient(EventTag, ParentAbilityID, EventContext);
+	ParentAbilityInstance->GetAbilityComponent()->SendEventToClient(
+		EventTag,
+		FDefaultTags::DomainAbility(),
+		EventContext,
+		this,
+		TArray<UObject*>());
 }
 
 void USimpleSubAbility::SendEvent(FGameplayTag EventTag, FInstancedStruct EventContext)
@@ -93,5 +104,10 @@ void USimpleSubAbility::SendEvent(FGameplayTag EventTag, FInstancedStruct EventC
 		return;
 	}
 
-	ParentAbilityInstance->GetAbilityComponent()->SendEvent(EventTag, ParentAbilityID, EventContext);
+	ParentAbilityInstance->GetAbilityComponent()->SendEvent(
+		EventTag,
+		FDefaultTags::DomainAbility(),
+		EventContext,
+		this,
+		TArray<UObject*>());
 }

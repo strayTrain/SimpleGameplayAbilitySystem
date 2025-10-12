@@ -6,6 +6,36 @@
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeComponent.h"
 #include "SimpleGameplayAbilitySystem/DefaultTags/DefaultTags.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
+#include "SimpleGameplayAbilitySystem/SimpleEventSubsystem/SimpleEventSubsystem.h"
+
+void USimpleAttributeModifier::InitializeModifier(FGuid NewModifierID, USimpleAttributeComponent* Instigator,
+	USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate)
+{
+	ModifierID = NewModifierID;
+	InstigatorAttributeComponent = Instigator;
+	TargetAttributeComponent = Target;
+	ModifierContext = Context;
+	ModifierMagnitude = Magnitude;
+	WasInitialized = true;
+	DoesModifierReplicate = DoesReplicate;
+
+	// Subscribe to SimpleEventSubsystem for all events
+	if (USimpleEventSubsystem* EventSubsystem = TargetAttributeComponent->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
+	{
+		FSimpleEventDelegate EventCallback;
+		EventCallback.BindDynamic(this, &USimpleAttributeModifier::OnModifierEventReceived);
+		GlobalEventSubscriptionID = EventSubsystem->ListenForEvent(
+			this,
+			false,
+			FGameplayTagContainer(),
+			FGameplayTagContainer(),
+			EventCallback,
+			{},
+			{},
+			false,
+			false);
+	}
+}
 
 bool USimpleAttributeModifier::ApplyModifier()
 {
@@ -32,7 +62,7 @@ bool USimpleAttributeModifier::ApplyModifier()
 	
 	ActivationTime = InstigatorAttributeComponent->GetServerTime();
 	IsActive = true;
-	
+
 	OnPreApplyModifierActions();
 
 	if (DoesModifierReplicate)
@@ -45,9 +75,10 @@ bool USimpleAttributeModifier::ApplyModifier()
 	{
 		TargetAttributeComponent->AddGameplayTag(Tag);
 	}
-	
+
 	ModifierActionScratchPad = InitialScratchPadValues;
-	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierApplied() })));
+	
+	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierApplied() })));
 	
 	switch (DurationType)
 	{
@@ -92,13 +123,14 @@ bool USimpleAttributeModifier::ApplyModifier()
 
 void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
 {
-	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierEnded() })));
-	
+	// Send the Ended event
+	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierEnded() })));
+
 	if (DurationType == EAttributeModifierDurationType::SetDuration || DurationType == EAttributeModifierDurationType::InfiniteDuration)
 	{
 		InstigatorAttributeComponent->GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
 		InstigatorAttributeComponent->GetWorld()->GetTimerManager().ClearTimer(TickTimerHandle);
-		
+
 		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
 		{
 			TargetAttributeComponent->RemoveGameplayTag(Tag);
@@ -116,13 +148,14 @@ void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstanced
 
 void USimpleAttributeModifier::CancelModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
 {
-	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ EndingStatus })));
-	
+	// Send the Cancelled event
+	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierCancelled() })));
+
 	if (DurationType == EAttributeModifierDurationType::SetDuration || DurationType == EAttributeModifierDurationType::InfiniteDuration)
 	{
 		InstigatorAttributeComponent->GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
 		InstigatorAttributeComponent->GetWorld()->GetTimerManager().ClearTimer(TickTimerHandle);
-		
+
 		for (const FGameplayTag& Tag : TemporarilyAppliedTags)
 		{
 			TargetAttributeComponent->RemoveGameplayTag(Tag);
@@ -173,100 +206,17 @@ bool USimpleAttributeModifier::CanApplyModifierInternal()
 	return CanApplyModifier();
 }
 
-bool USimpleAttributeModifier::ApplyModifierActions(USimpleAttributeModifier* OwningModifier, const FGameplayTagContainer ActionTriggers)
+void USimpleAttributeModifier::OnCleanupModifier_Implementation()
 {
-	TArray<FModifierActionResult> ActionResults;
-
-	for (int i = 0; i < ModifierActions.Num(); i++)
+	// Unsubscribe from SimpleEventSubsystem
+	if (GlobalEventSubscriptionID.IsValid())
 	{
-		UModifierAction* Action = ModifierActions[i];
-		Action->InitializeAction(ModifierActionScratchPad, OwningModifier);
-
-		const bool IsServer = InstigatorAttributeComponent->HasAuthority();
-
-		// Determine if this action should run and if it should generate a mutation
-		bool ShouldRun = false;
-		bool ShouldGenerateMutation = false;
-
-		switch (Action->PredictionPolicy)
+		if (USimpleEventSubsystem* EventSubsystem = TargetAttributeComponent->GetWorld()->GetGameInstance()->GetSubsystem<USimpleEventSubsystem>())
 		{
-			case EModifierActionPredictionPolicy::PredictIfPossible:
-				if (!Action->SupportsClientPrediction())
-				{
-					// Server-only action that doesn't support prediction
-					// Don't generate mutations - if this action modifies replicated state (e.g. attributes),
-					// the replication system will handle syncing to clients. This prevents double-application.
-					ShouldRun = IsServer;
-					ShouldGenerateMutation = false;
-				}
-				else
-				{
-					// Can predict - run on both client & server
-					ShouldRun = true;
-					ShouldGenerateMutation = DoesModifierReplicate;
-				}
-				break;
-
-			case EModifierActionPredictionPolicy::ServerInitiate:
-				// Only run on server, replicate to clients
-				ShouldRun = IsServer;
-				ShouldGenerateMutation = IsServer && DoesModifierReplicate;
-				break;
-
-			case EModifierActionPredictionPolicy::ServerOnly:
-				// Only run on server, never replicate
-				ShouldRun = IsServer;
-				ShouldGenerateMutation = false;
-				break;
-
-			case EModifierActionPredictionPolicy::ClientOnly:
-				// Only run on clients (ListenServer counts as client), never replicate
-				ShouldRun = !IsServer;
-				ShouldGenerateMutation = false;
-				break;
-		}
-
-		if (!ShouldRun)
-		{
-			continue;
-		}
-
-		if (!Action->EventTriggers.HasAnyExact(ActionTriggers) || !Action->CanApply())
-		{
-			continue;
-		}
-
-		const FAttributeModifierActionScratchPad InputScratchpad = ModifierActionScratchPad;
-		const FInstancedStruct ActionResult = Action->ApplyAction();
-
-		// Only add to results if we should generate a mutation
-		if (ShouldGenerateMutation)
-		{
-			ActionResults.Add({
-				i,
-				Action->GetClass(),
-				InputScratchpad,
-				ActionResult
-			});
+			EventSubsystem->StopListeningForEventSubscriptionByID(GlobalEventSubscriptionID);
+			GlobalEventSubscriptionID.Invalidate();
 		}
 	}
-	
-	if (ActionResults.Num() > 0)
-	{
-		FModifierActionStackResults ActionStackResult;
-		ActionStackResult.ModifierClass = GetClass();
-		ActionStackResult.ActionsResults = ActionResults;
-
-		if (DoesModifierReplicate)
-		{
-			// The attribute component listens for this event to track in AuthorityAttributeModifierMutations and ultimately replicate to clients.
-			OnActionStackApplied.Broadcast(this, ActionStackResult);
-		}
-	}
-
-	OnPostApplyModifierActions();
-	
-	return true;
 }
 
 void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation)
@@ -294,7 +244,7 @@ void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActi
 
 		if (IsInServerMap && !IsInClientMap)
 		{
-			Action->InitializeAction(ServerMap[Idx].InputScratchpad, this);
+			Action->InitializeAction(this);
 			const FInstancedStruct Result = Action->ApplyAction();
 		}
 		else if (!IsInServerMap && IsInClientMap)
@@ -338,7 +288,7 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 
 			case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
 			{
-				ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({ FDefaultTags::AttributeModifierTickFailedSkip() })));
+				TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierTickFailedSkip() })));
 				return;
 			}
 		}
@@ -351,7 +301,7 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 		ModifierActionScratchPad = InitialScratchPadValues;
 	}
 
-	ApplyModifierActions(this, FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>({FDefaultTags::AttributeModifierTicked()})));
+	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierTicked() })));
 }
 
 bool USimpleAttributeModifier::HandleStackGroupReapplication()
@@ -497,5 +447,122 @@ void USimpleAttributeModifier::SetRemainingDuration(float NewDuration)
 	{
 		// Duration expired, end immediately
 		EndModifier(FDefaultTags::AttributeModifierEnded(), FInstancedStruct());
+	}
+}
+
+void USimpleAttributeModifier::OnModifierEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender)
+{
+	TArray<UModifierAction*> ActionsToTrigger;
+	for (int i = 0; i < ModifierActions.Num(); i++)
+	{
+		UModifierAction* Action = ModifierActions[i];
+		if (!Action)
+		{
+			continue;
+		}
+
+		// Check if the action is set up to respond to this SimpleEvent
+		if (Action->SimpleEventTriggers.GetMemberName() == NAME_None)
+		{
+			continue;
+		}
+		
+		bool ShouldRespond;
+		UFunctionSelectors::ShouldRespondToEvent(
+			this,
+			Action->SimpleEventTriggers,
+			EventTag,
+			DomainTag,
+			Payload,
+			Sender,
+			ShouldRespond
+		);
+
+		if (!ShouldRespond)
+		{
+			continue;
+		}
+
+		ActionsToTrigger.Add(Action);
+	}
+
+	TriggerActions(ActionsToTrigger);
+}
+
+void USimpleAttributeModifier::TriggerActionsForEvents(FGameplayTagContainer EventTags)
+{
+	TArray<UModifierAction*> ActionsToTrigger;
+	
+	for (int i = 0; i < ModifierActions.Num(); i++)
+	{
+		UModifierAction* Action = ModifierActions[i];
+		if (!Action)
+		{
+			continue;
+		}
+
+		// Check if this action wants to respond to this event tag
+		if (!Action->EventTriggers.HasAny(EventTags))
+		{
+			continue;
+		}
+
+		ActionsToTrigger.Add(Action);
+	}
+
+	TriggerActions(ActionsToTrigger);
+}
+
+void USimpleAttributeModifier::TriggerActions(TArray<UModifierAction*>& Actions)
+{
+	const bool IsServer = InstigatorAttributeComponent->HasAuthority();
+
+	TArray<FModifierActionResult> ActionResults;
+	for (UModifierAction* Action : Actions)
+	{
+		bool ShouldRun = false;
+
+		switch (Action->PredictionPolicy)
+		{
+			case EModifierActionPredictionPolicy::PredictIfPossible:
+				ShouldRun = Action->SupportsClientPrediction() || IsServer;
+				break;
+			case EModifierActionPredictionPolicy::ServerInitiate:
+			case EModifierActionPredictionPolicy::ServerOnly:
+				ShouldRun = IsServer;
+				break;
+			case EModifierActionPredictionPolicy::ClientOnly:
+				ShouldRun = !IsServer;
+				break;
+		}
+
+		Action->InitializeAction(this);
+
+		if (!ShouldRun && !Action->CanApply())
+		{
+			return;
+		}
+		
+		const FInstancedStruct ActionResult = Action->ApplyAction();
+
+		if (DoesModifierReplicate && Action->SupportsClientPrediction())
+		{
+			ActionResults.Add({
+				ModifierActions.IndexOfByKey(Action),
+				Action->GetClass(),
+				ModifierActionScratchPad,
+				ActionResult
+			});
+		}
+	}
+
+	if (DoesModifierReplicate && ActionResults.Num() > 0)
+	{
+		FModifierActionStackResults ActionStackResult;
+		ActionStackResult.ModifierClass = GetClass();
+		ActionStackResult.ActionsResults = ActionResults;
+		
+		// The attribute component listens for this event to track in AuthorityAttributeModifierMutations and ultimately replicate to clients.
+		OnActionStackApplied.Broadcast(this, ActionStackResult);
 	}
 }

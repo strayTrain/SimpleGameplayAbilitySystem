@@ -52,11 +52,6 @@ public:
 		EditCondition = "DurationType != EAttributeModifierDurationType::Instant"))
 	EDurationTickTagRequirementBehaviour TickRequirementsFailedBehaviour;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config", meta = (
-		EditConditionHides,
-		EditCondition = "DurationType == EAttributeModifierDurationType::SetDuration"))
-	EDurationModifierReApplicationConfig OnReapplication;
-
 	/**
 	 * If true, the non-instant modifier's scratch pad will be reset each time the modifier ticks.
 	 * If false, the scratch pad will persist between ticks and can be used to store state
@@ -81,6 +76,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
 		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
 	FGameplayTag StackGroupTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (
+			EditConditionHides,
+			EditCondition = "DurationType == EAttributeModifierDurationType::SetDuration && bUseStackGroup"))
+	EDurationModifierReApplicationConfig OnReapplication;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (
 		EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
@@ -168,6 +168,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
 	USimpleAttributeComponent* TargetAttributeComponent;
 
+	/**
+	 * The event subscription GUID for this modifier listening to SimpleEventSubsystem.
+	 * Used to unsubscribe when the modifier ends or is cancelled.
+	 */
+	UPROPERTY()
+	FGuid GlobalEventSubscriptionID;
+
 	/* Event Dispatchers */
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|Events|Lifecycle")
@@ -184,16 +191,7 @@ public:
 	
 	/* Callable Functions */
 
-	void InitializeModifier(FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate)
-	{
-		ModifierID = NewModifierID;
-		InstigatorAttributeComponent = Instigator;
-		TargetAttributeComponent = Target;
-		ModifierContext = Context;
-		ModifierMagnitude = Magnitude;
-		WasInitialized = true;
-		DoesModifierReplicate = DoesReplicate;
-	}
+	void InitializeModifier(FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate);
 	
 	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application", meta = (AdvancedDisplay=3))
 	bool ApplyModifier();
@@ -250,8 +248,14 @@ public:
 	void OnModifierCancelled(FGameplayTag EndingStatus, FInstancedStruct EndingContext);
 	void OnModifierCancelled_Implementation(FGameplayTag EndingStatus, FInstancedStruct EndingContext) {}
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
+	void OnCleanupModifier();
+	void OnCleanupModifier_Implementation();
+
 	UFUNCTION()
 	void OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation);
+
+	void TriggerActionsForEvents(FGameplayTagContainer EventTags);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FAttributeModifierActionScratchPad& GetModifierActionScratchPad()
@@ -267,9 +271,6 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
 	FAttributeModifierActionScratchPad ModifierActionScratchPad;
 
-	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Application")
-	bool ApplyModifierActions(USimpleAttributeModifier* OwningModifier, FGameplayTagContainer ActionTriggers);
-
 private:
 	bool CanApplyModifierInternal();
 
@@ -284,7 +285,12 @@ private:
 
 	void OnDurationTimerExpired();
 	void OnTickTimerTriggered();
+	
+	UFUNCTION()
+	void OnModifierEventReceived(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender);
 
+	void TriggerActions(TArray<UModifierAction*>& Actions);
+	
 	bool DoesModifierReplicate = true;
 	bool WasInitialized = false;
 };

@@ -2,9 +2,18 @@
 
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 
-float UModifierAction::GetScratchPadValue(const FGameplayTag ScratchPadTag, bool& WasFound) const
+FAttributeModifierActionScratchPad& UModifierAction::GetScratchPad()
 {
-	for (const FAttributeModifierActionScratchPadValue& Value : OwningModifier->GetModifierActionScratchPad().ScratchpadValues)
+	if (bOverrideScratchPadSource)
+	{
+		return OverrideScratchPad;
+	}
+	return OwningModifier->GetModifierActionScratchPad(); 
+}
+
+float UModifierAction::GetScratchPadValue(const FGameplayTag ScratchPadTag, bool& WasFound)
+{
+	for (const FAttributeModifierActionScratchPadValue& Value : GetScratchPad().ScratchpadValues)
 	{
 		if (Value.ScratchpadTag == ScratchPadTag)
 		{
@@ -17,9 +26,9 @@ float UModifierAction::GetScratchPadValue(const FGameplayTag ScratchPadTag, bool
 	return 0;
 }
 
-bool UModifierAction::HasScratchPadValue(const FGameplayTag ScratchPadTag) const
+bool UModifierAction::HasScratchPadValue(const FGameplayTag ScratchPadTag)
 {
-	for (const FAttributeModifierActionScratchPadValue& Value : OwningModifier->GetModifierActionScratchPad().ScratchpadValues)
+	for (const FAttributeModifierActionScratchPadValue& Value : GetScratchPad().ScratchpadValues)
 	{
 		if (Value.ScratchpadTag == ScratchPadTag)
 		{
@@ -30,14 +39,14 @@ bool UModifierAction::HasScratchPadValue(const FGameplayTag ScratchPadTag) const
 	return false;
 }
 
-bool UModifierAction::HasScratchPadTag(const FGameplayTag ScratchPadTag) const
+bool UModifierAction::HasScratchPadTag(const FGameplayTag ScratchPadTag)
 {
-	return ScratchPad.ScratchpadTags.HasTagExact(ScratchPadTag);
+	return GetScratchPad().ScratchpadTags.HasTagExact(ScratchPadTag);
 }
 
 void UModifierAction::SetScratchPadValue(FGameplayTag ScratchPadTag, float Value)
 {
-	for (FAttributeModifierActionScratchPadValue& CurrentValue : ScratchPad.ScratchpadValues)
+	for (FAttributeModifierActionScratchPadValue& CurrentValue : GetScratchPad().ScratchpadValues)
 	{
 		if (CurrentValue.ScratchpadTag == ScratchPadTag)
 		{
@@ -46,12 +55,12 @@ void UModifierAction::SetScratchPadValue(FGameplayTag ScratchPadTag, float Value
 		}
 	}
 
-	ScratchPad.ScratchpadValues.Add(FAttributeModifierActionScratchPadValue{ScratchPadTag, Value});
+	GetScratchPad().ScratchpadValues.Add(FAttributeModifierActionScratchPadValue{ScratchPadTag, Value});
 }
 
 void UModifierAction::IncrementScratchPadValue(const FGameplayTag ScratchPadTag, const float IncrementAmount)
 {
-	for (FAttributeModifierActionScratchPadValue& CurrentValue : ScratchPad.ScratchpadValues)
+	for (FAttributeModifierActionScratchPadValue& CurrentValue : GetScratchPad().ScratchpadValues)
 	{
 		if (CurrentValue.ScratchpadTag == ScratchPadTag)
 		{
@@ -60,24 +69,35 @@ void UModifierAction::IncrementScratchPadValue(const FGameplayTag ScratchPadTag,
 		}
 	}
 
-	ScratchPad.ScratchpadValues.Add(FAttributeModifierActionScratchPadValue{ScratchPadTag, IncrementAmount});
-}
-
-void UModifierAction::OnClientPredictedCorrection_Implementation(FAttributeModifierActionScratchPad ServerInputScratchPad, FInstancedStruct ServerResult, FAttributeModifierActionScratchPad
-                                                                 ClientInputScratchPad, FInstancedStruct ClientResult)
-{
-	// By default, we undo the client action and re-apply the action with the server's scratchpad input
-	OnCancelAction();
-	ScratchPad = ServerInputScratchPad;
-	FInstancedStruct ActionResult = ApplyAction();
+	GetScratchPad().ScratchpadValues.Add(FAttributeModifierActionScratchPadValue{ScratchPadTag, IncrementAmount});
 }
 
 void UModifierAction::AddScratchPadTag(const FGameplayTag ScratchPadTag)
 {
-	ScratchPad.ScratchpadTags.AddTag(ScratchPadTag);
+	GetScratchPad().ScratchpadTags.AddTag(ScratchPadTag);
 }
 
 void UModifierAction::RemoveScratchPadTag(const FGameplayTag ScratchPadTag)
 {
-	ScratchPad.ScratchpadTags.RemoveTag(ScratchPadTag);
+	GetScratchPad().ScratchpadTags.RemoveTag(ScratchPadTag);
+}
+
+void UModifierAction::OverrideScratchPadSource(const FAttributeModifierActionScratchPad& ScratchPadSource)
+{
+	bOverrideScratchPadSource = true;
+	OverrideScratchPad = ScratchPadSource;
+}
+
+void UModifierAction::OnClientPredictedCorrection_Implementation(
+	FAttributeModifierActionScratchPad ServerInputScratchPad,
+	FInstancedStruct ServerResult,
+	FAttributeModifierActionScratchPad ClientInputScratchPad,
+	FInstancedStruct ClientResult)
+{
+	// By default, we undo the client action and re-apply the action with the server's scratchpad input
+	OnCancelAction();
+	
+	OverrideScratchPadSource(ServerInputScratchPad);
+		FInstancedStruct ActionResult = ApplyAction();
+	ClearScratchPadSourceOverride();
 }
