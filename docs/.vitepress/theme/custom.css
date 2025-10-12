@@ -6,3 +6,21 @@
   --vp-c-brand-dark: #535bf2;
   --vp-c-brand-darker: #454ce1;
 }
+
+/* Hero section with animation */
+.VPHero {
+  position: relative;
+  overflow: hidden;
+}
+
+.VPHero .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure hero content is above animation */
+.VPHero .main,
+.VPHero .image {
+  position: relative;
+  z-index: 2;
+}
