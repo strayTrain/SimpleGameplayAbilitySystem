@@ -1,0 +1,28 @@
+{
+  "name": "simplegameplayabilitysystem",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A streamlined, flexible, and network‐friendly alternative to Unreal Engine's Gameplay Ability System. Designed for both single-player and multiplayer projects, this plugin gives you a modular framework for handling abilities, attributes, and events in a way that's accessible to both Blueprints and C++. You can use this plugin without needing to write any C++ code.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/strayTrain/SimpleGameplayAbilitySystem.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/strayTrain/SimpleGameplayAbilitySystem/issues"
+  },
+  "homepage": "https://github.com/strayTrain/SimpleGameplayAbilitySystem#readme",
+  "devDependencies": {
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.22"
+  }
+}
