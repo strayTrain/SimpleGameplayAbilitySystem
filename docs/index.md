@@ -2,9 +2,8 @@
 layout: home
 
 hero:
-  name: Simple Gameplay Ability System
-  text: Powerful Unreal Engine Plugin
-  tagline: Streamlined gameplay ability system for UE5
+  text: Simple Gameplay Ability System
+  tagline: A multiplayer framework for Unreal Engine
   actions:
     - theme: brand
       text: Get Started

@@ -29,7 +29,12 @@
 
       <!-- Animated Packets -->
       <template v-for="(packet, index) in packets" :key="'packet-' + index">
-        <rect width="16" height="16" x="-8" y="-8" :class="'packet ' + (packet.toServer ? 'packet-to-server' : 'packet-from-server')">
+        <rect
+          :width="packet.width"
+          :height="packet.height"
+          :x="-packet.width / 2"
+          :y="-packet.height / 2"
+          :class="'packet ' + (packet.toServer ? 'packet-to-server' : 'packet-from-server')">
           <animateMotion
             :dur="packet.duration + 's'"
             repeatCount="indefinite"
@@ -40,8 +45,8 @@
             attributeName="transform"
             attributeType="XML"
             type="scale"
-            values="0 0;1 1;1 1;0 0"
-            keyTimes="0;0.1;0.9;1"
+            values="0 0;1.3 1.3;1 1;1 1;0 0"
+            keyTimes="0;0.05;0.1;0.9;1"
             :dur="packet.duration + 's'"
             repeatCount="indefinite"
             :begin="packet.delay + 's'"
@@ -125,12 +130,26 @@ function generateNetwork() {
     // Generate packets for this connection
     const baseDuration = 3 + Math.random() * 2 // 3-5 seconds
 
+    // Helper function to generate random packet size
+    const randomPacketSize = () => {
+      const sizes = [
+        { width: 12, height: 12 },  // Small square
+        { width: 16, height: 12 },  // Wide rectangle
+        { width: 12, height: 16 },  // Tall rectangle
+        { width: 18, height: 10 },  // Very wide
+        { width: 10, height: 18 },  // Very tall
+        { width: 14, height: 14 },  // Medium square
+      ]
+      return sizes[Math.floor(Math.random() * sizes.length)]
+    }
+
     // Client to server packet
     packets.value.push({
       path: clientToServer,
       duration: baseDuration,
       delay: Math.random() * 4,
-      toServer: true
+      toServer: true,
+      ...randomPacketSize()
     })
 
     // Server to client packet
@@ -138,7 +157,8 @@ function generateNetwork() {
       path: serverToClient,
       duration: baseDuration,
       delay: Math.random() * 4,
-      toServer: false
+      toServer: false,
+      ...randomPacketSize()
     })
 
     // Sometimes add extra packets
@@ -147,7 +167,8 @@ function generateNetwork() {
         path: clientToServer,
         duration: baseDuration,
         delay: Math.random() * 4,
-        toServer: true
+        toServer: true,
+        ...randomPacketSize()
       })
     }
   })

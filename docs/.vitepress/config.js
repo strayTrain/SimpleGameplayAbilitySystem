@@ -10,7 +10,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/setup' },
       { text: 'API', link: '/api/simple-gameplay-ability' },
-      { text: 'GitHub', link: 'https://github.com/strayTrain/SimpleGameplayAbilitySystem' }
+      { text: 'GitHub Repo', link: 'https://github.com/strayTrain/SimpleGameplayAbilitySystem' }
     ],
 
     sidebar: {
@@ -18,7 +18,7 @@ export default defineConfig({
         {
           text: 'Getting Started',
           items: [
-            { text: 'Setup Guide', link: '/guide/setup' },
+            { text: 'Installing The Plugin', link: '/guide/setup' },
             { text: 'Quick Start', link: '/guide/quick-start' }
           ]
         },
@@ -42,9 +42,5 @@ export default defineConfig({
         }
       ]
     },
-
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/strayTrain/SimpleGameplayAbilitySystem' }
-    ]
   }
 })
