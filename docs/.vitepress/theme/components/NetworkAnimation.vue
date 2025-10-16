@@ -72,6 +72,39 @@ function generateNetwork() {
   const allNodes = []
   const minDistance = 35 * 3 // 1.5x the client node radius (35) * 2 = diameter * 1.5
 
+  // Define the center exclusion zone (where content typically lives)
+  const centerExclusionZone = {
+    minX: 400,
+    maxX: 1200,
+    minY: 250,
+    maxY: 650
+  }
+
+  // Helper function to check if a point is in the center exclusion zone
+  const isInCenterZone = (x, y) => {
+    return x >= centerExclusionZone.minX &&
+           x <= centerExclusionZone.maxX &&
+           y >= centerExclusionZone.minY &&
+           y <= centerExclusionZone.maxY
+  }
+
+  // Helper function to generate a position in edge regions
+  const generateEdgePosition = () => {
+    // Define regions: left, right, top, bottom
+    const regions = [
+      { name: 'left', minX: 50, maxX: 350, minY: 50, maxY: 850 },
+      { name: 'right', minX: 1250, maxX: 1550, minY: 50, maxY: 850 },
+      { name: 'top', minX: 350, maxX: 1250, minY: 50, maxY: 200 },
+      { name: 'bottom', minX: 350, maxX: 1250, minY: 700, maxY: 850 }
+    ]
+
+    const region = regions[Math.floor(Math.random() * regions.length)]
+    return {
+      x: Math.random() * (region.maxX - region.minX) + region.minX,
+      y: Math.random() * (region.maxY - region.minY) + region.minY
+    }
+  }
+
   // Generate all node positions with minimum distance constraint
   for (let i = 0; i < nodeCount; i++) {
     let attempts = 0
@@ -79,9 +112,12 @@ function generateNetwork() {
     let newNode
 
     while (!validPosition && attempts < 100) {
-      newNode = {
-        x: Math.random() * 1400 + 100, // 100-1500
-        y: Math.random() * 700 + 100   // 100-800
+      newNode = generateEdgePosition()
+
+      // Double-check it's not in center zone (shouldn't be, but just in case)
+      if (isInCenterZone(newNode.x, newNode.y)) {
+        attempts++
+        continue
       }
 
       // Check if this position is far enough from all existing nodes

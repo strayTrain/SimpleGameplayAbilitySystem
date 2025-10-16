@@ -1,46 +1,59 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
-  title: 'Simple Gameplay Ability System',
+export default withMermaid(defineConfig({
+  title: 'Simple GAS',
   description: 'Documentation for SGAS Unreal Engine Plugin',
   base: '/SimpleGameplayAbilitySystem/',
+
+  mermaid: {
+    // Optional: Mermaid configuration
+  },
+
+  mermaidPlugin: {
+    class: 'mermaid'
+  },
 
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Guide', link: '/guide/setup' },
-      { text: 'API', link: '/api/simple-gameplay-ability' },
+      { text: 'Docs', link: '/docs/problem_overview' },
       { text: 'GitHub Repo', link: 'https://github.com/strayTrain/SimpleGameplayAbilitySystem' }
     ],
 
     sidebar: {
-      '/guide/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Installing The Plugin', link: '/guide/setup' },
-            { text: 'Quick Start', link: '/guide/quick-start' }
-          ]
-        },
+      '/docs/': [
         {
           text: 'Understanding SimpleGAS',
           items: [
-            { text: 'High Level Overview', link: '/guide/overview' },
-            { text: 'Core Concepts', link: '/guide/concepts' },
-            { text: 'Networking', link: '/guide/networking' }
+            { text: 'Why Is It Useful?', link: '/docs/problem_overview' },
+            { text: 'High Level Overview', link: '/docs/overview' },
+            { text: 'Replication Overview', link: '/docs/networking' }
           ]
-        }
-      ],
-      '/api/': [
+        },
+        {
+          text: 'Getting Started',
+          items: [
+            { text: 'Installing The Plugin', link: '/docs/setup' },
+            { text: 'Quick Start', link: '/docs/quick-start' }
+          ]
+        },
         {
           text: 'API Reference',
           items: [
-            { text: 'SimpleGameplayAbility', link: '/api/simple-gameplay-ability' },
-            { text: 'SimpleGameplayAbilityComponent', link: '/api/simple-gameplay-ability-component' },
-            { text: 'SimpleAttributeModifier', link: '/api/simple-attribute-modifier' }
+            { text: 'SimpleGameplayAbility', link: '/docs/simple-gameplay-ability' },
+            { text: 'SimpleGameplayAbilityComponent', link: '/docs/simple-gameplay-ability-component' },
+            { text: 'SimpleAttributeComponent', link: '/docs/simple-attribute-component' },
+            { text: 'SimpleAttributeModifier', link: '/docs/simple-attribute-modifier' }
+          ]
+        },
+        {
+          text: 'Resources',
+          items: [
+            { text: 'Reference for AI Models', link: '/docs/plugin_description' }
           ]
         }
       ]
     },
   }
-})
+}))
