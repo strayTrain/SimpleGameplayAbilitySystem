@@ -20,7 +20,7 @@ public:
 	EModifierActionComponentTarget ComponentTarget = EModifierActionComponentTarget::Target;
 
 	/* ModifierAction overrides */
-	virtual FInstancedStruct ApplyAction_Implementation() override;
+	virtual void ApplyAction_Implementation() override;
 
 private:
 	void ActivateAbilityOnComponent(class USimpleAttributeComponent* AttributeComponent);

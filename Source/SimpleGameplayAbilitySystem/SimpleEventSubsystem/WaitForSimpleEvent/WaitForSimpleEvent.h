@@ -20,7 +20,7 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UWaitForSimpleEvent : public UBlueprintAsy
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable, meta=(WorldContext = "WorldContextObject", BlueprintInternalUseOnly=true, AdvancedDisplay=5, AutoCreateRefTerm = "PayloadFilter,SenderFilter"))
+	UFUNCTION(BlueprintCallable, meta=(WorldContext = "WorldContextObject", DefaultToSelf = "Listener", BlueprintInternalUseOnly=true, AdvancedDisplay=5, AutoCreateRefTerm = "PayloadFilter,SenderFilter"))
 	static UWaitForSimpleEvent* WaitForSimpleEvent(
 		UObject* WorldContextObject,
 		UObject* Listener,

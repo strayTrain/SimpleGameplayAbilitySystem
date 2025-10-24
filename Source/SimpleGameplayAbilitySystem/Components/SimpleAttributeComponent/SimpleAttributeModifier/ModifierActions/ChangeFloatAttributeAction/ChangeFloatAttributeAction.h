@@ -51,5 +51,5 @@ public:
 	/* ModifierAction overrides */
 	virtual bool SupportsClientPrediction_Implementation() const override { return false; }
 	virtual bool CanApply_Implementation() const override;
-	virtual FInstancedStruct ApplyAction_Implementation() override;
+	virtual void ApplyAction_Implementation() override;
 };

@@ -14,7 +14,7 @@ void FSimpleGameplayAbilitySystemEditorModule::StartupModule()
 		FStructAttribute::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FStructAttributeCustomization::MakeInstance)
 	);
-    
+
 	PropertyModule.NotifyCustomizationModuleChanged();
 }
 

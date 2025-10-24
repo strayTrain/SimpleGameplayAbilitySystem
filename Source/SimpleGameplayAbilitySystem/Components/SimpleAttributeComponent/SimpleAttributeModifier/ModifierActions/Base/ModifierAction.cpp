@@ -2,6 +2,11 @@
 
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 
+FInstancedStruct UModifierAction::GetOwningModifierContext() const
+{
+	return OwningModifier ? OwningModifier->ModifierContext : FInstancedStruct();
+}
+
 FAttributeModifierActionScratchPad& UModifierAction::GetScratchPad()
 {
 	if (bOverrideScratchPadSource)
@@ -72,6 +77,40 @@ void UModifierAction::IncrementScratchPadValue(const FGameplayTag ScratchPadTag,
 	GetScratchPad().ScratchpadValues.Add(FAttributeModifierActionScratchPadValue{ScratchPadTag, IncrementAmount});
 }
 
+FInstancedStruct UModifierAction::GetScratchPadStruct(FGameplayTag ScratchPadTag, bool& WasFound)
+{
+	for (FAttributeModifierActionScratchPadStruct StructEntry : GetScratchPad().ScratchpadStructs)
+	{
+		if (StructEntry.ScratchpadTag == ScratchPadTag)
+		{
+			WasFound = true;
+			return StructEntry.ScratchpadStruct;
+		}
+	}
+	WasFound = false;
+	return FInstancedStruct();
+}
+
+void UModifierAction::SetScratchPadStruct(FGameplayTag ScratchPadTag, FInstancedStruct StructValue)
+{
+	if (!StructValue.IsValid() || !StructValue.GetScriptStruct())
+	{
+		return;
+	}
+
+	// Check for existing entry
+	for (FAttributeModifierActionScratchPadStruct& StructEntry : GetScratchPad().ScratchpadStructs)
+	{
+		if (StructEntry.ScratchpadTag == ScratchPadTag)
+		{
+			StructEntry.ScratchpadStruct = StructValue;
+			return;
+		}
+	}
+
+	GetScratchPad().ScratchpadStructs.Add(FAttributeModifierActionScratchPadStruct{ScratchPadTag, StructValue});
+}
+
 void UModifierAction::AddScratchPadTag(const FGameplayTag ScratchPadTag)
 {
 	GetScratchPad().ScratchpadTags.AddTag(ScratchPadTag);
@@ -90,14 +129,14 @@ void UModifierAction::OverrideScratchPadSource(const FAttributeModifierActionScr
 
 void UModifierAction::OnClientPredictedCorrection_Implementation(
 	FAttributeModifierActionScratchPad ServerInputScratchPad,
-	FInstancedStruct ServerResult,
+	FAttributeModifierActionScratchPad ServerOutputScratchPad,
 	FAttributeModifierActionScratchPad ClientInputScratchPad,
-	FInstancedStruct ClientResult)
+	FAttributeModifierActionScratchPad ClientOutputScratchPad)
 {
 	// By default, we undo the client action and re-apply the action with the server's scratchpad input
 	OnCancelAction();
 	
 	OverrideScratchPadSource(ServerInputScratchPad);
-		FInstancedStruct ActionResult = ApplyAction();
+	ApplyAction();
 	ClearScratchPadSourceOverride();
 }

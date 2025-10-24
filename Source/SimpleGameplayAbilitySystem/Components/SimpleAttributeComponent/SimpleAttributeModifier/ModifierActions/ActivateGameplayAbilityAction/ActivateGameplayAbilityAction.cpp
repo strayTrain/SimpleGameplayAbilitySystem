@@ -39,16 +39,16 @@ void UActivateGameplayAbilityAction::ActivateAbilityOnComponent(USimpleAttribute
 	AbilityComponent->ActivateAbilityServerInitiated(AbilityClass, OwningModifier->ModifierContext, AbilityID);
 }
 
-FInstancedStruct UActivateGameplayAbilityAction::ApplyAction_Implementation()
+void UActivateGameplayAbilityAction::ApplyAction_Implementation()
 {
 	if (!OwningModifier)
 	{
-		return FInstancedStruct();
+		return;
 	}
 
 	if (!AbilityClass)
 	{
-		return FInstancedStruct();
+		return;
 	}
 
 	switch (ComponentTarget)
@@ -66,6 +66,4 @@ FInstancedStruct UActivateGameplayAbilityAction::ApplyAction_Implementation()
 			ActivateAbilityOnComponent(OwningModifier->InstigatorAttributeComponent);
 			break;
 	}
-
-	return FInstancedStruct();
 }

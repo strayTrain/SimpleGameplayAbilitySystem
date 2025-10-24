@@ -12,12 +12,12 @@ bool UChangeFloatAttributeAction::CanApply_Implementation() const
 	return OwningModifier->TargetAttributeComponent->HasFloatAttribute(AttributeToModify);
 }
 
-FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
+void UChangeFloatAttributeAction::ApplyAction_Implementation()
 {
 	if (!OwningModifier->TargetAttributeComponent)
 	{
 		SIMPLE_LOG(OwningModifier->TargetAttributeComponent, TEXT("[USimpleAttributeModifier::ApplyAction]: Owning ability component is null."));
-		return FInstancedStruct();
+		return;
 	}
 
 	const FFloatAttribute* FloatAttribute = OwningModifier->TargetAttributeComponent->GetFloatAttribute(AttributeToModify);
@@ -25,7 +25,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 	if (!FloatAttribute)
 	{
 		SIMPLE_LOG(OwningModifier->TargetAttributeComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyAction]: Attribute %s not found."), *AttributeToModify.ToString()));
-		return FInstancedStruct();
+		return;
 	}
 	
 	/**
@@ -76,7 +76,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 			if (!OwningModifier->InstigatorAttributeComponent)
 			{
 				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Instigator ability component is nullptr."));
-				return FInstancedStruct();
+				return;
 			}
 		
 			ModificationInputValue = OwningModifier->InstigatorAttributeComponent->GetFloatAttributeValue(SourceAttributeValueType, SourceAttribute, WasInstigatorAttributeFound);
@@ -84,7 +84,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 			if (!WasInstigatorAttributeFound)
 			{
 				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on instigator ability component."), *SourceAttribute.ToString());
-				return FInstancedStruct();
+				return;
 			}
 
 			break;
@@ -93,7 +93,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 			if (!OwningModifier->TargetAttributeComponent)
 			{
 				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Target ability component is nullptr."));
-				return FInstancedStruct();
+				return;
 			}
 		
 			ModificationInputValue = OwningModifier->TargetAttributeComponent->GetFloatAttributeValue(SourceAttributeValueType, SourceAttribute, WasTargetAttributeFound);
@@ -101,7 +101,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 			if (!WasTargetAttributeFound)
 			{
 				UE_LOG(LogSimpleGAS, Warning, TEXT("USimpleAttributeModifier::ApplyFloatAttributeModifier: Source attribute %s not found on target ability component."), *SourceAttribute.ToString());
-				return FInstancedStruct();
+				return;
 			}
 			
 			break;
@@ -114,7 +114,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 				ModificationInputValue))
 			{
 				SIMPLE_LOG(OwningModifier->TargetAttributeComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom input function failed to activate.")));
-				return FInstancedStruct();
+				return;
 			}
 		
 	}
@@ -164,7 +164,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 			if (FMath::IsNearlyZero(ModificationInputValue))
 			{
 				SIMPLE_LOG(OwningModifier->TargetAttributeComponent, TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Division by zero."));
-				return FInstancedStruct();
+				return;
 			}
 			NewAttributeValue = CurrentAttributeValue / ModificationInputValue;
 			break;
@@ -190,7 +190,7 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 				Overflow))
 			{
 				SIMPLE_LOG(OwningModifier->TargetAttributeComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyFloatAttributeModifier]: Custom operation function %s failed to activate."), *CustomInputFunction.GetMemberName().ToString()));
-				return FInstancedStruct();
+				return;
 			}
 
 			break;
@@ -198,6 +198,4 @@ FInstancedStruct UChangeFloatAttributeAction::ApplyAction_Implementation()
 
 	OwningModifier->TargetAttributeComponent->SetFloatAttributeValue(ModifiedAttributeValueType, FloatAttribute->AttributeTag, NewAttributeValue, Overflow);
 	SetScratchPadValue(FDefaultTags::ScratchPadFloatOverflow(), Overflow);
-	
-	return FInstancedStruct();
 }

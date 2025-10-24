@@ -15,6 +15,8 @@ public class SimpleGameplayAbilitySystem : ModuleRules
 				"Core",
 				"GameplayTags",
 				"NetCore",
+				"UnrealEd",
+				"BlueprintGraph",
 			}
 			);
 		
@@ -31,6 +33,7 @@ public class SimpleGameplayAbilitySystem : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"KismetCompiler"
 			}
 			);
 		

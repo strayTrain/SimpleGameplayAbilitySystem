@@ -9,7 +9,7 @@ class USimpleSubAbility;
 class USimpleAttributeComponent;
 class USimpleGameplayAbilityComponent;
 
-UCLASS(Blueprintable, Abstract, BlueprintType, Abstract)
+UCLASS(Blueprintable, Abstract, BlueprintType)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbility : public USimpleAbilityBase
 {
 	GENERATED_BODY()

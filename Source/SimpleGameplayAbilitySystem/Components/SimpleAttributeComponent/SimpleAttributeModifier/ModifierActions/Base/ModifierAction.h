@@ -32,6 +32,7 @@ public:
 	/**
 	 * Optional custom event filter function. If set, this function will be called to determine if the action should respond to an event sent through the SimpleEventSubsystem.
 	 * The function should match the signature: bool FunctionName(FGameplayTag EventTag, FGameplayTag DomainTag, FInstancedStruct Payload, UObject* Sender)
+	 * Only works with Duration and Infinite duration type modifiers as Instant type modifiers can't receive events in the same frame they are applied.
 	 */
 	UPROPERTY(EditAnywhere, Category="Config", meta=(
 		FunctionReference,
@@ -55,8 +56,8 @@ public:
 	virtual bool CanApply_Implementation() const { return true; }
 	
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	FInstancedStruct ApplyAction();
-	virtual FInstancedStruct ApplyAction_Implementation() { return FInstancedStruct(); }
+	void ApplyAction();
+	virtual void ApplyAction_Implementation() { }
 	
 	/**
 	 * Called when the modifier that is applying this action is cancelled or when the client mispredicts and action applying.
@@ -77,21 +78,24 @@ public:
 	/**
 	 * If the ApplicationPolicy is set to ApplyClientPredicted, this function will be called
 	 * on the client when the server sends the action result and it doesn't match the client's result.
-	 * @param ServerInputScratchPad
-	 * @param ServerResult The value of SnapshotData from the server ApplyAction() call.
-	 * @param ClientInputScratchPad
-	 * @param ClientResult The value of SnapshotData from the client ApplyAction() call.
+	 * @param ServerInputScratchPad The scratchpad before the server ApplyAction() call.
+	 * @param ServerOutputScratchPad The scratchpad after the server ApplyAction() call.
+	 * @param ClientInputScratchPad The scratchpad before the client ApplyAction() call.
+	 * @param ClientOutputScratchPad The scratchpad after the client ApplyAction() call.
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
 	void OnClientPredictedCorrection(
 		FAttributeModifierActionScratchPad ServerInputScratchPad,
-		FInstancedStruct ServerResult,
+		FAttributeModifierActionScratchPad ServerOutputScratchPad,
 		FAttributeModifierActionScratchPad ClientInputScratchPad,
-		FInstancedStruct ClientResult);
+		FAttributeModifierActionScratchPad ClientOutputScratchPad);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
 	USimpleAttributeModifier* GetOwningModifier() const { return OwningModifier; }
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	FInstancedStruct GetOwningModifierContext() const;
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
 	FAttributeModifierActionScratchPad& GetScratchPad();
 	
@@ -115,6 +119,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Modifier")
 	void IncrementScratchPadValue(FGameplayTag ScratchPadTag, float IncrementAmount);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	FInstancedStruct GetScratchPadStruct(FGameplayTag ScratchPadTag, bool& WasFound);
+
+	UFUNCTION(BlueprintCallable, Category="Modifier")
+	void SetScratchPadStruct(FGameplayTag ScratchPadTag, FInstancedStruct StructValue);
 
 protected:
 	UPROPERTY()

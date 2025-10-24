@@ -128,6 +128,23 @@ struct FAttributeModifierActionScratchPadValue
 };
 
 USTRUCT(BlueprintType)
+struct FAttributeModifierActionScratchPadStruct
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag ScratchpadTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FInstancedStruct ScratchpadStruct;
+	
+	bool operator==(const FAttributeModifierActionScratchPadStruct& Other) const
+	{
+		return ScratchpadTag == Other.ScratchpadTag && ScratchpadStruct == Other.ScratchpadStruct;
+	}
+};
+
+USTRUCT(BlueprintType)
 struct FAttributeModifierActionScratchPad
 {
 	GENERATED_BODY()
@@ -137,14 +154,24 @@ struct FAttributeModifierActionScratchPad
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FAttributeModifierActionScratchPadValue> ScratchpadValues;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FAttributeModifierActionScratchPadStruct> ScratchpadStructs;
 	
 	bool operator==(const FAttributeModifierActionScratchPad& Other) const
 	{
 		if (ScratchpadTags != Other.ScratchpadTags) return false;
+
 		if (ScratchpadValues.Num() != Other.ScratchpadValues.Num()) return false;
 		for (int32 i = 0; i < ScratchpadValues.Num(); i++)
 		{
 			if (ScratchpadValues[i] != Other.ScratchpadValues[i]) return false;
+		}
+
+		if (ScratchpadStructs.Num() != Other.ScratchpadStructs.Num()) return false;
+		for (int32 i = 0; i < ScratchpadStructs.Num(); i++)
+		{
+			if (ScratchpadStructs[i] != Other.ScratchpadStructs[i]) return false;
 		}
 		return true;
 	}
@@ -165,11 +192,11 @@ struct FModifierActionResult
 	FAttributeModifierActionScratchPad InputScratchpad;
 	
 	UPROPERTY()
-	FInstancedStruct ActionResult;
+	FAttributeModifierActionScratchPad OutputScratchpad;
 	
 	bool operator==(const FModifierActionResult& Other) const
 	{
-		return ActionIndex == Other.ActionIndex && InputScratchpad == Other.InputScratchpad && ActionResult == Other.ActionResult;
+		return ActionIndex == Other.ActionIndex && InputScratchpad == Other.InputScratchpad && OutputScratchpad == Other.OutputScratchpad;
 	}
 };
 

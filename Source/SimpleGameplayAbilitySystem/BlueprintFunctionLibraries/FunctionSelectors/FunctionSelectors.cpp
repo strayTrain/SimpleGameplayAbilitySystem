@@ -130,6 +130,7 @@ void UFunctionSelectors::ShouldRespondToEvent(
 {
 	if (!OwningModifier)
 	{
+		ShouldRespond = false;
 		return;
 	}
 
@@ -151,4 +152,82 @@ void UFunctionSelectors::ShouldRespondToEvent(
 	}
 
 	ShouldRespond = false;
+}
+
+void UFunctionSelectors::ShouldApplyRuntimeAction(UModifierAction* OwningAction, const FMemberReference& DynamicFunction, bool& ShouldRespond)
+{
+	if (!OwningAction || !OwningAction->GetOwningModifier())
+	{
+		ShouldRespond = false;
+		return;
+	}
+
+	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningAction->GetOwningModifier()->GetClass()))
+	{
+		struct {
+			// Input arguments
+			UModifierAction* OwningAction;
+			// Output argument
+			bool ShouldRespond;
+		} Params = { OwningAction, ShouldRespond };
+
+		OwningAction->GetOwningModifier()->ProcessEvent(Function, &Params);
+		ShouldRespond = Params.ShouldRespond;
+		return;
+	}
+
+	// If no function is specified, assume we always want to run this action
+	ShouldRespond = true;
+}
+
+void UFunctionSelectors::ApplyRuntimeAction(const UModifierAction* OwningAction, const FMemberReference& DynamicFunction)
+{
+	if (!OwningAction || !OwningAction->GetOwningModifier())
+	{
+		return;
+	}
+
+	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningAction->GetOwningModifier()->GetClass()))
+	{
+		struct {
+			// Input arguments
+			UModifierAction* OwningAction;
+		} Params = { const_cast<UModifierAction*>(OwningAction) };
+
+		OwningAction->GetOwningModifier()->ProcessEvent(Function, &Params);
+	}
+}
+
+void UFunctionSelectors::RuntimeActionPredictionCorrection(
+	const UModifierAction* OwningAction,
+	const FMemberReference& DynamicFunction,
+	const FAttributeModifierActionScratchPad& ServerInputScratchPad,
+	const FAttributeModifierActionScratchPad& ServerOutputScratchPad,
+	const FAttributeModifierActionScratchPad& ClientInputScratchPad,
+	const FAttributeModifierActionScratchPad& ClientOutputScratchPad)
+{
+	if (!OwningAction || !OwningAction->GetOwningModifier())
+	{
+		return;
+	}
+
+	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningAction->GetOwningModifier()->GetClass()))
+	{
+		struct {
+			// Input arguments
+			UModifierAction* OwningAction;
+			FAttributeModifierActionScratchPad ServerInputScratchPad;
+			FAttributeModifierActionScratchPad ServerOutputScratchPad;
+			FAttributeModifierActionScratchPad ClientInputScratchPad;
+			FAttributeModifierActionScratchPad ClientOutputScratchPad;
+		} Params = {
+			const_cast<UModifierAction*>(OwningAction),
+			ServerInputScratchPad,
+			ServerOutputScratchPad,
+			ClientInputScratchPad,
+			ClientOutputScratchPad
+		};
+
+		OwningAction->GetOwningModifier()->ProcessEvent(Function, &Params);
+	}
 }

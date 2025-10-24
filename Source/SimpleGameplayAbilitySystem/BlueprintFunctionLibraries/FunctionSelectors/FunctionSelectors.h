@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/ModifierActions/Base/ModifierAction.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "FunctionSelectors.generated.h"
 
@@ -50,6 +51,20 @@ public:
 		FInstancedStruct Payload,
 		UObject* Sender,
 		bool& ShouldRespond) { ShouldRespond = false; }
+
+	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "ShouldRespond"))
+	void Prototype_ShouldApplyRuntimeAction(UModifierAction* OwningAction, bool& ShouldRespond) { ShouldRespond = false; }
+
+	UFUNCTION(BlueprintInternalUseOnly)
+	void Prototype_ApplyRuntimeAction(UModifierAction* OwningAction) { }
+
+	UFUNCTION(BlueprintInternalUseOnly)
+	void Prototype_RuntimeActionPredictionCorrection(
+		UModifierAction* OwningAction,
+		FAttributeModifierActionScratchPad ServerInputScratchPad,
+		FAttributeModifierActionScratchPad ServerOutputScratchPad,
+		FAttributeModifierActionScratchPad ClientInputScratchPad,
+		FAttributeModifierActionScratchPad ClientOutputScratchPad) {}
 #endif
 
 	static bool GetCustomFloatInputValue(
@@ -95,4 +110,14 @@ public:
 		const FInstancedStruct& Payload,
 		UObject* Sender,
 		bool& ShouldRespond);
+
+	static void ShouldApplyRuntimeAction(UModifierAction* OwningAction, const FMemberReference& DynamicFunction, bool& ShouldRespond);
+	static void ApplyRuntimeAction(const UModifierAction* OwningAction, const FMemberReference& DynamicFunction);
+	static void RuntimeActionPredictionCorrection(
+		const UModifierAction* OwningAction,
+		const FMemberReference& DynamicFunction,
+		const FAttributeModifierActionScratchPad& ServerInputScratchPad,
+		const FAttributeModifierActionScratchPad& ServerOutputScratchPad,
+		const FAttributeModifierActionScratchPad& ClientInputScratchPad,
+		const FAttributeModifierActionScratchPad& ClientOutputScratchPad);
 };

@@ -3,11 +3,11 @@
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeComponent.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 
-FInstancedStruct UCancelModifierAction::ApplyAction_Implementation()
+void UCancelModifierAction::ApplyAction_Implementation()
 {
 	if (!OwningModifier->TargetAttributeComponent)
 	{
-		return FInstancedStruct();
+		return;
 	}
 
 	FInstancedStruct CancellationContext = FInstancedStruct();
@@ -28,6 +28,4 @@ FInstancedStruct UCancelModifierAction::ApplyAction_Implementation()
 	{
 		OwningModifier->TargetAttributeComponent->CancelAttributeModifiersWithTags(CancelModifiersWithTags);
 	}
-
-	return FInstancedStruct();
 }

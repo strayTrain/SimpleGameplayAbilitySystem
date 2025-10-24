@@ -54,11 +54,11 @@ void UCancelAbilityAction::CancelAbilitiesOnComponent(USimpleAttributeComponent*
 	}
 }
 
-FInstancedStruct UCancelAbilityAction::ApplyAction_Implementation()
+void UCancelAbilityAction::ApplyAction_Implementation()
 {
 	if (!OwningModifier)
 	{
-		return FInstancedStruct();
+		return;
 	}
 
 	switch (ComponentTarget)
@@ -76,6 +76,4 @@ FInstancedStruct UCancelAbilityAction::ApplyAction_Implementation()
 			CancelAbilitiesOnComponent(OwningModifier->InstigatorAttributeComponent);
 			break;
 	}
-
-	return FInstancedStruct();
 }

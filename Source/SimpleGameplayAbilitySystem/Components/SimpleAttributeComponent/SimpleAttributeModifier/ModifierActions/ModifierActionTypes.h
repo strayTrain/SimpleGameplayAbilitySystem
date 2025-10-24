@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifierTypes.h"
 #include "ModifierActionTypes.generated.h"
 
 UENUM(BlueprintType)
@@ -30,4 +31,51 @@ enum class EContextSource : uint8
 	NoContext,
 	FromContextCollection,
 	FromFunction
+};
+
+/**
+ * Stores the scratchpad state before and after a single runtime action branch execution.
+ * Used for prediction correction to identify which specific action needs correction.
+ */
+USTRUCT(BlueprintType)
+struct FRuntimeActionBranchResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FAttributeModifierActionScratchPad InputScratchPad;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FAttributeModifierActionScratchPad OutputScratchPad;
+};
+
+/**
+ * Stores the execution results for all runtime action branches that were executed.
+ * This is stored in the scratchpad and used during prediction correction.
+ */
+USTRUCT(BlueprintType)
+struct FRuntimeActionExecutionResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FRuntimeActionBranchResult> ExecutedBranches;
+};
+
+USTRUCT(BlueprintType)
+struct FRuntimeActionBranch
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Dynamic Action Functions")
+	FString Description = "Runtime Action";
+	
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_ShouldApplyRuntimeAction", DefaultBindingName="ShouldTriggerRuntimeAction"))
+	FMemberReference ShouldTrigger;
+	
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_ApplyRuntimeAction", DefaultBindingName="TriggerRuntimeAction"))
+	FMemberReference OnTriggerAction;
+
+	UPROPERTY(EditAnywhere, meta=(FunctionReference, AllowFunctionLibraries, PrototypeFunction="/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_RuntimeActionPredictionCorrection", DefaultBindingName="CorrectRuntimeActionPrediction"))
+	FMemberReference OnResolveActionPrediction;
 };

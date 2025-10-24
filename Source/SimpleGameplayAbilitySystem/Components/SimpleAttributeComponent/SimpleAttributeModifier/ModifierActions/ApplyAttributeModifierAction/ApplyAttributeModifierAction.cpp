@@ -4,16 +4,16 @@
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeComponent.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent/SimpleAttributeModifier/SimpleAttributeModifier.h"
 
-FInstancedStruct UApplyAttributeModifierAction::ApplyAction_Implementation()
+void UApplyAttributeModifierAction::ApplyAction_Implementation()
 {
 	if (!OwningModifier || !OwningModifier->InstigatorAttributeComponent || !OwningModifier->TargetAttributeComponent)
 	{
-		return FInstancedStruct();
+		return;
 	}
 
 	if (!ModifierClass)
 	{
-		return FInstancedStruct();
+		return;
 	}
 
 	// Get context from custom function if provided
@@ -31,6 +31,4 @@ FInstancedStruct UApplyAttributeModifierAction::ApplyAction_Implementation()
 		OwningModifier->TargetAttributeComponent,
 		OwningModifier->ModifierMagnitude,
 		ModifierContext);
-
-	return FInstancedStruct();
 }

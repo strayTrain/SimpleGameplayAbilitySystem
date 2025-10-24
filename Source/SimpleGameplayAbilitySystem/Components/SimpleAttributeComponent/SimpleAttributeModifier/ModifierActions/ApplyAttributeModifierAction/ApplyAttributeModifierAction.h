@@ -21,5 +21,5 @@ public:
 	FMemberReference ContextFunction;
 
 	/* ModifierAction overrides */
-	virtual FInstancedStruct ApplyAction_Implementation() override;
+	virtual void ApplyAction_Implementation() override;
 };

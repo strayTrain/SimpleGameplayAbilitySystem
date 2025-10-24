@@ -140,6 +140,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Requirements")
 	FGameplayTagContainer TargetBlockingModifierTags;
 
+	/*
+	 * If set, this ability will only activate if ActivationContext contains this struct type.
+	 * If left null, the ability will activate with any payload.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attribute Modifier|Requirements")
+	UScriptStruct* RequiredContextType;
+
 	/**
 	 * Optional convenience value that can be used for simpler modifiers. e.g. If you know you want to deal 5 damage when
 	 * the modifier is applied, you can pass this to 5 into this value and use it in your modifier actions instead of having to
@@ -233,8 +240,8 @@ public:
 	virtual bool CanApplyModifier_Implementation() const { return true; }
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
-	void OnPreApplyModifierActions();
-	void OnPreApplyModifierActions_Implementation() {}
+	void OnPreApplyModifier();
+	void OnPreApplyModifier_Implementation() {}
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Lifecycle")
 	void OnPostApplyModifierActions();

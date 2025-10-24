@@ -63,7 +63,7 @@ bool USimpleAttributeModifier::ApplyModifier()
 	ActivationTime = InstigatorAttributeComponent->GetServerTime();
 	IsActive = true;
 
-	OnPreApplyModifierActions();
+	OnPreApplyModifier();
 
 	if (DoesModifierReplicate)
 	{
@@ -203,6 +203,14 @@ bool USimpleAttributeModifier::CanApplyModifierInternal()
 		return false;
 	}
 
+	if (RequiredContextType)
+	{
+		if (ModifierContext.IsValid() && ModifierContext.GetScriptStruct() != RequiredContextType)
+		{
+			return false;
+		}
+	}
+	
 	return CanApplyModifier();
 }
 
@@ -245,7 +253,7 @@ void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActi
 		if (IsInServerMap && !IsInClientMap)
 		{
 			Action->InitializeAction(this);
-			const FInstancedStruct Result = Action->ApplyAction();
+			Action->ApplyAction();
 		}
 		else if (!IsInServerMap && IsInClientMap)
 		{
@@ -254,17 +262,16 @@ void USimpleAttributeModifier::OnClientReceivedServerActionsResult(FModifierActi
 		else if (IsInServerMap && IsInClientMap)
 		{
 			// If the snapshots match we don't need to do anything
-			if (ServerMap[Idx].ActionResult == ClientMap[Idx].ActionResult && 
-				ServerMap[Idx].InputScratchpad == ClientMap[Idx].InputScratchpad)
+			if (ServerMap[Idx] == ClientMap[Idx])
 			{
 				continue;
 			}
 			
 			Action->OnClientPredictedCorrection(
 				ServerMap[Idx].InputScratchpad,
-				ServerMap[Idx].ActionResult,
+				ServerMap[Idx].OutputScratchpad,
 				ClientMap[Idx].InputScratchpad,
-				ClientMap[Idx].ActionResult
+				ClientMap[Idx].OutputScratchpad
 			);
 		}
 	}
@@ -538,20 +545,22 @@ void USimpleAttributeModifier::TriggerActions(TArray<UModifierAction*>& Actions)
 
 		Action->InitializeAction(this);
 
-		if (!ShouldRun && !Action->CanApply())
+		if (!ShouldRun || !Action->CanApply())
 		{
-			return;
+			continue;
 		}
-		
-		const FInstancedStruct ActionResult = Action->ApplyAction();
+
+		const FAttributeModifierActionScratchPad InputScratchpad = GetModifierActionScratchPad();
+		Action->ApplyAction();
+		const FAttributeModifierActionScratchPad OutputScratchPad = GetModifierActionScratchPad();
 
 		if (DoesModifierReplicate && Action->SupportsClientPrediction())
 		{
 			ActionResults.Add({
 				ModifierActions.IndexOfByKey(Action),
 				Action->GetClass(),
-				ModifierActionScratchPad,
-				ActionResult
+				InputScratchpad,
+				OutputScratchPad
 			});
 		}
 	}

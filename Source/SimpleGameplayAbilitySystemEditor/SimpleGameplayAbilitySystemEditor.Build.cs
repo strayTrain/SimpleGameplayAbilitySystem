@@ -26,16 +26,19 @@ public class SimpleGameplayAbilitySystemEditor : ModuleRules
 				"Engine",
 				"SimpleGameplayAbilitySystem",
 				"UnrealEd",
+				"BlueprintGraph",
 			}
 		);
-        
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"InputCore",
 				"Slate",
 				"SlateCore",
 				"PropertyEditor",
-				"EditorStyle"
+				"EditorStyle",
+				"KismetCompiler",
+				"GraphEditor"
 			}
 		);
         

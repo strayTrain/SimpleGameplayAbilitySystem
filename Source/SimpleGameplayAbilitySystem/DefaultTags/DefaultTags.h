@@ -22,6 +22,7 @@ class FDefaultTags
 
 		// Misc
 		static FGameplayTag ScratchPadFloatOverflow() { return FindTag("SimpleGAS.ModifierActionScratchpadTags.FloatAttributeOverflow"); }
+		static FGameplayTag ScratchPadRuntimeActionExecutionResult() { return FindTag("SimpleGAS.ModifierActionScratchpadTags.RuntimeActionExecutionResult"); }
 
 		// Async action events
 		static FGameplayTag SubAbilityEnded() { return FindTag("SimpleGAS.Events.SubAbility.Ended"); }

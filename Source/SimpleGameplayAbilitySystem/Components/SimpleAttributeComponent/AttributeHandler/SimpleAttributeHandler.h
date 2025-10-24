@@ -14,7 +14,7 @@
 
 class USimpleAttributeComponent;
 
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, Abstract, BlueprintType)
 class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleAttributeHandler : public UObject
 {
 	GENERATED_BODY()

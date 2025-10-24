@@ -8,7 +8,7 @@ bool UChangeStructAttributeAction::CanApply_Implementation() const
 	return OwningModifier->TargetAttributeComponent->HasStructAttribute(AttributeToModify);
 }
 
-FInstancedStruct UChangeStructAttributeAction::ApplyAction_Implementation()
+void UChangeStructAttributeAction::ApplyAction_Implementation()
 {
 	bool WasFound = false;
 	const FInstancedStruct CurrentValue = OwningModifier->TargetAttributeComponent->GetStructAttributeValue(AttributeToModify,WasFound);
@@ -18,6 +18,4 @@ FInstancedStruct UChangeStructAttributeAction::ApplyAction_Implementation()
 	{
 		OwningModifier->TargetAttributeComponent->SetStructAttributeValue(AttributeToModify, NewValue);
 	}
-
-	return NewValue;
 }
