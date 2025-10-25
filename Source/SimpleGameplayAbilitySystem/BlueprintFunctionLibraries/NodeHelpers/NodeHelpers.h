@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "SimpleGameplayAbilitySystem/Components/Interfaces/SimpleAbilitySystemInterfaces.h"
 #include "SimpleGameplayAbilitySystem/Module/SimpleGameplayAbilitySystem.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 #include "InstancedStruct.h"
@@ -21,25 +20,6 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API UNodeHelpers : public UBlueprintFunctionLi
 	GENERATED_BODY()
 
 public:
-	/* This function allows you to drag an actor that implements ISimpleAbilitySystemComponent into an ability component pin */
-	UFUNCTION(BlueprintPure, meta=(ImplicitThis="true", BlueprintAutocast))
-	static USimpleGameplayAbilityComponent* GetSimpleAbilityComponent(AActor* Actor)
-	{
-		if (!Actor)
-		{
-			return nullptr;
-		}
-        
-		// Use the interface to get the ability component
-		if (Actor->Implements<UAbilityComponentInterface>())
-		{
-			return IAbilityComponentInterface::Execute_GetSimpleAbilityComponent(Actor);
-		}
-        
-		// Fallback: directly look for the component
-		return Cast<USimpleGameplayAbilityComponent>(Actor->GetComponentByClass(USimpleGameplayAbilityComponent::StaticClass()));
-	}
-
 	// Pure style function to convert any struct to an instanced struct
 	UFUNCTION(BlueprintPure, CustomThunk, meta=(CustomStructureParam="InStruct", DisplayName="To Instanced Struct", CompactNodeTitle="INSTANCE", Keywords="convert cast make instanced struct"))
 	static FInstancedStruct MakeInstancedStructFromAny(const int32& InStruct);
@@ -89,7 +69,7 @@ public:
 	}
 
 	// Function to extract struct from FInstancedStruct with type validation
-	// This is the blueprint-callable declaration that the K2Node will use
+	// This is the blueprint-callable declaration that K2Node_GetInstancedStruct uses
 	UFUNCTION(BlueprintCallable, CustomThunk, Category = "Utilities|InstancedStruct",
 		meta=(BlueprintInternalUseOnly="true", CustomStructureParam="OutStruct"))
 	static EGetInstancedStructResult GetInstancedStruct(

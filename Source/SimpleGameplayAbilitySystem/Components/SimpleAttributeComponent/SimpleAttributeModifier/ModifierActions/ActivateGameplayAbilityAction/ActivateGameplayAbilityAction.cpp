@@ -36,7 +36,7 @@ void UActivateGameplayAbilityAction::ActivateAbilityOnComponent(USimpleAttribute
 
 	// Activate the ability using server-initiated approach
 	FGuid AbilityID;
-	AbilityComponent->ActivateAbilityServerInitiated(AbilityClass, OwningModifier->ModifierContext, AbilityID);
+	AbilityComponent->ActivateAbilityServerInitiatedWithContext(AbilityClass, OwningModifier->ModifierContext, AbilityID);
 }
 
 void UActivateGameplayAbilityAction::ApplyAction_Implementation()

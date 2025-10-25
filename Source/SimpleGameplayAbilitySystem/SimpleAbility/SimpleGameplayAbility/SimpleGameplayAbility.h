@@ -67,7 +67,7 @@ public:
 	/* Callable Functions */
 
 	// Called by the AbilityComponent immediately after creating the ability instance
-	void Initialize(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, FGuid NewAbilityID);
+	void Initialize(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, USimpleAttributeComponent* ActivatingAttributeComponent, FGuid NewAbilityID);
 
 	/**
 	 * Use this function to activate abilities within this ability. SubAbilities don't support replication, you can
@@ -90,23 +90,6 @@ public:
 	bool CanActivate(const FInstancedStruct& ActivationContext);
 	virtual bool CanActivate_Implementation(const FInstancedStruct& ActivationContext) { return true; }
 	
-	/*
-	 * Override this if your AttributeComponent and AbilityComponent don't exist on the same actor.
-	 * e.g. You can have your AbilityComponent on the Pawn but the AttributeComponent on the PlayerState
-	 * so that when you destroy/respawn the pawn, the "Stats" from the AttributeComponent remain intact.
-	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = "Ability")
-	USimpleAttributeComponent* GetAttributeComponent();
-	virtual USimpleAttributeComponent* GetAttributeComponent_Implementation();
-	
-	UFUNCTION(BlueprintNativeEvent, Category = "Abilities")
-	void OnGranted(USimpleGameplayAbilityComponent* GrantedAbilityComponent);
-	virtual void OnGranted_Implementation(USimpleGameplayAbilityComponent* GrantedAbilityComponent) {}
-    
-	// Static wrapper to call the function on the class default object
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	static void OnGrantedStatic(TSubclassOf<USimpleGameplayAbility> AbilityClass, USimpleGameplayAbilityComponent* GrantedAbilityComponent);
-
 	virtual bool CanActivateInternal() override;
 	virtual void PreActivateInternal() override;
 	virtual void AbilityEndedInternal(FInstancedStruct EndingContext, bool WasCancelled) override;

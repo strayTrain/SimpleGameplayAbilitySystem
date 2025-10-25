@@ -6,32 +6,13 @@
 #include "SimpleGameplayAbilitySystem/Components/SimpleGameplayAbilityComponent/SimpleGameplayAbilityComponent.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleSubAbility/SimpleSubAbility.h"
 
-USimpleAttributeComponent* USimpleGameplayAbility::GetAttributeComponent_Implementation()
+void USimpleGameplayAbility::Initialize(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, USimpleAttributeComponent* ActivatingAttributeComponent, const FGuid NewAbilityID)
 {
-	// By default, we assume the attribute component is on the same actor as the ability component
-	if (!AbilityComponent)
-	{
-		return nullptr;
-	}
-
-	AActor* Owner = AbilityComponent->GetOwner();
-	if (!Owner)
-	{
-		return nullptr;
-	}
-
-	return Owner->GetComponentByClass<USimpleAttributeComponent>();
-}
-
-void USimpleGameplayAbility::OnGrantedStatic(TSubclassOf<USimpleGameplayAbility> AbilityClass, USimpleGameplayAbilityComponent* GrantedAbilityComponent)
-{
-	// CDO = Class Default Object
-	USimpleGameplayAbility* CDO = Cast<USimpleGameplayAbility>(AbilityClass->GetDefaultObject());
-    
-	if (CDO)
-	{
-		CDO->OnGranted(GrantedAbilityComponent);
-	}
+	AbilityID = NewAbilityID;
+	AbilityComponent = ActivatingAbilityComponent;
+	// Cache a reference to the attribute component
+	AttributeComponent = ActivatingAttributeComponent;
+	ActivationTime = AbilityComponent->GetServerTime();
 }
 
 bool USimpleGameplayAbility::CanActivateInternal()
@@ -91,15 +72,6 @@ bool USimpleGameplayAbility::CanActivateInternal()
 	}
 	
 	return CanActivate(AbilityContext);
-}
-
-void USimpleGameplayAbility::Initialize(USimpleGameplayAbilityComponent* ActivatingAbilityComponent, const FGuid NewAbilityID)
-{
-	AbilityID = NewAbilityID;
-	AbilityComponent = ActivatingAbilityComponent;
-	// Cache a reference to the attribute component
-	AttributeComponent = GetAttributeComponent();
-	ActivationTime = AbilityComponent->GetServerTime();
 }
 
 USimpleSubAbility* USimpleGameplayAbility::ActivateSubAbility(TSubclassOf<USimpleSubAbility> AbilityClass, FInstancedStruct ActivationContext, EAbilityActivationResult& ActivationResult)

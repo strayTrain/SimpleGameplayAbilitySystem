@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
+#include "SimpleGameplayAbilitySystem/Components/Interfaces/SimpleAbilitySystemInterfaces.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityTypes.h"
 #include "SimpleGameplayAbilitySystem/Interfaces/SimpleEventReplicator.h"
 #include "SimpleGameplayAbilityComponent.generated.h"
@@ -12,7 +13,7 @@ class USimpleAbilitySet;
 class USimpleGameplayAbility;
 
 UCLASS(Blueprintable, ClassGroup=(AbilityComponent), meta=(BlueprintSpawnableComponent))
-class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public UActorComponent, public ISimpleEventReplicator
+class SIMPLEGAMEPLAYABILITYSYSTEM_API USimpleGameplayAbilityComponent : public UActorComponent, public ISimpleEventReplicator, public IAttributeComponentInterface
 {
 	GENERATED_BODY()
 
@@ -129,12 +130,31 @@ public:
 	/**
 	 * Activates an ability without any replication. Can be called from both server and client.
 	 * @param AbilityClass The class of the ability to activate
-	 * @param AbilityContext Extra context to pass to the ability on activation
 	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
-	 * @return 
+	 * @return
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
 	bool ActivateAbility(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FGuid& AbilityID);
+
+	/**
+	 * Activates an ability without any replication with custom context. Can be called from both server and client.
+	 * @param AbilityClass The class of the ability to activate
+	 * @param AbilityContext Extra context to pass to the ability on activation (accepts any struct type)
+	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
+	 * @return
+	 */
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(ReturnDisplayName="WasActivated", CustomStructureParam="AbilityContext"), Category = "AbilityComponent|AbilityActivation")
+	bool ActivateAbilityWithContext(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		const int32& AbilityContext,
+		FGuid& AbilityID);
+
+	DECLARE_FUNCTION(execActivateAbilityWithContext);
+
+	// C++ only version that accepts FInstancedStruct directly
+	bool ActivateAbilityWithContext(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct AbilityContext,
 		FGuid& AbilityID);
@@ -143,12 +163,32 @@ public:
 	 * Activates an ability with client-side prediction. Normally called on the client.
 	 * If called on the server, it will still replicate the activation to clients.
 	 * @param AbilityClass The class of the ability to activate
-	 * @param AbilityContext Extra context to pass to the ability on activation
 	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
-	 * @return 
+	 * @return
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
 	bool ActivateAbilityPredicted(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FGuid& AbilityID);
+
+	/**
+	 * Activates an ability with client-side prediction with custom context. Normally called on the client.
+	 * If called on the server, it will still replicate the activation to clients.
+	 * @param AbilityClass The class of the ability to activate
+	 * @param AbilityContext Extra context to pass to the ability on activation (accepts any struct type)
+	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
+	 * @return
+	 */
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(ReturnDisplayName="WasActivated", CustomStructureParam="AbilityContext"), Category = "AbilityComponent|AbilityActivation")
+	bool ActivateAbilityPredictedWithContext(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		const int32& AbilityContext,
+		FGuid& AbilityID);
+
+	DECLARE_FUNCTION(execActivateAbilityPredictedWithContext);
+
+	// C++ only version that accepts FInstancedStruct directly
+	bool ActivateAbilityPredictedWithContext(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct AbilityContext,
 		FGuid& AbilityID);
@@ -157,15 +197,34 @@ public:
 	 * Activates an ability on the server. If called from a client, it will send an RPC requesting to activate the ability on the server.
 	 * The ability is still replicated to clients
 	 * @param AbilityClass The class of the ability to activate
-	 * @param AbilityContext Extra context to pass to the ability on activation
 	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ReturnDisplayName="WasActivated"), Category = "AbilityComponent|AbilityActivation")
 	void ActivateAbilityServerInitiated(
 		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		FGuid& AbilityID);
+
+	/**
+	 * Activates an ability on the server with custom context. If called from a client, it will send an RPC requesting to activate the ability on the server.
+	 * The ability is still replicated to clients
+	 * @param AbilityClass The class of the ability to activate
+	 * @param AbilityContext Extra context to pass to the ability on activation (accepts any struct type)
+	 * @param AbilityID The unique ID for this ability activation instance. This will be generated inside the function and returned by reference.
+	 */
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(ReturnDisplayName="WasActivated", CustomStructureParam="AbilityContext"), Category = "AbilityComponent|AbilityActivation")
+	void ActivateAbilityServerInitiatedWithContext(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
+		const int32& AbilityContext,
+		FGuid& AbilityID);
+
+	DECLARE_FUNCTION(execActivateAbilityServerInitiatedWithContext);
+
+	// C++ only version that accepts FInstancedStruct directly
+	void ActivateAbilityServerInitiatedWithContext(
+		TSubclassOf<USimpleGameplayAbility> AbilityClass,
 		FInstancedStruct AbilityContext,
 		FGuid& AbilityID);
-	
+
 	UFUNCTION(Server, Reliable)
 	void ServerActivateAbility(
 		const FGuid AbilityID,
@@ -201,6 +260,10 @@ public:
 	void ServerCancelAbilitiesWithClass(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext);
 
 	int32 AddGameplayAbilitySnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
+
+	/* Implementation of ISimpleAbilitySystemComponent interface */
+	
+	virtual USimpleAttributeComponent* GetSimpleAttributeComponent_Implementation() override;
 	
 	/* Utility Functions */
 
@@ -230,8 +293,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AttributeComponent|Utility")
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, BlueprintCallable, Category = "AbilityComponent|Utility")
 	USimpleTimeSynchronizer* GetTimeSynchronizerComponent();
 	virtual USimpleTimeSynchronizer* GetTimeSynchronizerComponent_Implementation();
 	
@@ -246,6 +309,9 @@ protected:
 	TArray<USimpleGameplayAbility*> InstancedAbilities;
 
 private:
+	UPROPERTY()
+	USimpleAttributeComponent* CachedAttributeComponent;
+	
 	/** Event IDs that were sent locally to prevent duplicate processing from multicasts (NOT replicated) */
 	TSet<FGuid> LocallySentEventIDs;
 

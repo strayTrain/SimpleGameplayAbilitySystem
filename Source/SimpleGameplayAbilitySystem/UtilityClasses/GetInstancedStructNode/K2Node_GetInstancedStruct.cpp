@@ -64,8 +64,8 @@ void UK2Node_GetInstancedStruct::PostLoad()
 		}
 	}
 
-	// CRITICAL FIX: If the OutStruct pin was loaded with an incorrect type (wildcard when it should be concrete),
-	// fix it NOW before compilation happens. This handles the case where the node is loaded without
+	// If the OutStruct pin was loaded with an incorrect type (wildcard when it should be concrete),
+	// fix it now before compilation happens. This handles the case where the node is loaded without
 	// AllocateDefaultPins being called (which happens during dependency compilation).
 	UEdGraphPin* OutStructPin = GetOutStructPin();
 	if (OutStructPin && CachedStructType)

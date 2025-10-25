@@ -16,7 +16,7 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API IAttributeComponentInterface
 
 public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SimpleGAS|AttributeComponent")
-	class USimpleAttributeComponent* GetSimpleAttributeComponent() const;
+	class USimpleAttributeComponent* GetSimpleAttributeComponent();
 };
 
 UINTERFACE(Blueprintable)
@@ -31,5 +31,5 @@ class SIMPLEGAMEPLAYABILITYSYSTEM_API IAbilityComponentInterface
 
 public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SimpleGAS|AbilityComponent")
-	class USimpleGameplayAbilityComponent* GetSimpleAbilityComponent() const;
+	class USimpleGameplayAbilityComponent* GetSimpleAbilityComponent();
 };

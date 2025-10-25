@@ -39,12 +39,6 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 
 	if (HasAuthority())
 	{
-		// For abilities granted directly through the editor
-		for (const TSubclassOf<USimpleGameplayAbility> AbilityClass : GrantedAbilities)
-		{
-			USimpleGameplayAbility::OnGrantedStatic(AbilityClass, this);
-		}
-
 		// Grant abilities from ability sets
 		for (USimpleAbilitySet* AbilitySet : AbilitySets)
 		{
@@ -249,17 +243,114 @@ void USimpleGameplayAbilityComponent::CleanupOldEventIDs()
 
 /* Ability Functions */
 
-bool USimpleGameplayAbilityComponent::ActivateAbility(
-	const TSubclassOf<USimpleGameplayAbility> AbilityClass,
+bool USimpleGameplayAbilityComponent::ActivateAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass, FGuid& AbilityID)
+{
+	AbilityID = FGuid::NewGuid();
+	return ActivateAbilityInternal(AbilityID, AbilityClass, FInstancedStruct(), false, GetServerTime(), EAbilityNetworkRole::Client); // We're not tracking state so ActivatedOn doesn't matter
+}
+
+DEFINE_FUNCTION(USimpleGameplayAbilityComponent::execActivateAbilityWithContext)
+{
+	P_GET_OBJECT(UClass, AbilityClass);
+
+	// Get the wildcard struct parameter
+	Stack.MostRecentProperty = nullptr;
+	Stack.StepCompiledIn<FStructProperty>(nullptr);
+	const void* StructPtr = Stack.MostRecentPropertyAddress;
+	const FStructProperty* StructProperty = CastField<FStructProperty>(Stack.MostRecentProperty);
+
+	P_GET_STRUCT_REF(FGuid, AbilityID);
+
+	P_FINISH;
+
+	// Convert the struct to FInstancedStruct
+	FInstancedStruct AbilityContext;
+	if (StructProperty && StructPtr)
+	{
+		AbilityContext.InitializeAs(StructProperty->Struct);
+		StructProperty->Struct->CopyScriptStruct(AbilityContext.GetMutableMemory(), StructPtr);
+	}
+
+	// Call the internal function
+	AbilityID = FGuid::NewGuid();
+	const bool Result = P_THIS->ActivateAbilityInternal(AbilityID, TSubclassOf<USimpleGameplayAbility>(AbilityClass), AbilityContext, false, P_THIS->GetServerTime(), EAbilityNetworkRole::Client);
+	*static_cast<bool*>(RESULT_PARAM) = Result;
+}
+
+// C++ only version that accepts FInstancedStruct directly
+bool USimpleGameplayAbilityComponent::ActivateAbilityWithContext(
+	TSubclassOf<USimpleGameplayAbility> AbilityClass,
 	FInstancedStruct AbilityContext,
 	FGuid& AbilityID)
 {
 	AbilityID = FGuid::NewGuid();
-	return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, false, GetServerTime(), EAbilityNetworkRole::Client); // We're not tracking state so ActivatedOn doesn't matter
+	return ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, false, GetServerTime(), EAbilityNetworkRole::Client);
 }
 
-bool USimpleGameplayAbilityComponent::ActivateAbilityPredicted(TSubclassOf<USimpleGameplayAbility> AbilityClass,
-	FInstancedStruct AbilityContext, FGuid& AbilityID)
+bool USimpleGameplayAbilityComponent::ActivateAbilityPredicted(TSubclassOf<USimpleGameplayAbility> AbilityClass, FGuid& AbilityID)
+{
+	AbilityID = FGuid::NewGuid();
+	const bool WasActivated = ActivateAbilityInternal(
+		AbilityID,
+		AbilityClass,
+		FInstancedStruct(),
+		true,
+		GetServerTime(),
+		HasAuthority() ? EAbilityNetworkRole::ListenServer : EAbilityNetworkRole::Client);
+
+	if (WasActivated && !HasAuthority())
+	{
+		ServerActivateAbility(AbilityID, AbilityClass, FInstancedStruct(), GetServerTime());
+	}
+
+	return WasActivated;
+}
+
+DEFINE_FUNCTION(USimpleGameplayAbilityComponent::execActivateAbilityPredictedWithContext)
+{
+	P_GET_OBJECT(UClass, AbilityClass);
+
+	// Get the wildcard struct parameter
+	Stack.MostRecentProperty = nullptr;
+	Stack.StepCompiledIn<FStructProperty>(nullptr);
+	const void* StructPtr = Stack.MostRecentPropertyAddress;
+	const FStructProperty* StructProperty = CastField<FStructProperty>(Stack.MostRecentProperty);
+
+	P_GET_STRUCT_REF(FGuid, AbilityID);
+
+	P_FINISH;
+
+	// Convert the struct to FInstancedStruct
+	FInstancedStruct AbilityContext;
+	if (StructProperty && StructPtr)
+	{
+		AbilityContext.InitializeAs(StructProperty->Struct);
+		StructProperty->Struct->CopyScriptStruct(AbilityContext.GetMutableMemory(), StructPtr);
+	}
+
+	// Call the internal function
+	AbilityID = FGuid::NewGuid();
+	const bool WasActivated = P_THIS->ActivateAbilityInternal(
+		AbilityID,
+		TSubclassOf<USimpleGameplayAbility>(AbilityClass),
+		AbilityContext,
+		true,
+		P_THIS->GetServerTime(),
+		P_THIS->HasAuthority() ? EAbilityNetworkRole::ListenServer : EAbilityNetworkRole::Client);
+
+	if (WasActivated && !P_THIS->HasAuthority())
+	{
+		P_THIS->ServerActivateAbility(AbilityID, TSubclassOf<USimpleGameplayAbility>(AbilityClass), AbilityContext, P_THIS->GetServerTime());
+	}
+
+	*static_cast<bool*>(RESULT_PARAM) = WasActivated;
+}
+
+// C++ only version that accepts FInstancedStruct directly
+bool USimpleGameplayAbilityComponent::ActivateAbilityPredictedWithContext(
+	TSubclassOf<USimpleGameplayAbility> AbilityClass,
+	FInstancedStruct AbilityContext,
+	FGuid& AbilityID)
 {
 	AbilityID = FGuid::NewGuid();
 	const bool WasActivated = ActivateAbilityInternal(
@@ -274,11 +365,62 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityPredicted(TSubclassOf<USimp
 	{
 		ServerActivateAbility(AbilityID, AbilityClass, AbilityContext, GetServerTime());
 	}
-	
+
 	return WasActivated;
 }
 
-void USimpleGameplayAbilityComponent::ActivateAbilityServerInitiated(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct AbilityContext, FGuid& AbilityID)
+void USimpleGameplayAbilityComponent::ActivateAbilityServerInitiated(TSubclassOf<USimpleGameplayAbility> AbilityClass, FGuid& AbilityID)
+{
+	AbilityID = FGuid::NewGuid();
+
+	if (HasAuthority())
+	{
+		ActivateAbilityInternal(AbilityID, AbilityClass, FInstancedStruct(), true, GetServerTime(), EAbilityNetworkRole::ListenServer);
+		return;
+	}
+
+	ServerActivateAbility(AbilityID, AbilityClass, FInstancedStruct(), GetServerTime());
+}
+
+DEFINE_FUNCTION(USimpleGameplayAbilityComponent::execActivateAbilityServerInitiatedWithContext)
+{
+	P_GET_OBJECT(UClass, AbilityClass);
+
+	// Get the wildcard struct parameter
+	Stack.MostRecentProperty = nullptr;
+	Stack.StepCompiledIn<FStructProperty>(nullptr);
+	const void* StructPtr = Stack.MostRecentPropertyAddress;
+	const FStructProperty* StructProperty = CastField<FStructProperty>(Stack.MostRecentProperty);
+
+	P_GET_STRUCT_REF(FGuid, AbilityID);
+
+	P_FINISH;
+
+	// Convert the struct to FInstancedStruct
+	FInstancedStruct AbilityContext;
+	if (StructProperty && StructPtr)
+	{
+		AbilityContext.InitializeAs(StructProperty->Struct);
+		StructProperty->Struct->CopyScriptStruct(AbilityContext.GetMutableMemory(), StructPtr);
+	}
+
+	// Call the internal function
+	AbilityID = FGuid::NewGuid();
+
+	if (P_THIS->HasAuthority())
+	{
+		P_THIS->ActivateAbilityInternal(AbilityID, TSubclassOf<USimpleGameplayAbility>(AbilityClass), AbilityContext, true, P_THIS->GetServerTime(), EAbilityNetworkRole::ListenServer);
+		return;
+	}
+
+	P_THIS->ServerActivateAbility(AbilityID, TSubclassOf<USimpleGameplayAbility>(AbilityClass), AbilityContext, P_THIS->GetServerTime());
+}
+
+// C++ only version that accepts FInstancedStruct directly
+void USimpleGameplayAbilityComponent::ActivateAbilityServerInitiatedWithContext(
+	TSubclassOf<USimpleGameplayAbility> AbilityClass,
+	FInstancedStruct AbilityContext,
+	FGuid& AbilityID)
 {
 	AbilityID = FGuid::NewGuid();
 
@@ -287,7 +429,7 @@ void USimpleGameplayAbilityComponent::ActivateAbilityServerInitiated(TSubclassOf
 		ActivateAbilityInternal(AbilityID, AbilityClass, AbilityContext, true, GetServerTime(), EAbilityNetworkRole::ListenServer);
 		return;
 	}
-	
+
 	ServerActivateAbility(AbilityID, AbilityClass, AbilityContext, GetServerTime());
 }
 
@@ -341,7 +483,7 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 		}
 	}
 
-	AbilityInstance->Initialize(this, AbilityID);
+	AbilityInstance->Initialize(this, GetSimpleAttributeComponent_Implementation(), AbilityID);
 	return AbilityInstance->ActivateAbility(AbilityContext);;
 }
 
@@ -525,7 +667,6 @@ bool USimpleGameplayAbilityComponent::IsAvatarActorOfType(TSubclassOf<AActor> Av
 void USimpleGameplayAbilityComponent::GrantAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass)
 {
 	GrantedAbilities.AddUnique(AbilityClass);
-	USimpleGameplayAbility::OnGrantedStatic(AbilityClass, this);
 }
 
 void USimpleGameplayAbilityComponent::RevokeAbility(const TSubclassOf<USimpleGameplayAbility> AbilityClass)
@@ -560,6 +701,39 @@ int32 USimpleGameplayAbilityComponent::AddGameplayAbilitySnapshot(const FGuid Ab
 	}
 
 	return NewSnapshot.SnapshotCounter;
+}
+
+/* Implementation of ISimpleAbilitySystemComponent interface */
+
+USimpleAttributeComponent* USimpleGameplayAbilityComponent::GetSimpleAttributeComponent_Implementation()
+{
+	if (CachedAttributeComponent)
+	{
+		return CachedAttributeComponent;
+	}
+	
+	// Start by checking if the attribute component is on the owner actor
+	if (USimpleAttributeComponent* AttributeComp = GetOwner()->GetComponentByClass<USimpleAttributeComponent>())
+	{
+		CachedAttributeComponent = AttributeComp;
+		return AttributeComp;
+	}
+	
+	// Check if the attribute component is on the player state (assuming the owner is a pawn)
+	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	{
+		if (APlayerState* PS = OwnerPawn->GetPlayerState())
+		{
+			if (USimpleAttributeComponent* AttributeComp = PS->GetComponentByClass<USimpleAttributeComponent>())
+			{
+				CachedAttributeComponent = AttributeComp;
+				return AttributeComp;
+			}
+		}
+	}
+
+	SIMPLE_LOG(GetOwner(), TEXT("[USimpleGameplayAbilityComponent::GetSimpleAttributeComponent_Implementation]: No SimpleAttributeComponent found on owner or player state! If you placed it on another actor, please override this function to return it correctly."));
+	return nullptr;
 }
 
 /* Utility Functions */
@@ -823,7 +997,7 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 					return;
 				}
 
-				AbilityInstance->Initialize(this, UpdatedAbilityState.AbilityID);
+				AbilityInstance->Initialize(this, GetSimpleAttributeComponent(), UpdatedAbilityState.AbilityID);
 				AbilityInstance->ActivateAbility(UpdatedAbilityState.ActivationContext);
 				LocalAbilityStates.Add(UpdatedAbilityState);
 			}
@@ -867,7 +1041,7 @@ void USimpleGameplayAbilityComponent::ResolveLocalAbilityState(const FAbilitySta
 				break;
 			}
 
-			AbilityInstance->Initialize(this, UpdatedAbilityState.AbilityID);
+			AbilityInstance->Initialize(this, GetSimpleAttributeComponent(), UpdatedAbilityState.AbilityID);
 			AbilityInstance->ActivateAbility(UpdatedAbilityState.ActivationContext);
 			bAbilityJustActivated = true;
 
