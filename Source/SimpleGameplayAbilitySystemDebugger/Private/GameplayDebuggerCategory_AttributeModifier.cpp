@@ -204,7 +204,7 @@ void FGameplayDebuggerCategory_AttributeModifier::DrawData(APlayerController* Ow
 	if (bShowLocalPrediction)
 	{
 		IAttributeComponentInterface* Interface = Cast<IAttributeComponentInterface>(DebugActor);
-		USimpleAttributeComponent* AttributeComp = Interface ? Interface->GetSimpleAttributeComponent() : nullptr;
+		USimpleAttributeComponent* AttributeComp = Interface ? Interface->GetSimpleAttributeComponent_Implementation() : nullptr;
 		if (AttributeComp)
 		{
 			bool bIsServer = (NetMode == NM_ListenServer || NetMode == NM_DedicatedServer);

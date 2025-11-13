@@ -7,6 +7,7 @@
 #include "SimpleAttributeModifier/ModifierActions/ChangeFloatAttributeAction/FloatAttributeActionTypes.h"
 #include "SimpleGameplayAbilitySystem/DataAssets/AttributeSet/SimpleAttributeSet.h"
 #include "SimpleGameplayAbilitySystem/Interfaces/SimpleEventReplicator.h"
+#include "SimpleGameplayAbilitySystem/BlueprintFunctionLibraries/NodeHelpers/NodeHelpers.h"
 #include "SimpleAttributeComponent.generated.h"
 
 class USimpleAttributeSet;
@@ -388,10 +389,10 @@ public:
 	UFUNCTION(BlueprintPure, BlueprintCallable, Category = "AttributeComponent|Utility")
 	double GetServerTime();
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintCallable, Category = "AttributeComponent|Utility", meta = (DeterminesOutputType = "AttributeHandlerClass", HideSelfPin))
-	USimpleAttributeHandler* GetAttributeHandler(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass);
-	
-	USimpleAttributeHandler* GetStructAttributeHandlerInstance(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass);
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Utility", meta = (DeterminesOutputType = "AttributeHandlerClass", HideSelfPin, ExpandEnumAsExecs="OutResult"))
+	USimpleAttributeHandler* GetAttributeHandler(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass, EGetInstancedStructResult& OutResult);
+
+	USimpleAttributeHandler* GetStructAttributeHandlerInstance(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass, EGetInstancedStructResult& OutResult);
 
 	/** Snapshots of attributes for predicted modifiers to enable rollback */
 	UPROPERTY()

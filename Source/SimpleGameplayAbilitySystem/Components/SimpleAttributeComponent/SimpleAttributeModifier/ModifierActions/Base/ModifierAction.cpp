@@ -7,6 +7,16 @@ FInstancedStruct UModifierAction::GetOwningModifierContext() const
 	return OwningModifier ? OwningModifier->ModifierContext : FInstancedStruct();
 }
 
+USimpleAttributeComponent* UModifierAction::GetOwningModifierInstigator()
+{
+	return OwningModifier ? OwningModifier->InstigatorAttributeComponent : nullptr;
+}
+
+USimpleAttributeComponent* UModifierAction::GetOwningModifierTarget()
+{
+	return OwningModifier ? OwningModifier->TargetAttributeComponent : nullptr;
+}
+
 FAttributeModifierActionScratchPad& UModifierAction::GetScratchPad()
 {
 	if (bOverrideScratchPadSource)

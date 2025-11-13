@@ -14,7 +14,7 @@
  * - The output struct pin type automatically updates when the UScriptStruct pin is connected or changed
  */
 UCLASS()
-class SIMPLEGAMEPLAYABILITYSYSTEM_API UK2Node_GetInstancedStruct : public UK2Node
+class SIMPLEGAMEPLAYABILITYSYSTEMEDITOR_API UK2Node_GetInstancedStruct : public UK2Node
 {
 	GENERATED_BODY()
 

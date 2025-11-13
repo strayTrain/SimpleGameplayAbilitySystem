@@ -15,11 +15,9 @@ public class SimpleGameplayAbilitySystem : ModuleRules
 				"Core",
 				"GameplayTags",
 				"NetCore",
-				"UnrealEd",
-				"BlueprintGraph",
 			}
 			);
-		
+
 		// For UE versions before 5.5, add the StructUtils dependency as it was an external plugin.
 		if (Target.Version.MajorVersion < 5 || (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion < 5))
 		{
@@ -33,11 +31,9 @@ public class SimpleGameplayAbilitySystem : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"KismetCompiler"
 			}
 			);
-		
-		
+
 		DynamicallyLoadedModuleNames.AddRange(new string[] { });
 	}
 }

@@ -22,19 +22,13 @@
 		},
 		{
 			"Name": "SimpleGameplayAbilitySystemEditor",
-			"Type": "Editor",
+			"Type": "UncookedOnly",
 			"LoadingPhase": "Default"
 		},
 		{
 			"Name": "SimpleGameplayAbilitySystemDebugger",
 			"Type": "DeveloperTool",
 			"LoadingPhase": "Default"
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "StructUtils",
-			"Enabled": true
 		}
 	]
 }

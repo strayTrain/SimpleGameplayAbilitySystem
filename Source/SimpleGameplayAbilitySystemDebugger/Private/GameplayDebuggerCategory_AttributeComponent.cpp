@@ -159,7 +159,7 @@ FString FGameplayDebuggerCategory_AttributeComponent::FormatStructDataForDisplay
 		FProperty* Property = *PropIt;
 		const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(StructData);
 
-		FString PropertyName = Property->GetDisplayNameText().ToString();
+		FString PropertyName = Property->GetName();
 		FString PropertyValue = GetPropertyValueAsString(Property, ValuePtr, IndentLevel);
 
 		// Format with color codes: cyan for property name, white for value

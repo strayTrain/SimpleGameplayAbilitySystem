@@ -1,6 +1,5 @@
 ﻿#include "SimpleAttributeComponent.h"
 
-#include "VREditorMode.h"
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "SimpleGameplayAbilitySystem/Components/SimpleAttributeComponent//AttributeHandler/SimpleAttributeHandler.h"
@@ -724,8 +723,12 @@ bool USimpleAttributeComponent::SetStructAttributeValue(FGameplayTag AttributeTa
 
 	if (Attribute->StructAttributeHandler)
 	{
-		ModificationTags = GetStructAttributeHandlerInstance(AttributeTag, Attribute->StructAttributeHandler)->
-			GetModificationEvents(OldValue, NewValue);
+		EGetInstancedStructResult HandlerResult = EGetInstancedStructResult::Invalid;
+		USimpleAttributeHandler* Handler = GetStructAttributeHandlerInstance(AttributeTag, Attribute->StructAttributeHandler, HandlerResult);
+		if (Handler && HandlerResult == EGetInstancedStructResult::Valid)
+		{
+			ModificationTags = Handler->GetModificationEvents(OldValue, NewValue);
+		}
 	}
 
 	Attribute->AttributeValue = NewValue;
@@ -1243,13 +1246,17 @@ double USimpleAttributeComponent::GetServerTime()
 	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
 }
 
-USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandler(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass)
+USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandler(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass, EGetInstancedStructResult& OutResult)
 {
-	return GetStructAttributeHandlerInstance(AttributeTag, AttributeHandlerClass);
+	return GetStructAttributeHandlerInstance(AttributeTag, AttributeHandlerClass, OutResult);
 }
 
-USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerInstance(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> HandlerClass)
+USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerInstance(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> HandlerClass, EGetInstancedStructResult& OutResult)
 {
+	// Initialize result to Invalid
+	OutResult = EGetInstancedStructResult::Invalid;
+
+	// Check if the struct attribute exists
 	if (!HasStructAttribute(AttributeTag))
 	{
 		SIMPLE_LOG(this, FString::Printf(
@@ -1259,6 +1266,18 @@ USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerIns
 		return nullptr;
 	}
 
+	// Get the struct attribute to check its type
+	FStructAttribute* StructAttribute = GetStructAttribute(AttributeTag);
+	if (!StructAttribute)
+	{
+		SIMPLE_LOG(this, FString::Printf(
+					   TEXT(
+						   "[USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance]: Failed to get Struct Attribute %s."),
+					   *AttributeTag.ToString()));
+		return nullptr;
+	}
+
+	// Get or create the handler instance
 	USimpleAttributeHandler* HandlerInstance = nullptr;
 
 	for (USimpleAttributeHandler* InstancedHandler : InstancedAttributeHandlers)
@@ -1276,8 +1295,33 @@ USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandlerIns
 		InstancedAttributeHandlers.Add(HandlerInstance);
 	}
 
+	// Check if the handler's StructType matches the attribute's StructType
+	if (HandlerInstance->StructType && StructAttribute->StructType)
+	{
+		if (HandlerInstance->StructType != StructAttribute->StructType)
+		{
+			SIMPLE_LOG(this, FString::Printf(
+						   TEXT(
+							   "[USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance]: StructType mismatch for Attribute %s. Handler expects %s but attribute is %s."),
+						   *AttributeTag.ToString(),
+						   *HandlerInstance->StructType->GetName(),
+						   *StructAttribute->StructType->GetName()));
+			return nullptr;
+		}
+	}
+	else if (!StructAttribute->StructType)
+	{
+		SIMPLE_LOG(this, FString::Printf(
+					   TEXT(
+						   "[USimpleGameplayAbilityComponent::GetStructAttributeHandlerInstance]: Attribute %s has no StructType set."),
+					   *AttributeTag.ToString()));
+		return nullptr;
+	}
+
 	HandlerInstance->InitializeHandler(this, AttributeTag);
 
+	// All checks passed, set result to Valid
+	OutResult = EGetInstancedStructResult::Valid;
 	return HandlerInstance;
 }
 
@@ -1651,9 +1695,13 @@ void USimpleAttributeComponent::ClientOnStructAttributeChanged(const FStructAttr
 
 	if (LocalStructAttribute->StructAttributeHandler)
 	{
-		ModificationTags = GetStructAttributeHandlerInstance(ChangedStructAttribute.AttributeTag,
-		                                                     LocalStructAttribute->StructAttributeHandler)->
-			GetModificationEvents(OldValue, ChangedStructAttribute.AttributeValue);
+		EGetInstancedStructResult HandlerResult = EGetInstancedStructResult::Invalid;
+		USimpleAttributeHandler* Handler = GetStructAttributeHandlerInstance(ChangedStructAttribute.AttributeTag,
+		                                                     LocalStructAttribute->StructAttributeHandler, HandlerResult);
+		if (Handler && HandlerResult == EGetInstancedStructResult::Valid)
+		{
+			ModificationTags = Handler->GetModificationEvents(OldValue, ChangedStructAttribute.AttributeValue);
+		}
 	}
 
 	OnStructAttributeChanged.Broadcast(ChangedStructAttribute.AttributeTag, OldValue,
@@ -1796,8 +1844,12 @@ void USimpleAttributeComponent::RestoreAttributeSnapshot(const FAttributeSnapsho
 			FGameplayTagContainer ModificationTags;
 			if (LocalAttr->StructAttributeHandler)
 			{
-				ModificationTags = GetStructAttributeHandlerInstance(SnapshotAttr.AttributeTag, LocalAttr->StructAttributeHandler)->
-					GetModificationEvents(OldValue, SnapshotAttr.AttributeValue);
+				EGetInstancedStructResult HandlerResult = EGetInstancedStructResult::Invalid;
+				USimpleAttributeHandler* Handler = GetStructAttributeHandlerInstance(SnapshotAttr.AttributeTag, LocalAttr->StructAttributeHandler, HandlerResult);
+				if (Handler && HandlerResult == EGetInstancedStructResult::Valid)
+				{
+					ModificationTags = Handler->GetModificationEvents(OldValue, SnapshotAttr.AttributeValue);
+				}
 			}
 
 			if (OldValue != SnapshotAttr.AttributeValue)

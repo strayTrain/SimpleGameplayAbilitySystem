@@ -993,21 +993,7 @@ FString FStructAttributeCustomization::GetPropertyDisplayName(const FProperty* P
         return TEXT("Unknown");
     }
 
-    // Try GetDisplayNameText first (UE5+) - this properly strips Blueprint GUID suffixes
-    #if ENGINE_MAJOR_VERSION >= 5
-        FText DisplayNameText = Property->GetDisplayNameText();
-        if (!DisplayNameText.IsEmpty())
-        {
-            FString DisplayName = DisplayNameText.ToString();
-            // Only use it if it's actually different from the internal name
-            if (DisplayName != Property->GetName())
-            {
-                return DisplayName;
-            }
-        }
-    #endif
-
-    // Fallback: try GetAuthoredName (returns the original name before Blueprint compilation)
+    // Try GetAuthoredName (returns the original name before Blueprint compilation)
     FString PropertyName = Property->GetAuthoredName();
 
     // If GetAuthoredName() returns empty or same as GetName(), it didn't help

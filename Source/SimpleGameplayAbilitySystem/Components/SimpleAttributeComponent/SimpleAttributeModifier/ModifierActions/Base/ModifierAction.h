@@ -95,6 +95,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
 	FInstancedStruct GetOwningModifierContext() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	USimpleAttributeComponent* GetOwningModifierInstigator();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
+	USimpleAttributeComponent* GetOwningModifierTarget();
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier")
 	FAttributeModifierActionScratchPad& GetScratchPad();
