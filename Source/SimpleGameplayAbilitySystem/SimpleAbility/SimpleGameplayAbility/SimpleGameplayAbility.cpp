@@ -257,24 +257,24 @@ AActor* USimpleGameplayAbility::GetAvatarActor() const
 	return AbilityComponent->GetAvatarActor();
 }
 
-AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const
+AActor* USimpleGameplayAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, EGetAvatarActorResult& Result)
 {
 	AActor* AvatarActor = GetAvatarActor();
 
 	if (!AvatarActor)
 	{
-		IsValid = false;
+		Result = EGetAvatarActorResult::Invalid;
 		return nullptr;
 	}
 
 	if (!AvatarActor->IsA(AvatarClass))
 	{
 		SIMPLE_LOG(AbilityComponent,FString::Printf(TEXT("Avatar actor %s is not of type %s"), *AvatarActor->GetName(), *AvatarClass->GetName()));
-		IsValid = false;
+		Result = EGetAvatarActorResult::Invalid;
 		return AvatarActor;
 	}
-	
-	IsValid = true;
+
+	Result = EGetAvatarActorResult::Valid;
 	return AvatarActor;
 }
 
@@ -304,6 +304,14 @@ double USimpleGameplayAbility::GetActivationTime() const
 double USimpleGameplayAbility::GetActivationDelay() const
 {
 	return AbilityComponent->GetServerTime() - GetActivationTime();
+}
+
+float USimpleGameplayAbility::GetCooldownDuration_Implementation() const
+{
+	// For StaticCooldown, return the configured duration
+	// For DynamicCooldown, this should be overridden in Blueprint
+	// For NoCooldown, this shouldn't be called but return 0 for safety
+	return CooldownDuration;
 }
 
 // --- Sub-ability delegate handlers ---

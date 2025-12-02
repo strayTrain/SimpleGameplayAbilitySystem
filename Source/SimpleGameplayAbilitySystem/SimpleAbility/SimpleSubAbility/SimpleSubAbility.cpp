@@ -57,9 +57,9 @@ AActor* USimpleSubAbility::GetAvatarActor() const
 	return ParentAbilityInstance->GetAvatarActor();
 }
 
-AActor* USimpleSubAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const
+AActor* USimpleSubAbility::GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, EGetAvatarActorResult& Result)
 {
-	return ParentAbilityInstance->GetAvatarActorAs(AvatarClass, IsValid);
+	return ParentAbilityInstance->GetAvatarActorAs(AvatarClass, Result);
 }
 
 USimpleGameplayAbilityComponent* USimpleSubAbility::GetParentAbilityComponent() const

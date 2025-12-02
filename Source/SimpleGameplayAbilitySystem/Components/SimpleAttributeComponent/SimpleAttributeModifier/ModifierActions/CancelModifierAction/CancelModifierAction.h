@@ -16,6 +16,6 @@ public:
 	FGameplayTagContainer CancelModifiersWithTags;
 
 	/* ModifierAction overrides */
-	virtual bool SupportsClientPrediction_Implementation() const override { return false; }
+	virtual EActionPredictionMode GetPredictionMode_Implementation() const override { return EActionPredictionMode::NoPrediction; }
 	virtual void ApplyAction_Implementation() override;
 };

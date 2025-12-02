@@ -130,6 +130,39 @@ enum class EAbilityActivationResult : uint8
 	ActivationFailed,
 };
 
+UENUM(BlueprintType)
+enum class EGetAvatarActorResult : uint8
+{
+	Valid,
+	Invalid,
+};
+
+/**
+ * Determines how an ability's cooldown duration is calculated.
+ */
+UENUM(BlueprintType)
+enum class ECooldownType : uint8
+{
+	/** Ability has no cooldown */
+	NoCooldown,
+	/** Cooldown uses a fixed duration value */
+	StaticCooldown,
+	/** Cooldown duration is calculated dynamically via GetCooldownDuration() */
+	DynamicCooldown
+};
+
+/**
+ * Determines when the cooldown timer starts.
+ */
+UENUM(BlueprintType)
+enum class ECooldownStartPolicy : uint8
+{
+	/** Cooldown starts when the ability is activated */
+	OnActivation,
+	/** Cooldown starts when the ability ends (default) */
+	OnEnd
+};
+
 
 /* Structs */
 
@@ -372,3 +405,119 @@ struct FAbilitySnapshotContainer : public FFastArraySerializer
 };
 
 DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FAbilitySnapshotContainer)
+
+// CooldownState
+USTRUCT(BlueprintType)
+struct FCooldownState : public FFastArraySerializerItem
+{
+	GENERATED_BODY()
+
+	/** The ability class this cooldown applies to (stored as UClass* to avoid TSubclassOf template issues with forward declarations) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UClass> AbilityClass = nullptr;
+
+	/** Server time when the cooldown expires */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	double ExpiryTime = 0.0;
+
+	/** The cooldown duration (for client reference/UI) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float Duration = 0.0f;
+
+	bool operator==(const FCooldownState& Other) const
+	{
+		return AbilityClass == Other.AbilityClass;
+	}
+
+	friend uint32 GetTypeHash(const FCooldownState& State)
+	{
+		return GetTypeHash(State.AbilityClass);
+	}
+
+	bool IsExpired(double CurrentServerTime) const
+	{
+		return CurrentServerTime >= ExpiryTime;
+	}
+
+	float GetRemainingTime(double CurrentServerTime) const
+	{
+		return FMath::Max(0.0f, static_cast<float>(ExpiryTime - CurrentServerTime));
+	}
+
+	float GetProgress(double CurrentServerTime) const
+	{
+		if (Duration <= 0.0f) return 1.0f;
+		return FMath::Clamp(1.0f - (GetRemainingTime(CurrentServerTime) / Duration), 0.0f, 1.0f);
+	}
+};
+
+DECLARE_FAST_ARRAY_SERIALIZER_DELEGATES(FCooldownState, CooldownState)
+
+USTRUCT()
+struct FCooldownStateContainer : public FFastArraySerializer
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere)
+	TArray<FCooldownState> Cooldowns;
+
+	FOnCooldownStateAdded OnCooldownAdded;
+	FOnCooldownStateChanged OnCooldownChanged;
+	FOnCooldownStateRemoved OnCooldownRemoved;
+
+	void PostReplicatedAdd(const TArrayView<int32>& AddedIndices, int32 FinalSize)
+	{
+		if (OnCooldownAdded.IsBound())
+		{
+			for (int32 Index : AddedIndices)
+			{
+				OnCooldownAdded.Execute(Cooldowns[Index]);
+			}
+		}
+	}
+
+	void PostReplicatedChange(const TArrayView<int32>& ChangedIndices, int32 FinalSize)
+	{
+		if (OnCooldownChanged.IsBound())
+		{
+			for (int32 Index : ChangedIndices)
+			{
+				OnCooldownChanged.Execute(Cooldowns[Index]);
+			}
+		}
+	}
+
+	void PreReplicatedRemove(const TArrayView<int32>& RemovedIndices, int32 FinalSize)
+	{
+		if (OnCooldownRemoved.IsBound())
+		{
+			for (int32 Index : RemovedIndices)
+			{
+				OnCooldownRemoved.Execute(Cooldowns[Index]);
+			}
+		}
+	}
+
+	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
+	{
+		return FFastArraySerializer::FastArrayDeltaSerialize<FCooldownState, FCooldownStateContainer>(Cooldowns, DeltaParms, *this);
+	}
+
+	FCooldownState* FindByClass(UClass* InAbilityClass)
+	{
+		return Cooldowns.FindByPredicate([InAbilityClass](const FCooldownState& State)
+		{
+			return State.AbilityClass == InAbilityClass;
+		});
+	}
+
+	const FCooldownState* FindByClass(UClass* InAbilityClass) const
+	{
+		return Cooldowns.FindByPredicate([InAbilityClass](const FCooldownState& State)
+		{
+			return State.AbilityClass == InAbilityClass;
+		});
+	}
+};
+
+DECLARE_FAST_ARRAY_SERIALIZER_TRAITS(FCooldownStateContainer)

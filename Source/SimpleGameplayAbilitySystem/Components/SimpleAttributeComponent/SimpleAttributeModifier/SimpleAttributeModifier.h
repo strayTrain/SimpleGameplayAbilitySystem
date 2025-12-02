@@ -3,11 +3,14 @@
 #include "CoreMinimal.h"
 #include "SimpleAttributeModifierTypes.h"
 #include "SimpleGameplayAbilitySystem/SimpleAbility/SimpleAbilityBase/SimpleAbilityBase.h"
+#include "Curves/CurveFloat.h"
 #include "SimpleAttributeModifier.generated.h"
 
 class USimpleAttributeComponent;
 class UModifierAction;
 class USimpleGameplayAbility;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStackCountChangedSignature, USimpleAttributeModifier*, ModifierInstance, int32, NewStackCount);
 
 
 
@@ -62,44 +65,70 @@ public:
 	bool ResetScratchPadOnTick = true;
 
 	/**
+	 * @deprecated Use StackingConfig.bEnableStacking instead
 	 * If enabled, this modifier will be part of a stack group identified by StackGroupTag.
-	 * Multiple instances of modifiers with the same StackGroupTag will be treated as a stack.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking (DEPRECATED)",
+		meta = (DeprecatedProperty, DeprecationMessage = "Use StackingConfig.bEnableStacking instead"))
 	bool bUseStackGroup = false;
 
 	/**
+	 * @deprecated Use StackingConfig.StackGroupTag instead
 	 * Tag that identifies which stack group this modifier belongs to.
-	 * All modifiers with the same StackGroupTag on the same target will be considered part of the same stack.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking (DEPRECATED)",
+		meta = (DeprecatedProperty, DeprecationMessage = "Use StackingConfig.StackGroupTag instead"))
 	FGameplayTag StackGroupTag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (
-			EditConditionHides,
-			EditCondition = "DurationType == EAttributeModifierDurationType::SetDuration && bUseStackGroup"))
-	EDurationModifierReApplicationConfig OnReapplication;
+	/**
+	 * @deprecated Use StackingConfig.OnReapplication instead
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking (DEPRECATED)",
+		meta = (DeprecatedProperty, DeprecationMessage = "Use StackingConfig.OnReapplication instead"))
+	EStackReapplicationBehavior OnReapplication;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking", meta = (
-		EditCondition = "bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
+	/**
+	 * @deprecated Use StackingConfig.MaxStacks instead (set to 0 for unlimited)
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking (DEPRECATED)",
+		meta = (DeprecatedProperty, DeprecationMessage = "Use StackingConfig.MaxStacks instead"))
 	bool bHasMaxStacksInGroup = false;
 
 	/**
+	 * @deprecated Use StackingConfig.MaxStacks instead
 	 * Maximum number of modifier instances allowed in this stack group.
-	 * When exceeded, OverflowBehavior determines what happens.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking (DEPRECATED)",
+		meta = (DeprecatedProperty, DeprecationMessage = "Use StackingConfig.MaxStacks instead"))
 	int32 MaxStacksInGroup = 1;
 
 	/**
+	 * @deprecated Use StackingConfig.OverflowBehavior instead
 	 * Determines what happens when trying to apply a new modifier when the stack group is at max capacity.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
-		meta = (EditCondition = "bHasMaxStacksInGroup && bUseStackGroup && DurationType != EAttributeModifierDurationType::Instant", EditConditionHides ))
+	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking (DEPRECATED)",
+		meta = (DeprecatedProperty, DeprecationMessage = "Use StackingConfig.OverflowBehavior instead"))
 	EStackGroupOverflowBehavior OverflowBehavior = EStackGroupOverflowBehavior::DenyNew;
+
+	/**
+	 * Main stacking configuration for the consolidated stacking system.
+	 * This replaces bUseStackGroup, StackGroupTag, MaxStacksInGroup, etc.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attribute Modifier|Config|Stacking",
+		meta = (EditCondition = "DurationType != EAttributeModifierDurationType::Instant", EditConditionHides))
+	FStackingConfig StackingConfig;
+
+	/**
+	 * Function callback for custom magnitude scaling based on stack count.
+	 * Signature: float FunctionName(int32 StackCount, float BaseMagnitude, USimpleAttributeModifier* Modifier)
+	 * Only used when StackingConfig.MagnitudeScalingSource == FunctionCallback
+	 */
+	UPROPERTY(EditAnywhere, Category = "Attribute Modifier|Config|Stacking",
+		meta = (FunctionReference, AllowFunctionLibraries,
+		PrototypeFunction = "/Script/SimpleGameplayAbilitySystem.FunctionSelectors.Prototype_CalculateStackMagnitude",
+		EditCondition = "StackingConfig.bEnableStacking && StackingConfig.MagnitudeScalingSource == EMagnitudeScalingSource::FunctionCallback && DurationType != EAttributeModifierDurationType::Instant",
+		EditConditionHides))
+	FMemberReference MagnitudeScalingFunction;
 
 	/**
 	 * Tags that can be used to classify this modifier. e.g. "DamageOverTime", "StatusEffect" etc.
@@ -164,6 +193,18 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
 	bool IsActive = false;
 
+	/** Current stack count for consolidated stacking (1 for non-stacking modifiers) */
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Attribute Modifier|State|Stacking")
+	int32 CurrentStackCount = 0;
+
+	/** Computed magnitude after scaling based on stack count */
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Attribute Modifier|State|Stacking")
+	float ScaledMagnitude = 0.0f;
+
+	/** Individual stack expiration times for IndependentDurations mode */
+	UPROPERTY(Transient)
+	TArray<FStackDurationEntry> StackDurations;
+
 	UPROPERTY(EditAnywhere, Category = "Attribute Modifier|Actions")
 	FAttributeModifierActionScratchPad InitialScratchPadValues;
 	
@@ -195,7 +236,11 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Attribute Modifier|Events|Lifecycle")
 	FOnModifierEndedSignature OnAttributeModifierCancelled;
-	
+
+	/** Event fired when the stack count changes (for consolidated stacking) */
+	UPROPERTY(BlueprintAssignable, Category = "Attribute Modifier|Events|Stacking")
+	FOnStackCountChangedSignature OnStackCountChanged;
+
 	/* Callable Functions */
 
 	void InitializeModifier(FGuid NewModifierID, USimpleAttributeComponent* Instigator, USimpleAttributeComponent* Target, float Magnitude, const FInstancedStruct Context, const bool DoesReplicate);
@@ -233,6 +278,61 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier")
 	float GetActivationTime() const { return ActivationTime; }
 
+	/* Stacking Methods */
+
+	/**
+	 * Add stacks to this modifier (consolidated stacking only).
+	 * @param Count Number of stacks to add (default 1)
+	 * @return True if stacks were added successfully
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Stacking")
+	bool AddStacks(int32 Count = 1);
+
+	/**
+	 * Remove stacks from this modifier (consolidated stacking only).
+	 * If stack count reaches 0, the modifier will end.
+	 * @param Count Number of stacks to remove (default 1)
+	 * @return True if stacks were removed successfully
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier|Stacking")
+	bool RemoveStacks(int32 Count = 1);
+
+	/**
+	 * Get the current stack count.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Stacking")
+	int32 GetStackCount() const { return CurrentStackCount; }
+
+	/**
+	 * Get the scaled magnitude (base magnitude * stack scaling).
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Stacking")
+	float GetScaledMagnitude() const { return ScaledMagnitude; }
+
+	/**
+	 * Force set the stack count (used for prediction reconciliation).
+	 * Does not trigger events or recalculate magnitude - use AddStacks/RemoveStacks for normal operation.
+	 */
+	void ForceSetStackCount(int32 NewStackCount) { CurrentStackCount = NewStackCount; }
+
+	/**
+	 * Check if this modifier uses consolidated stacking.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Stacking")
+	bool UsesConsolidatedStacking() const { return StackingConfig.bEnableStacking; }
+
+	/**
+	 * Check if this modifier uses a custom stack group tag (vs class-based grouping).
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Attribute Modifier|Stacking")
+	bool UsesCustomStackGroupTag() const { return StackingConfig.bEnableStacking && StackingConfig.StackGroupTag.IsValid(); }
+
+	/** Recalculate ScaledMagnitude based on current stack count and scaling configuration */
+	void RecalculateMagnitude();
+	
+	/** Inject stack count and scaled magnitude into scratchpad before actions run */
+	void InjectStackCountToScratchpad();
+	
 	/* Blueprint Implementable Events */
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Attribute Modifier|Application")
@@ -271,12 +371,25 @@ public:
 	}
 
 	bool WasModifierInitialized() const { return WasInitialized; }
+
+	// UObject interface
+	virtual void PostLoad() override;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute Modifier|State")
 	float ActivationTime;
-	
+
 	UPROPERTY(BlueprintReadWrite, Category = "Attribute Modifier|State")
 	FAttributeModifierActionScratchPad ModifierActionScratchPad;
+	
+	/** Check for threshold crossings and fire appropriate events/tags */
+	void CheckThresholdCrossings(int32 OldCount, int32 NewCount);
+
+	/** Handle stack duration expiration for IndependentDurations mode */
+	void HandleStackDurationExpired(int32 StackIndex);
+
+	/** Update stack duration timers (for IndependentDurations mode) */
+	void UpdateStackDurationTimers();
 
 private:
 	bool CanApplyModifierInternal();
@@ -289,6 +402,9 @@ private:
 
 	FTimerHandle DurationTimerHandle;
 	FTimerHandle TickTimerHandle;
+
+	/** Timer handles for individual stack durations (IndependentDurations mode) */
+	TMap<int32, FTimerHandle> StackDurationTimerHandles;
 
 	void OnDurationTimerExpired();
 	void OnTickTimerTriggered();

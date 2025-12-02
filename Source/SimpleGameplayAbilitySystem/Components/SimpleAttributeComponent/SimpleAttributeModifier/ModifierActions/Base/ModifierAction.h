@@ -48,8 +48,8 @@ public:
 	}
 
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
-	bool SupportsClientPrediction() const;
-	virtual bool SupportsClientPrediction_Implementation() const { return true; }
+	EActionPredictionMode GetPredictionMode() const;
+	virtual EActionPredictionMode GetPredictionMode_Implementation() const { return EActionPredictionMode::PredictAll; }
 	
 	UFUNCTION(BlueprintNativeEvent, Category="Modifier")
 	bool CanApply() const;
@@ -131,6 +131,26 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Modifier")
 	void SetScratchPadStruct(FGameplayTag ScratchPadTag, FInstancedStruct StructValue);
+
+	/**
+	 * Gets the current stack count of the owning modifier.
+	 * Returns 1 if the modifier doesn't use consolidated stacking.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier|Stacking")
+	int32 GetStackCount() const;
+
+	/**
+	 * Gets the scaled magnitude based on stack count from the owning modifier.
+	 * Returns the base magnitude if stacking is not enabled.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier|Stacking")
+	float GetScaledMagnitude() const;
+
+	/**
+	 * Checks if the owning modifier uses consolidated stacking.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Modifier|Stacking")
+	bool UsesStacking() const;
 
 protected:
 	UPROPERTY()

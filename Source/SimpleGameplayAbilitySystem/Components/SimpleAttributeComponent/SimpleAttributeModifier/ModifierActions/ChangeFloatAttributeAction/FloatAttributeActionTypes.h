@@ -14,6 +14,10 @@ enum class EAttributeModificationValueSource : uint8
 	Manual,
 	// Use the magnitude value passed to the owning modifier as the float action input
 	FromMagnitude,
+	// Use the scaled magnitude (magnitude * stacking scale factor) as the float action input
+	FromScaledMagnitude,
+	// Use the current stack count as the float action input (cast to float)
+	FromStackCount,
 	// Use a value stored in the modifier's scratch pad as the float action input
 	FromScratchPadValue,
 	// Use the overflow value from previous float actions as the float action input

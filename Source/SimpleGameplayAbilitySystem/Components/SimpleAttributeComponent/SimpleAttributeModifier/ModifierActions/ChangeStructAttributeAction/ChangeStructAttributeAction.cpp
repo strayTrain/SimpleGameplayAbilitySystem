@@ -12,10 +12,22 @@ void UChangeStructAttributeAction::ApplyAction_Implementation()
 {
 	bool WasFound = false;
 	const FInstancedStruct CurrentValue = OwningModifier->TargetAttributeComponent->GetStructAttributeValue(AttributeToModify,WasFound);
+	
+	// Cache for rollback
+	CachedPreviousValue = CurrentValue;
+	
 	FInstancedStruct NewValue;
 
 	if (UFunctionSelectors::ModifyStructAttributeValue(OwningModifier, StructModificationFunction, AttributeToModify, CurrentValue, NewValue))
 	{
 		OwningModifier->TargetAttributeComponent->SetStructAttributeValue(AttributeToModify, NewValue);
+	}
+}
+
+void UChangeStructAttributeAction::OnCancelAction_Implementation()
+{
+	if (OwningModifier && OwningModifier->TargetAttributeComponent)
+	{
+		OwningModifier->TargetAttributeComponent->SetStructAttributeValue(AttributeToModify, CachedPreviousValue);
 	}
 }

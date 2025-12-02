@@ -64,6 +64,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SimpleAbility|Tags")
 	FGameplayTagContainer PermanentlyAppliedTags;
 
+	/* Cooldown Configuration */
+
+	/** Determines how cooldown is calculated for this ability */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "SimpleAbility|Cooldown")
+	ECooldownType CooldownType = ECooldownType::NoCooldown;
+
+	/** Fixed cooldown duration in seconds (used when CooldownType is StaticCooldown) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "SimpleAbility|Cooldown",
+		meta = (EditCondition = "CooldownType == ECooldownType::StaticCooldown", EditConditionHides, ClampMin = "0.0", Units = "s"))
+	float CooldownDuration = 1.0f;
+
+	/** Determines when the cooldown timer starts */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "SimpleAbility|Cooldown",
+		meta = (EditCondition = "CooldownType != ECooldownType::NoCooldown", EditConditionHides))
+	ECooldownStartPolicy CooldownStartPolicy = ECooldownStartPolicy::OnEnd;
+
 	/* Callable Functions */
 
 	// Called by the AbilityComponent immediately after creating the ability instance
@@ -89,7 +105,21 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Ability")
 	bool CanActivate(const FInstancedStruct& ActivationContext);
 	virtual bool CanActivate_Implementation(const FInstancedStruct& ActivationContext) { return true; }
-	
+
+	/**
+	 * Returns the cooldown duration for this ability.
+	 * Override this in Blueprint for dynamic cooldown calculations based on attributes, context, etc.
+	 * Only called when CooldownType is StaticCooldown or DynamicCooldown.
+	 * @return The cooldown duration in seconds
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Ability|Cooldown")
+	float GetCooldownDuration() const;
+	virtual float GetCooldownDuration_Implementation() const;
+
+	/** Returns true if this ability has a cooldown configured */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Ability|Cooldown")
+	bool HasCooldown() const { return CooldownType != ECooldownType::NoCooldown; }
+
 	virtual bool CanActivateInternal() override;
 	virtual void PreActivateInternal() override;
 	virtual void AbilityEndedInternal(FInstancedStruct EndingContext, bool WasCancelled) override;
@@ -101,8 +131,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	AActor* GetAvatarActor() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
-	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const;
+	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin, ExpandEnumAsExecs = "Result"))
+	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, EGetAvatarActorResult& Result);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	EAbilityNetworkRole GetNetworkRole() const;

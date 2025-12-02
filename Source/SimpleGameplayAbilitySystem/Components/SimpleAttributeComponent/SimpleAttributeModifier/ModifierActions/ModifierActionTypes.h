@@ -26,6 +26,15 @@ enum class EModifierActionPredictionPolicy: uint8
 };
 
 UENUM(BlueprintType)
+enum class EActionPredictionMode : uint8
+{
+	NoPrediction,
+	PredictInstantOnly,
+	PredictDurationOnly,
+	PredictAll
+};
+
+UENUM(BlueprintType)
 enum class EContextSource : uint8
 {
 	NoContext,

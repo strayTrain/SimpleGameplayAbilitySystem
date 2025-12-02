@@ -48,6 +48,18 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 			}
 		}
 
+		// Start periodic cooldown cleanup timer (every 1 second on server)
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(
+				CooldownCleanupTimerHandle,
+				this,
+				&USimpleGameplayAbilityComponent::CleanupExpiredCooldowns,
+				1.0f,
+				true
+			);
+		}
+
 		return;
 	}
 
@@ -57,6 +69,11 @@ void USimpleGameplayAbilityComponent::BeginPlay()
 	AuthorityAbilityStates.OnStateRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilityStateRemoved);
 	AuthorityAbilitySnapshots.OnSnapshotAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotAdded);
 	AuthorityAbilitySnapshots.OnSnapshotRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotRemoved);
+
+	// Cooldown replication delegates
+	AuthorityCooldowns.OnCooldownAdded.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnCooldownStateAdded);
+	AuthorityCooldowns.OnCooldownChanged.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnCooldownStateChanged);
+	AuthorityCooldowns.OnCooldownRemoved.BindUObject(this, &USimpleGameplayAbilityComponent::ClientOnCooldownStateRemoved);
 }
 
 void USimpleGameplayAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -448,10 +465,17 @@ bool USimpleGameplayAbilityComponent::ActivateAbilityInternal(
 
 	if (!GrantedAbilities.Contains(AbilityClass) && AbilityClass->GetDefaultObject<USimpleGameplayAbility>()->RequireGrantToActivate)
 	{
-		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Ability %s is not granted!"), *AbilityClass->GetName()));	
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Ability %s is not granted!"), *AbilityClass->GetName()));
 		return false;
 	}
-	
+
+	// Check cooldown
+	if (IsAbilityOnCooldown(AbilityClass))
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("[USimpleGameplayAbilityComponent::ActivateAbility]: Ability %s is on cooldown!"), *AbilityClass->GetName()));
+		return false;
+	}
+
 	USimpleGameplayAbility* AbilityInstance = GetAbilityInstanceByClass(AbilityClass);
 	
 	if (AbilityInstance->InstancingPolicy == EAbilityInstancingPolicy::SingleInstance)
@@ -835,8 +859,18 @@ void USimpleGameplayAbilityComponent::OnAbilityActivationSuccess(USimpleAbilityB
 			{
 				AuthorityAbilityStates.MarkItemDirty(AbilityState);
 			}
-			
-			return;
+
+			break;
+		}
+	}
+
+	// Start cooldown on activation if configured
+	if (Ability && Ability->HasCooldown() && Ability->CooldownStartPolicy == ECooldownStartPolicy::OnActivation)
+	{
+		const float Duration = Ability->GetCooldownDuration();
+		if (Duration > 0.0f)
+		{
+			StartAbilityCooldownInternal(Ability->GetClass(), Duration, !HasAuthority());
 		}
 	}
 }
@@ -890,6 +924,16 @@ void USimpleGameplayAbilityComponent::OnAbilityEnded(USimpleAbilityBase* Ability
 			}
 
 			break;
+		}
+	}
+
+	// Start cooldown on end if configured (default behavior)
+	if (Ability && Ability->HasCooldown() && Ability->CooldownStartPolicy == ECooldownStartPolicy::OnEnd)
+	{
+		const float Duration = Ability->GetCooldownDuration();
+		if (Duration > 0.0f)
+		{
+			StartAbilityCooldownInternal(Ability->GetClass(), Duration, !HasAuthority());
 		}
 	}
 
@@ -1191,15 +1235,235 @@ void USimpleGameplayAbilityComponent::ClientOnAbilitySnapshotRemoved(const FAbil
 	});
 }
 
+/* Cooldown Functions */
+
+bool USimpleGameplayAbilityComponent::IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass) const
+{
+	if (!AbilityClass)
+	{
+		return false;
+	}
+
+	const FCooldownState* CooldownState = GetLocalCooldownState(AbilityClass);
+	if (!CooldownState)
+	{
+		return false;
+	}
+
+	return !CooldownState->IsExpired(const_cast<USimpleGameplayAbilityComponent*>(this)->GetServerTime());
+}
+
+float USimpleGameplayAbilityComponent::GetAbilityRemainingCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass) const
+{
+	if (!AbilityClass)
+	{
+		return 0.0f;
+	}
+
+	const FCooldownState* CooldownState = GetLocalCooldownState(AbilityClass);
+	if (!CooldownState)
+	{
+		return 0.0f;
+	}
+
+	return CooldownState->GetRemainingTime(const_cast<USimpleGameplayAbilityComponent*>(this)->GetServerTime());
+}
+
+float USimpleGameplayAbilityComponent::GetAbilityCooldownProgress(TSubclassOf<USimpleGameplayAbility> AbilityClass) const
+{
+	if (!AbilityClass)
+	{
+		return 1.0f;
+	}
+
+	const FCooldownState* CooldownState = GetLocalCooldownState(AbilityClass);
+	if (!CooldownState)
+	{
+		return 1.0f;
+	}
+
+	return CooldownState->GetProgress(const_cast<USimpleGameplayAbilityComponent*>(this)->GetServerTime());
+}
+
+bool USimpleGameplayAbilityComponent::GetAbilityCooldownState(TSubclassOf<USimpleGameplayAbility> AbilityClass, FCooldownState& OutCooldownState) const
+{
+	if (!AbilityClass)
+	{
+		return false;
+	}
+
+	const FCooldownState* CooldownState = GetLocalCooldownState(AbilityClass);
+	if (!CooldownState)
+	{
+		return false;
+	}
+
+	OutCooldownState = *CooldownState;
+	return true;
+}
+
+void USimpleGameplayAbilityComponent::ClearAbilityCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass)
+{
+	if (!AbilityClass || !HasAuthority())
+	{
+		return;
+	}
+
+	UClass* ClassPtr = AbilityClass.Get();
+	AuthorityCooldowns.Cooldowns.RemoveAll([ClassPtr](const FCooldownState& State)
+	{
+		return State.AbilityClass == ClassPtr;
+	});
+	AuthorityCooldowns.MarkArrayDirty();
+}
+
+void USimpleGameplayAbilityComponent::StartAbilityCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass, float Duration)
+{
+	if (!AbilityClass || !HasAuthority() || Duration <= 0.0f)
+	{
+		return;
+	}
+
+	StartAbilityCooldownInternal(AbilityClass, Duration, false);
+}
+
+void USimpleGameplayAbilityComponent::StartAbilityCooldownInternal(TSubclassOf<USimpleGameplayAbility> AbilityClass, float Duration, bool bIsLocalPrediction)
+{
+	if (!AbilityClass || Duration <= 0.0f)
+	{
+		return;
+	}
+
+	const double CurrentServerTime = GetServerTime();
+	const double ExpiryTime = CurrentServerTime + Duration;
+	UClass* ClassPtr = AbilityClass.Get();
+
+	FCooldownState NewCooldownState;
+	NewCooldownState.AbilityClass = ClassPtr;
+	NewCooldownState.ExpiryTime = ExpiryTime;
+	NewCooldownState.Duration = Duration;
+
+	if (bIsLocalPrediction)
+	{
+		// Client prediction - store locally
+		FCooldownState* ExistingState = LocalPredictedCooldowns.FindByPredicate([ClassPtr](const FCooldownState& State)
+		{
+			return State.AbilityClass == ClassPtr;
+		});
+
+		if (ExistingState)
+		{
+			*ExistingState = NewCooldownState;
+		}
+		else
+		{
+			LocalPredictedCooldowns.Add(NewCooldownState);
+		}
+	}
+	else
+	{
+		// Server authoritative - store in replicated container
+		FCooldownState* ExistingState = AuthorityCooldowns.FindByClass(ClassPtr);
+
+		if (ExistingState)
+		{
+			*ExistingState = NewCooldownState;
+			AuthorityCooldowns.MarkItemDirty(*ExistingState);
+		}
+		else
+		{
+			AuthorityCooldowns.Cooldowns.Add(NewCooldownState);
+			AuthorityCooldowns.MarkItemDirty(NewCooldownState);
+		}
+	}
+}
+
+void USimpleGameplayAbilityComponent::CleanupExpiredCooldowns()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	const double CurrentServerTime = GetServerTime();
+
+	// Remove expired cooldowns from the authoritative container
+	const int32 RemovedCount = AuthorityCooldowns.Cooldowns.RemoveAll([CurrentServerTime](const FCooldownState& State)
+	{
+		return State.IsExpired(CurrentServerTime);
+	});
+
+	if (RemovedCount > 0)
+	{
+		AuthorityCooldowns.MarkArrayDirty();
+	}
+}
+
+void USimpleGameplayAbilityComponent::ClientOnCooldownStateAdded(const FCooldownState& NewCooldownState)
+{
+	// When server cooldown arrives, update or replace local prediction
+	FCooldownState* LocalState = LocalPredictedCooldowns.FindByPredicate([&NewCooldownState](const FCooldownState& State)
+	{
+		return State.AbilityClass == NewCooldownState.AbilityClass;
+	});
+
+	if (LocalState)
+	{
+		// Reconcile - snap to server authoritative state
+		*LocalState = NewCooldownState;
+	}
+	else
+	{
+		// Server started a cooldown we didn't predict locally
+		LocalPredictedCooldowns.Add(NewCooldownState);
+	}
+}
+
+void USimpleGameplayAbilityComponent::ClientOnCooldownStateChanged(const FCooldownState& ChangedCooldownState)
+{
+	// Same as added - reconcile with server state
+	ClientOnCooldownStateAdded(ChangedCooldownState);
+}
+
+void USimpleGameplayAbilityComponent::ClientOnCooldownStateRemoved(const FCooldownState& RemovedCooldownState)
+{
+	// Server removed this cooldown, remove our local prediction too
+	LocalPredictedCooldowns.RemoveAll([&RemovedCooldownState](const FCooldownState& State)
+	{
+		return State.AbilityClass == RemovedCooldownState.AbilityClass;
+	});
+}
+
+const FCooldownState* USimpleGameplayAbilityComponent::GetLocalCooldownState(TSubclassOf<USimpleGameplayAbility> AbilityClass) const
+{
+	UClass* ClassPtr = AbilityClass.Get();
+
+	// On client, prefer local predicted cooldowns for immediate feedback
+	// On server, use authoritative cooldowns
+	if (HasAuthority())
+	{
+		return AuthorityCooldowns.FindByClass(ClassPtr);
+	}
+
+	// Check local prediction first (for client responsiveness)
+	const FCooldownState* LocalState = LocalPredictedCooldowns.FindByPredicate([ClassPtr](const FCooldownState& State)
+	{
+		return State.AbilityClass == ClassPtr;
+	});
+
+	return LocalState;
+}
+
 void USimpleGameplayAbilityComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(USimpleGameplayAbilityComponent, GrantedAbilities, COND_OwnerOnly);
-	
+
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AvatarActor);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilityStates);
 	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityAbilitySnapshots);
+	DOREPLIFETIME(USimpleGameplayAbilityComponent, AuthorityCooldowns);
 }
 
 

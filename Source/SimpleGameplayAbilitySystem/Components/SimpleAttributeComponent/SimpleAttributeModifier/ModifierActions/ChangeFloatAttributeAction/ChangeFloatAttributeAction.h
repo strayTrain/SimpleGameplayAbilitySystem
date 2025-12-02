@@ -49,7 +49,11 @@ public:
 	FMemberReference FloatOperationFunction;
 
 	/* ModifierAction overrides */
-	virtual bool SupportsClientPrediction_Implementation() const override { return false; }
+	virtual EActionPredictionMode GetPredictionMode_Implementation() const override { return EActionPredictionMode::PredictInstantOnly; }
 	virtual bool CanApply_Implementation() const override;
 	virtual void ApplyAction_Implementation() override;
+	virtual void OnCancelAction_Implementation() override;
+
+private:
+	float CachedPreviousValue = 0.0f;
 };

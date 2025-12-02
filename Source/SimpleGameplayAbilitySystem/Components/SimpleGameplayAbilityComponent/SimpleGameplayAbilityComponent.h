@@ -51,6 +51,14 @@ public:
 	UPROPERTY()
 	TArray<FAbilitySnapshot> DeferredSnapshots;
 
+	// Cooldown States (Server-authoritative)
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "AbilityComponent|Cooldowns")
+	FCooldownStateContainer AuthorityCooldowns;
+
+	// Local predicted cooldowns (not replicated, used for client prediction)
+	UPROPERTY(VisibleAnywhere, Category = "AbilityComponent|Cooldowns")
+	TArray<FCooldownState> LocalPredictedCooldowns;
+
 	/* ISimpleEventReplicator Interface Implementation */
 
 	virtual void SendEvent(
@@ -259,6 +267,60 @@ public:
 	UFUNCTION(Server, Reliable, Category = "AbilityComponent|AbilityActivation")
 	void ServerCancelAbilitiesWithClass(TSubclassOf<USimpleGameplayAbility> AbilityClass, FInstancedStruct CancellationContext);
 
+	/* Cooldown Functions */
+
+	/**
+	 * Check if an ability is currently on cooldown.
+	 * Uses local predicted cooldown on clients for immediate feedback.
+	 * @param AbilityClass The ability class to check
+	 * @return True if the ability is on cooldown
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Cooldowns")
+	bool IsAbilityOnCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
+
+	/**
+	 * Get the remaining cooldown time for an ability.
+	 * Uses local predicted cooldown on clients for immediate feedback.
+	 * @param AbilityClass The ability class to check
+	 * @return Remaining cooldown time in seconds (0 if not on cooldown)
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Cooldowns")
+	float GetAbilityRemainingCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
+
+	/**
+	 * Get the cooldown progress (0 = just started, 1 = finished).
+	 * Useful for UI cooldown indicators.
+	 * @param AbilityClass The ability class to check
+	 * @return Progress from 0 to 1 (1 if not on cooldown)
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Cooldowns")
+	float GetAbilityCooldownProgress(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
+
+	/**
+	 * Get the full cooldown state for an ability.
+	 * @param AbilityClass The ability class to check
+	 * @param OutCooldownState The cooldown state if found
+	 * @return True if the ability has a cooldown state
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AbilityComponent|Cooldowns")
+	bool GetAbilityCooldownState(TSubclassOf<USimpleGameplayAbility> AbilityClass, FCooldownState& OutCooldownState) const;
+
+	/**
+	 * Clear the cooldown for an ability. Server-authoritative.
+	 * @param AbilityClass The ability class to clear cooldown for
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Cooldowns")
+	void ClearAbilityCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass);
+
+	/**
+	 * Manually start a cooldown for an ability. Server-authoritative.
+	 * Normally cooldowns are started automatically when abilities end.
+	 * @param AbilityClass The ability class to start cooldown for
+	 * @param Duration The cooldown duration in seconds
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AbilityComponent|Cooldowns")
+	void StartAbilityCooldown(TSubclassOf<USimpleGameplayAbility> AbilityClass, float Duration);
+
 	int32 AddGameplayAbilitySnapshot(FGuid AbilityID, FInstancedStruct SnapshotData);
 
 	/* Implementation of ISimpleAbilitySystemComponent interface */
@@ -352,6 +414,17 @@ private:
 	void ClientOnAbilityStateRemoved(const FAbilityState& RemovedAbilityState);
 	void ClientOnAbilitySnapshotAdded(const FAbilitySnapshot& NewAbilitySnapshot);
 	void ClientOnAbilitySnapshotRemoved(const FAbilitySnapshot& NewAbilitySnapshot);
-	
+
+	// Cooldown management helpers
+	void StartAbilityCooldownInternal(TSubclassOf<USimpleGameplayAbility> AbilityClass, float Duration, bool bIsLocalPrediction);
+	void CleanupExpiredCooldowns();
+	void ClientOnCooldownStateAdded(const FCooldownState& NewCooldownState);
+	void ClientOnCooldownStateChanged(const FCooldownState& ChangedCooldownState);
+	void ClientOnCooldownStateRemoved(const FCooldownState& RemovedCooldownState);
+	const FCooldownState* GetLocalCooldownState(TSubclassOf<USimpleGameplayAbility> AbilityClass) const;
+
+	/** Timer handle for periodic cooldown cleanup */
+	FTimerHandle CooldownCleanupTimerHandle;
+
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

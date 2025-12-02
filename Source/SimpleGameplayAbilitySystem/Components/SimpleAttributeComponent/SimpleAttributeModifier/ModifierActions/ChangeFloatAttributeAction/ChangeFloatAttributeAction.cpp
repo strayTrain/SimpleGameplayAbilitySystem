@@ -27,6 +27,10 @@ void UChangeFloatAttributeAction::ApplyAction_Implementation()
 		SIMPLE_LOG(OwningModifier->TargetAttributeComponent, FString::Printf(TEXT("[USimpleAttributeModifier::ApplyAction]: Attribute %s not found."), *AttributeToModify.ToString()));
 		return;
 	}
+
+	// Cache the current value for rollback
+	bool bFound = false;
+	CachedPreviousValue = OwningModifier->TargetAttributeComponent->GetFloatAttributeValue(ModifiedAttributeValueType, AttributeToModify, bFound);
 	
 	/**
 	 * The formula is NewAttributeValue = CurrentAttributeValue [operation] ModificationInputValue
@@ -56,7 +60,15 @@ void UChangeFloatAttributeAction::ApplyAction_Implementation()
 		case EAttributeModificationValueSource::FromMagnitude:
 			ModificationInputValue = OwningModifier->ModifierMagnitude;
 			break;
-		
+
+		case EAttributeModificationValueSource::FromScaledMagnitude:
+			ModificationInputValue = GetScaledMagnitude();
+			break;
+
+		case EAttributeModificationValueSource::FromStackCount:
+			ModificationInputValue = static_cast<float>(GetStackCount());
+			break;
+
 		case EAttributeModificationValueSource::FromOverflow:
 			ModificationInputValue = Overflow;
 
@@ -198,4 +210,13 @@ void UChangeFloatAttributeAction::ApplyAction_Implementation()
 
 	OwningModifier->TargetAttributeComponent->SetFloatAttributeValue(ModifiedAttributeValueType, FloatAttribute->AttributeTag, NewAttributeValue, Overflow);
 	SetScratchPadValue(FDefaultTags::ScratchPadFloatOverflow(), Overflow);
+}
+
+void UChangeFloatAttributeAction::OnCancelAction_Implementation()
+{
+	if (OwningModifier && OwningModifier->TargetAttributeComponent)
+	{
+		float Overflow = 0.0f;
+		OwningModifier->TargetAttributeComponent->SetFloatAttributeValue(ModifiedAttributeValueType, AttributeToModify, CachedPreviousValue, Overflow);
+	}
 }

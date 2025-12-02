@@ -145,8 +145,31 @@ void UModifierAction::OnClientPredictedCorrection_Implementation(
 {
 	// By default, we undo the client action and re-apply the action with the server's scratchpad input
 	OnCancelAction();
-	
+
 	OverrideScratchPadSource(ServerInputScratchPad);
 	ApplyAction();
 	ClearScratchPadSourceOverride();
+}
+
+int32 UModifierAction::GetStackCount() const
+{
+	if (OwningModifier && OwningModifier->UsesConsolidatedStacking())
+	{
+		return OwningModifier->GetStackCount();
+	}
+	return 1;
+}
+
+float UModifierAction::GetScaledMagnitude() const
+{
+	if (OwningModifier && OwningModifier->UsesConsolidatedStacking())
+	{
+		return OwningModifier->GetScaledMagnitude();
+	}
+	return OwningModifier ? OwningModifier->ModifierMagnitude : 0.0f;
+}
+
+bool UModifierAction::UsesStacking() const
+{
+	return OwningModifier && OwningModifier->UsesConsolidatedStacking();
 }

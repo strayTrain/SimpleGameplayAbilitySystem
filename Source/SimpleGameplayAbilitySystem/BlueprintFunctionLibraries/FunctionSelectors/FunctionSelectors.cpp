@@ -231,3 +231,36 @@ void UFunctionSelectors::RuntimeActionPredictionCorrection(
 		OwningAction->GetOwningModifier()->ProcessEvent(Function, &Params);
 	}
 }
+
+bool UFunctionSelectors::CalculateStackMagnitude(
+	USimpleAttributeModifier* OwningModifier,
+	const FMemberReference& DynamicFunction,
+	const int32 CurrentStackCount,
+	const float BaseMagnitude,
+	float& ScaledMagnitude)
+{
+	if (!OwningModifier)
+	{
+		ScaledMagnitude = BaseMagnitude;
+		return false;
+	}
+
+	if (UFunction* Function = DynamicFunction.ResolveMember<UFunction>(OwningModifier->GetClass()))
+	{
+		struct {
+			// Input arguments
+			int32 CurrentStackCount;
+			float BaseMagnitude;
+			// Output argument
+			float ScaledMagnitude;
+		} Params = { CurrentStackCount, BaseMagnitude, BaseMagnitude };
+
+		OwningModifier->ProcessEvent(Function, &Params);
+		ScaledMagnitude = Params.ScaledMagnitude;
+		return true;
+	}
+
+	// If no function is specified, default to linear scaling
+	ScaledMagnitude = BaseMagnitude * CurrentStackCount;
+	return false;
+}

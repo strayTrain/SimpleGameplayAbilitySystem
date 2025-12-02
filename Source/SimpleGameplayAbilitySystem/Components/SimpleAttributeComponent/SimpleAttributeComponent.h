@@ -299,6 +299,93 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
 	USimpleAttributeModifier* GetNewestModifierInGroup(FGameplayTag StackGroupTag) const;
 
+	/* Class-based Stack Group Functions */
+
+	/**
+	 * Get all active modifiers of a specific class (for class-based stacking).
+	 * @param ModifierClass The class of modifiers to find
+	 * @return Array of all active modifiers of the specified class
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	TArray<USimpleAttributeModifier*> GetModifiersByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const;
+
+	/**
+	 * Get the number of active modifier instances of a specific class.
+	 * @param ModifierClass The class of modifiers to count
+	 * @return The number of active modifier instances of the specified class
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	int32 GetModifierCountByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const;
+
+	/**
+	 * Get the oldest modifier of a specific class (earliest activation time).
+	 * @param ModifierClass The class of modifiers to search
+	 * @return The oldest modifier of the class, or nullptr if none exists
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	USimpleAttributeModifier* GetOldestModifierByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const;
+
+	/**
+	 * Get the newest modifier of a specific class (latest activation time).
+	 * @param ModifierClass The class of modifiers to search
+	 * @return The newest modifier of the class, or nullptr if none exists
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	USimpleAttributeModifier* GetNewestModifierByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const;
+
+	/* Consolidated Stacking Functions */
+
+	/**
+	 * Get the active modifier using consolidated stacking in a stack group.
+	 * For consolidated stacking, there should only be one modifier instance per group.
+	 * @param StackGroupTag The tag identifying the stack group
+	 * @return The active stacking modifier, or nullptr if none exists
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AttributeComponent|Attributes|Stacking")
+	USimpleAttributeModifier* GetActiveModifierInStackGroup(FGameplayTag StackGroupTag) const;
+
+	/**
+	 * Add stacks to an existing modifier, or create a new one if none exists.
+	 * Uses consolidated stacking - single modifier instance with stack count.
+	 * @param ModifierID Output: The ID of the modifier (existing or newly created)
+	 * @param ModifierClass The class of modifier to use
+	 * @param ModifierTarget The target to apply the modifier to
+	 * @param StacksToAdd Number of stacks to add (default 1)
+	 * @param ModifierContext Optional context for new modifiers
+	 * @return True if stacks were added successfully
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes|Stacking")
+	bool AddStacksToModifier(
+		FGuid& ModifierID,
+		TSubclassOf<USimpleAttributeModifier> ModifierClass,
+		USimpleAttributeComponent* ModifierTarget,
+		int32 StacksToAdd = 1,
+		FInstancedStruct ModifierContext = FInstancedStruct());
+
+	/**
+	 * Remove stacks from an existing modifier in a stack group (tag-based grouping).
+	 * @param StackGroupTag The tag identifying the stack group
+	 * @param StacksToRemove Number of stacks to remove (default 1)
+	 * @return True if stacks were removed successfully
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes|Stacking")
+	bool RemoveStacksFromModifier(FGameplayTag StackGroupTag, int32 StacksToRemove = 1);
+
+	/**
+	 * Remove stacks from an existing modifier by class (class-based grouping).
+	 * @param ModifierClass The class of modifier to remove stacks from
+	 * @param StacksToRemove Number of stacks to remove (default 1)
+	 * @return True if stacks were removed successfully
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Attributes|Stacking")
+	bool RemoveStacksFromModifierByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass, int32 StacksToRemove = 1);
+
+	/**
+	 * Called by a modifier when its stack count changes (for replication).
+	 * @param Modifier The modifier whose stack count changed
+	 */
+	void OnModifierStackCountChanged(USimpleAttributeModifier* Modifier);
+
 	/* Attribute Functions */
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AttributeComponent|Attributes", meta = (AdvancedDisplay=1))

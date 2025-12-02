@@ -46,8 +46,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	AActor* GetAvatarActor() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin))
-	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, bool& IsValid) const;
+	UFUNCTION(BlueprintCallable, meta = (DeterminesOutputType = "AvatarClass", HideSelfPin, ExpandEnumAsExecs = "Result"))
+	AActor* GetAvatarActorAs(TSubclassOf<AActor> AvatarClass, EGetAvatarActorResult& Result);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	USimpleGameplayAbility* GetParentAbilityInstance() const { return ParentAbilityInstance; }

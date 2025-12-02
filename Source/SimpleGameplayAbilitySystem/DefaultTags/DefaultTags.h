@@ -16,11 +16,21 @@ class FDefaultTags
 		static FGameplayTag AttributeModifierEnded() { return FindTag("SimpleGAS.Events.AttributeModifier.Ended"); }
 		static FGameplayTag AttributeModifierCancelled() { return FindTag("SimpleGAS.Events.AttributeModifier.Cancelled"); }
 
+		// Stacking event tags
+		static FGameplayTag AttributeModifierStackChanged() { return FindTag("SimpleGAS.Events.AttributeModifier.StackChanged"); }
+		static FGameplayTag AttributeModifierStackAdded() { return FindTag("SimpleGAS.Events.AttributeModifier.StackAdded"); }
+		static FGameplayTag AttributeModifierStackRemoved() { return FindTag("SimpleGAS.Events.AttributeModifier.StackRemoved"); }
+		static FGameplayTag AttributeModifierPredictionCorrected() { return FindTag("SimpleGAS.Events.AttributeModifier.PredictionCorrected"); }
+
 		// Domain tags for event categorization
 		static FGameplayTag DomainAttributeModifier() { return FindTag("SimpleGAS.Domains.AttributeModifier"); }
 		static FGameplayTag DomainAbility() { return FindTag("SimpleGAS.Domains.Ability"); }
 
-		// Misc
+		// Scratchpad tags for stacking
+		static FGameplayTag ScratchPadStackCount() { return FindTag("SimpleGAS.ScratchPad.StackCount"); }
+		static FGameplayTag ScratchPadScaledMagnitude() { return FindTag("SimpleGAS.ScratchPad.ScaledMagnitude"); }
+
+		// Misc scratchpad tags
 		static FGameplayTag ScratchPadFloatOverflow() { return FindTag("SimpleGAS.ModifierActionScratchpadTags.FloatAttributeOverflow"); }
 		static FGameplayTag ScratchPadRuntimeActionExecutionResult() { return FindTag("SimpleGAS.ModifierActionScratchpadTags.RuntimeActionExecutionResult"); }
 

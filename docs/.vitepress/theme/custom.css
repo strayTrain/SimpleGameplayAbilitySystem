@@ -1,10 +1,107 @@
 /* Add your custom CSS here */
+
+/* ===== Light Theme (default) ===== */
 :root {
-  --vp-c-brand: #646cff;
-  --vp-c-brand-light: #747bff;
-  --vp-c-brand-lighter: #9499ff;
-  --vp-c-brand-dark: #535bf2;
-  --vp-c-brand-darker: #454ce1;
+  /* Brand colors - warm purple/indigo */
+  --vp-c-brand: #5b4dc7;
+  --vp-c-brand-light: #6d5dd3;
+  --vp-c-brand-lighter: #8677e0;
+  --vp-c-brand-dark: #4a3db5;
+  --vp-c-brand-darker: #3d32a3;
+  
+  /* Background - warm off-white for reduced eye strain */
+  --vp-c-bg: #fafaf9;
+  --vp-c-bg-soft: #f5f5f4;
+  --vp-c-bg-mute: #e7e5e4;
+  --vp-c-bg-alt: #f5f5f4;
+  
+  /* Text - dark warm gray for better readability */
+  --vp-c-text-1: #1c1917;
+  --vp-c-text-2: #44403c;
+  --vp-c-text-3: #78716c;
+  
+  /* Borders */
+  --vp-c-border: #d6d3d1;
+  --vp-c-divider: #e7e5e4;
+  
+  /* Code blocks */
+  --vp-code-block-bg: #f5f5f4;
+  --vp-c-code-bg: rgba(0, 0, 0, 0.05);
+}
+
+/* ===== Dark Theme - Optimized for reduced eye strain ===== */
+.dark {
+  /* Brand colors - slightly brighter for dark mode visibility */
+  --vp-c-brand: #8b7cf7;
+  --vp-c-brand-light: #a09afc;
+  --vp-c-brand-lighter: #c4bfff;
+  --vp-c-brand-dark: #7a6be6;
+  --vp-c-brand-darker: #6958d9;
+  
+  /* Background - warm dark gray (not pure black) for reduced contrast fatigue */
+  --vp-c-bg: #1a1918;
+  --vp-c-bg-soft: #242322;
+  --vp-c-bg-mute: #2e2c2b;
+  --vp-c-bg-alt: #1f1e1d;
+  
+  /* Text - warm light colors with good contrast (WCAG AA compliant) */
+  --vp-c-text-1: #ebe9e7;
+  --vp-c-text-2: #c8c5c2;
+  --vp-c-text-3: #9c9894;
+  
+  /* Borders - subtle but visible */
+  --vp-c-border: #3d3a38;
+  --vp-c-divider: #2e2c2b;
+  
+  /* Code blocks - slightly elevated from background */
+  --vp-code-block-bg: #242322;
+  --vp-c-code-bg: rgba(255, 255, 255, 0.06);
+}
+
+/* Improved link styling for better visibility */
+:root {
+  --vp-c-brand-1: var(--vp-c-brand);
+  --vp-c-brand-2: var(--vp-c-brand-light);
+  --vp-c-brand-3: var(--vp-c-brand-lighter);
+}
+
+/* Sidebar styling */
+.dark .VPSidebar {
+  background-color: var(--vp-c-bg-alt);
+}
+
+/* Nav styling */
+.dark .VPNav {
+  background-color: var(--vp-c-bg);
+}
+
+/* Content area - slightly increase line height for readability */
+.vp-doc {
+  line-height: 1.75;
+}
+
+.vp-doc p {
+  margin: 16px 0;
+}
+
+/* Code blocks - better contrast */
+.dark .vp-code-block-title {
+  background-color: var(--vp-c-bg-mute);
+}
+
+/* Primary button (Documentation) - better contrast */
+:root {
+  --vp-button-brand-bg: #4338ca;
+  --vp-button-brand-hover-bg: #3730a3;
+  --vp-button-brand-active-bg: #312e81;
+  --vp-button-brand-text: #ffffff;
+}
+
+.dark {
+  --vp-button-brand-bg: #4f46e5;
+  --vp-button-brand-hover-bg: #4338ca;
+  --vp-button-brand-active-bg: #3730a3;
+  --vp-button-brand-text: #ffffff;
 }
 
 /* Hero section with animation */

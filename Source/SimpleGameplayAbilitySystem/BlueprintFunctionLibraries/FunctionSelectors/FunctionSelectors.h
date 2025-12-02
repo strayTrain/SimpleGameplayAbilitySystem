@@ -65,6 +65,12 @@ public:
 		FAttributeModifierActionScratchPad ServerOutputScratchPad,
 		FAttributeModifierActionScratchPad ClientInputScratchPad,
 		FAttributeModifierActionScratchPad ClientOutputScratchPad) {}
+
+	UFUNCTION(BlueprintInternalUseOnly, meta = (ReturnDisplayName = "ScaledMagnitude"))
+	float Prototype_CalculateStackMagnitude(
+		int32 CurrentStackCount,
+		float BaseMagnitude,
+		float& ScaledMagnitude) { ScaledMagnitude = BaseMagnitude; return ScaledMagnitude; }
 #endif
 
 	static bool GetCustomFloatInputValue(
@@ -120,4 +126,11 @@ public:
 		const FAttributeModifierActionScratchPad& ServerOutputScratchPad,
 		const FAttributeModifierActionScratchPad& ClientInputScratchPad,
 		const FAttributeModifierActionScratchPad& ClientOutputScratchPad);
+
+	static bool CalculateStackMagnitude(
+		USimpleAttributeModifier* OwningModifier,
+		const FMemberReference& DynamicFunction,
+		int32 CurrentStackCount,
+		float BaseMagnitude,
+		float& ScaledMagnitude);
 };

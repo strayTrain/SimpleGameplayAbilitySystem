@@ -755,6 +755,25 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(
 	const float Magnitude,
 	FInstancedStruct ModifierContext)
 {
+	if (!ModifierClass || !ModifierTarget)
+	{
+		return false;
+	}
+
+	// Check for consolidated stacking - add to existing modifier if one exists
+	const USimpleAttributeModifier* ModifierCDO = ModifierClass.GetDefaultObject();
+	if (ModifierCDO->StackingConfig.bEnableStacking && ModifierCDO->StackingConfig.StackGroupTag.IsValid())
+	{
+		USimpleAttributeModifier* ExistingModifier = ModifierTarget->GetActiveModifierInStackGroup(ModifierCDO->StackingConfig.StackGroupTag);
+		if (ExistingModifier)
+		{
+			// Add stack to existing modifier
+			ModifierID = ExistingModifier->ModifierID;
+			return ExistingModifier->AddStacks(1);
+		}
+	}
+
+	// Create new modifier instance
 	ModifierID = FGuid::NewGuid();
 	USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(
 		ModifierClass,
@@ -764,17 +783,62 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToTarget(
 		Magnitude,
 		ModifierContext,
 		false);
-	
+
+	// Initialize stack count for consolidated stacking
+	if (Modifier->StackingConfig.bEnableStacking)
+	{
+		Modifier->CurrentStackCount = 1;
+		Modifier->RecalculateMagnitude();
+		Modifier->InjectStackCountToScratchpad();
+
+	}
+
 	return Modifier->ApplyModifier();
 }
 
 bool USimpleAttributeComponent::ApplyAttributeModifierToTargetPredicted(
 	FGuid& ModifierID,
-    const TSubclassOf<USimpleAttributeModifier> ModifierClass,
-    USimpleAttributeComponent* ModifierTarget,
-    const float Magnitude,
-    const FInstancedStruct ModifierContext)
+	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	USimpleAttributeComponent* ModifierTarget,
+	const float Magnitude,
+	const FInstancedStruct ModifierContext)
 {
+	if (!ModifierClass || !ModifierTarget)
+	{
+		return false;
+	}
+
+	// Check for consolidated stacking - add to existing modifier if one exists
+	const USimpleAttributeModifier* ModifierCDO = ModifierClass.GetDefaultObject();
+	if (ModifierCDO->StackingConfig.bEnableStacking && ModifierCDO->StackingConfig.StackGroupTag.IsValid())
+	{
+		USimpleAttributeModifier* ExistingModifier = ModifierTarget->GetActiveModifierInStackGroup(ModifierCDO->StackingConfig.StackGroupTag);
+		if (ExistingModifier)
+		{
+			// Add stack to existing modifier
+			ModifierID = ExistingModifier->ModifierID;
+
+			// Capture snapshot for prediction
+			if (!HasAuthority())
+			{
+				FPredictedModifierSnapshot Snapshot;
+				Snapshot.ModifierID = ModifierID;
+				Snapshot.AttributeSnapshot = ModifierTarget->CaptureAttributeSnapshot();
+				Snapshot.SnapshotTimestamp = GetServerTime();
+				ModifierTarget->PredictedModifierSnapshots.Add(Snapshot);
+			}
+
+			const bool WasApplied = ExistingModifier->AddStacks(1);
+
+			if (!HasAuthority() && WasApplied)
+			{
+				ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, ModifierTarget, Magnitude, ModifierContext);
+			}
+
+			return WasApplied;
+		}
+	}
+
 	ModifierID = FGuid::NewGuid();
 
 	// Capture snapshot before applying if this is a client prediction
@@ -795,6 +859,14 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToTargetPredicted(
 		Magnitude,
 		ModifierContext,
 		true);
+
+	// Initialize stack count for consolidated stacking
+	if (Modifier->StackingConfig.bEnableStacking)
+	{
+		Modifier->CurrentStackCount = 1;
+		Modifier->RecalculateMagnitude();
+		Modifier->InjectStackCountToScratchpad();
+	}
 
 	const bool WasApplied = Modifier->ApplyModifier();
 
@@ -835,6 +907,24 @@ void USimpleAttributeComponent::ServerApplyAttributeModifierToTarget_Implementat
 	const float Magnitude,
 	const FInstancedStruct ModifierContext)
 {
+	if (!ModifierClass || !ModifierTarget)
+	{
+		return;
+	}
+
+	// Check for consolidated stacking - add to existing modifier if one exists
+	const USimpleAttributeModifier* ModifierCDO = ModifierClass.GetDefaultObject();
+	if (ModifierCDO->StackingConfig.bEnableStacking && ModifierCDO->StackingConfig.StackGroupTag.IsValid())
+	{
+		USimpleAttributeModifier* ExistingModifier = ModifierTarget->GetActiveModifierInStackGroup(ModifierCDO->StackingConfig.StackGroupTag);
+		if (ExistingModifier)
+		{
+			// Add stack to existing modifier
+			ExistingModifier->AddStacks(1);
+			return;
+		}
+	}
+
 	USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(
 		ModifierClass,
 		ModifierID,
@@ -843,7 +933,15 @@ void USimpleAttributeComponent::ServerApplyAttributeModifierToTarget_Implementat
 		Magnitude,
 		ModifierContext,
 		true);
-	
+
+	// Initialize stack count for consolidated stacking
+	if (Modifier->StackingConfig.bEnableStacking)
+	{
+		Modifier->CurrentStackCount = 1;
+		Modifier->RecalculateMagnitude();
+		Modifier->InjectStackCountToScratchpad();
+	}
+
 	Modifier->ApplyModifier();
 }
 
@@ -852,17 +950,7 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToSelf(
 	const TSubclassOf<USimpleAttributeModifier> ModifierClass,
 	const float Magnitude, const FInstancedStruct ModifierContext)
 {
-	ModifierID = FGuid::NewGuid();
-	USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(
-		ModifierClass,
-		ModifierID,
-		this,
-		this,
-		Magnitude,
-		ModifierContext,
-		false);
-	
-	return Modifier->ApplyModifier();
+	return ApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
 }
 
 bool USimpleAttributeComponent::ApplyAttributeModifierToSelfPredicted(
@@ -871,46 +959,7 @@ bool USimpleAttributeComponent::ApplyAttributeModifierToSelfPredicted(
 	const float Magnitude,
 	const FInstancedStruct ModifierContext)
 {
-	ModifierID = FGuid::NewGuid();
-
-	// Capture snapshot before applying if this is a client prediction
-	if (!HasAuthority())
-	{
-		FPredictedModifierSnapshot Snapshot;
-		Snapshot.ModifierID = ModifierID;
-		Snapshot.AttributeSnapshot = CaptureAttributeSnapshot();
-		Snapshot.SnapshotTimestamp = GetServerTime();
-		PredictedModifierSnapshots.Add(Snapshot);
-	}
-
-	USimpleAttributeModifier* Modifier = GetAttributeModifierInstance(
-		ModifierClass,
-		ModifierID,
-		this,
-		this,
-		Magnitude,
-		ModifierContext,
-		true);
-
-	const bool WasApplied = Modifier->ApplyModifier();
-
-	if (!HasAuthority())
-	{
-		if (WasApplied)
-		{
-			ServerApplyAttributeModifierToTarget(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
-		}
-		else
-		{
-			// Application failed on client, remove the snapshot
-			PredictedModifierSnapshots.RemoveAll([ModifierID](const FPredictedModifierSnapshot& Snapshot)
-			{
-				return Snapshot.ModifierID == ModifierID;
-			});
-		}
-	}
-
-	return WasApplied;
+	return ApplyAttributeModifierToTargetPredicted(ModifierID, ModifierClass, this, Magnitude, ModifierContext);
 }
 
 void USimpleAttributeComponent::ApplyAttributeModifierToSelfServerInitiated(FGuid& ModifierID,
@@ -1092,6 +1141,11 @@ void USimpleAttributeComponent::OnAttributeModifierInitiallyApplied(USimpleAttri
 	NewState.ModifierClass = ModifierInstance->GetClass();
 	NewState.ModifierStatus = EModifierStatus::Applied;
 	NewState.ApplicationTimestamp = GetServerTime();
+
+	// Include stacking state
+	NewState.StackCount = ModifierInstance->CurrentStackCount > 0 ? ModifierInstance->CurrentStackCount : 1;
+	NewState.ScaledMagnitude = ModifierInstance->ScaledMagnitude;
+	NewState.StackDurations = ModifierInstance->StackDurations;
 
 	if (!HasAuthority())
 	{
@@ -1790,6 +1844,218 @@ USimpleAttributeModifier* USimpleAttributeComponent::GetNewestModifierInGroup(FG
 	}
 
 	return Newest;
+}
+
+/* Class-based Stack Group Implementation */
+
+TArray<USimpleAttributeModifier*> USimpleAttributeComponent::GetModifiersByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const
+{
+	TArray<USimpleAttributeModifier*> Result;
+
+	if (!ModifierClass)
+		return Result;
+
+	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
+	{
+		if (Modifier &&
+			Modifier->IsActive &&
+			Modifier->GetClass() == ModifierClass)
+		{
+			Result.Add(Modifier);
+		}
+	}
+
+	return Result;
+}
+
+int32 USimpleAttributeComponent::GetModifierCountByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const
+{
+	return GetModifiersByClass(ModifierClass).Num();
+}
+
+USimpleAttributeModifier* USimpleAttributeComponent::GetOldestModifierByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const
+{
+	TArray<USimpleAttributeModifier*> Modifiers = GetModifiersByClass(ModifierClass);
+
+	if (Modifiers.Num() == 0)
+		return nullptr;
+
+	USimpleAttributeModifier* Oldest = Modifiers[0];
+	for (USimpleAttributeModifier* Modifier : Modifiers)
+	{
+		if (Modifier->GetActivationTime() < Oldest->GetActivationTime())
+			Oldest = Modifier;
+	}
+
+	return Oldest;
+}
+
+USimpleAttributeModifier* USimpleAttributeComponent::GetNewestModifierByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass) const
+{
+	TArray<USimpleAttributeModifier*> Modifiers = GetModifiersByClass(ModifierClass);
+
+	if (Modifiers.Num() == 0)
+		return nullptr;
+
+	USimpleAttributeModifier* Newest = Modifiers[0];
+	for (USimpleAttributeModifier* Modifier : Modifiers)
+	{
+		if (Modifier->GetActivationTime() > Newest->GetActivationTime())
+			Newest = Modifier;
+	}
+
+	return Newest;
+}
+
+/* Consolidated Stacking Implementation */
+
+USimpleAttributeModifier* USimpleAttributeComponent::GetActiveModifierInStackGroup(FGameplayTag StackGroupTag) const
+{
+	if (!StackGroupTag.IsValid())
+	{
+		return nullptr;
+	}
+
+	// For consolidated stacking, look for a modifier that uses the new stacking system
+	for (USimpleAttributeModifier* Modifier : InstancedAttributeModifiers)
+	{
+		if (Modifier && Modifier->IsActive && Modifier->UsesConsolidatedStacking())
+		{
+			if (Modifier->StackingConfig.StackGroupTag == StackGroupTag)
+			{
+				return Modifier;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+bool USimpleAttributeComponent::AddStacksToModifier(
+	FGuid& ModifierID,
+	TSubclassOf<USimpleAttributeModifier> ModifierClass,
+	USimpleAttributeComponent* ModifierTarget,
+	int32 StacksToAdd,
+	FInstancedStruct ModifierContext)
+{
+	if (!ModifierClass || !ModifierTarget || StacksToAdd <= 0)
+	{
+		return false;
+	}
+
+	// Get the CDO to check stacking config
+	const USimpleAttributeModifier* ModifierCDO = ModifierClass.GetDefaultObject();
+	if (!ModifierCDO->StackingConfig.bEnableStacking)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("AddStacksToModifier: Modifier %s doesn't use consolidated stacking"), *ModifierClass->GetName()));
+		return false;
+	}
+
+	// Check if there's an existing modifier - use tag-based or class-based grouping
+	USimpleAttributeModifier* ExistingModifier = nullptr;
+	if (ModifierCDO->StackingConfig.StackGroupTag.IsValid())
+	{
+		ExistingModifier = ModifierTarget->GetActiveModifierInStackGroup(ModifierCDO->StackingConfig.StackGroupTag);
+	}
+	else
+	{
+		// Class-based grouping - get the first active modifier of this class
+		TArray<USimpleAttributeModifier*> ExistingModifiers = ModifierTarget->GetModifiersByClass(ModifierClass);
+		if (ExistingModifiers.Num() > 0)
+		{
+			ExistingModifier = ExistingModifiers[0];
+		}
+	}
+
+	if (ExistingModifier)
+	{
+		// Add stacks to existing modifier
+		ModifierID = ExistingModifier->ModifierID;
+		return ExistingModifier->AddStacks(StacksToAdd);
+	}
+
+	// No existing modifier, create a new one with initial stack count
+	ModifierID = FGuid::NewGuid();
+	USimpleAttributeModifier* NewModifier = GetAttributeModifierInstance(
+		ModifierClass,
+		ModifierID,
+		this,
+		ModifierTarget,
+		ModifierCDO->ModifierMagnitude,
+		ModifierContext,
+		true // replicate
+	);
+
+	if (!NewModifier)
+	{
+		return false;
+	}
+
+	// Set initial stack count and calculate magnitude
+	NewModifier->CurrentStackCount = StacksToAdd;
+	NewModifier->RecalculateMagnitude();
+
+	// Always inject stack count to scratchpad for stacking modifiers
+	NewModifier->InjectStackCountToScratchpad();
+
+	// Apply the modifier
+	return NewModifier->ApplyModifier();
+}
+
+bool USimpleAttributeComponent::RemoveStacksFromModifier(FGameplayTag StackGroupTag, int32 StacksToRemove)
+{
+	if (!StackGroupTag.IsValid() || StacksToRemove <= 0)
+	{
+		return false;
+	}
+
+	USimpleAttributeModifier* ExistingModifier = GetActiveModifierInStackGroup(StackGroupTag);
+	if (!ExistingModifier)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("RemoveStacksFromModifier: No active modifier found in stack group %s"), *StackGroupTag.ToString()));
+		return false;
+	}
+
+	return ExistingModifier->RemoveStacks(StacksToRemove);
+}
+
+bool USimpleAttributeComponent::RemoveStacksFromModifierByClass(TSubclassOf<USimpleAttributeModifier> ModifierClass, int32 StacksToRemove)
+{
+	if (!ModifierClass || StacksToRemove <= 0)
+	{
+		return false;
+	}
+
+	TArray<USimpleAttributeModifier*> ExistingModifiers = GetModifiersByClass(ModifierClass);
+	if (ExistingModifiers.Num() == 0)
+	{
+		SIMPLE_LOG(this, FString::Printf(TEXT("RemoveStacksFromModifierByClass: No active modifier found for class %s"), *ModifierClass->GetName()));
+		return false;
+	}
+
+	// Remove from the first (oldest) modifier
+	return ExistingModifiers[0]->RemoveStacks(StacksToRemove);
+}
+
+void USimpleAttributeComponent::OnModifierStackCountChanged(USimpleAttributeModifier* Modifier)
+{
+	if (!Modifier || !HasAuthority())
+	{
+		return;
+	}
+
+	// Find and update the modifier state for replication
+	for (FAttributeModifierState& State : AuthorityAttributeModifierStates.ModifierStates)
+	{
+		if (State.ModifierID == Modifier->ModifierID)
+		{
+			State.StackCount = Modifier->CurrentStackCount;
+			State.ScaledMagnitude = Modifier->ScaledMagnitude;
+			State.StackDurations = Modifier->StackDurations;
+			AuthorityAttributeModifierStates.MarkItemDirty(State);
+			return;
+		}
+	}
 }
 
 FAttributeSnapshot USimpleAttributeComponent::CaptureAttributeSnapshot() const
