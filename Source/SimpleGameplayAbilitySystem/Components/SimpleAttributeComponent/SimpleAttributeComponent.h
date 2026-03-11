@@ -504,6 +504,7 @@ protected:
 
 	/** Timer handle for periodic state cleanup */
 	FTimerHandle CleanupTimerHandle;
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
 
@@ -576,8 +577,6 @@ private:
 
 	void ClientOnGameplayTagAdded(const FGameplayTagCounter& NewGameplayTag);
 	void ClientOnGameplayTagRemoved(const FGameplayTagCounter& RemovedGameplayTag);
-	
-	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
 public:
 	/* Event Dispatchers */
