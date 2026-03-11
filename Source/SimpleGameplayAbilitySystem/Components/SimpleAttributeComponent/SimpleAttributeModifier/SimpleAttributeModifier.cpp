@@ -89,6 +89,8 @@ bool USimpleAttributeModifier::ApplyModifier()
 		}
 	}
 
+	OnPreApplyModifier();
+	
 	if (!CanApplyModifierInternal())
 	{
 		CancelModifier(FDefaultTags::AttributeModifierCancelled(), FInstancedStruct());
@@ -97,9 +99,7 @@ bool USimpleAttributeModifier::ApplyModifier()
 	
 	ActivationTime = InstigatorAttributeComponent->GetServerTime();
 	IsActive = true;
-
-	OnPreApplyModifier();
-
+	
 	if (DoesModifierReplicate)
 	{
 		OnModifierApplied.Broadcast(this);
@@ -113,7 +113,7 @@ bool USimpleAttributeModifier::ApplyModifier()
 
 	ModifierActionScratchPad = InitialScratchPadValues;
 	
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierApplied() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierApplied() })));
 	
 	switch (DurationType)
 	{
@@ -159,7 +159,7 @@ bool USimpleAttributeModifier::ApplyModifier()
 void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
 {
 	// Send the Ended event
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierEnded() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierEnded() })));
 
 	if (DurationType == EAttributeModifierDurationType::SetDuration || DurationType == EAttributeModifierDurationType::InfiniteDuration)
 	{
@@ -184,7 +184,7 @@ void USimpleAttributeModifier::EndModifier(FGameplayTag EndingStatus, FInstanced
 void USimpleAttributeModifier::CancelModifier(FGameplayTag EndingStatus, FInstancedStruct EndingContext)
 {
 	// Send the Cancelled event
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierCancelled() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierCancelled() })));
 
 	if (DurationType == EAttributeModifierDurationType::SetDuration || DurationType == EAttributeModifierDurationType::InfiniteDuration)
 	{
@@ -330,7 +330,7 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 
 			case EDurationTickTagRequirementBehaviour::SkipOnTagRequirementFailed:
 			{
-				TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierTickFailedSkip() })));
+				TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierTickFailedSkip() })));
 				return;
 			}
 		}
@@ -343,7 +343,7 @@ void USimpleAttributeModifier::OnTickTimerTriggered()
 		ModifierActionScratchPad = InitialScratchPadValues;
 	}
 
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierTicked() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierTicked() })));
 }
 
 bool USimpleAttributeModifier::HandleStackGroupReapplication()
@@ -540,7 +540,7 @@ void USimpleAttributeModifier::OnModifierEventReceived(FGameplayTag EventTag, FG
 	TriggerActions(ActionsToTrigger);
 }
 
-void USimpleAttributeModifier::TriggerActionsForEvents(FGameplayTagContainer EventTags)
+void USimpleAttributeModifier::TriggerActionsWithEventTriggers(FGameplayTagContainer EventTriggers)
 {
 	TArray<UModifierAction*> ActionsToTrigger;
 	
@@ -553,7 +553,7 @@ void USimpleAttributeModifier::TriggerActionsForEvents(FGameplayTagContainer Eve
 		}
 
 		// Check if this action wants to respond to this event tag
-		if (!Action->EventTriggers.HasAny(EventTags))
+		if (!Action->EventTriggers.HasAny(EventTriggers))
 		{
 			continue;
 		}
@@ -569,6 +569,7 @@ void USimpleAttributeModifier::TriggerActions(TArray<UModifierAction*>& Actions)
 	const bool IsServer = InstigatorAttributeComponent->HasAuthority();
 
 	TArray<FModifierActionResult> ActionResults;
+	bool bAppliedAtLeastOneAction = false;
 	for (UModifierAction* Action : Actions)
 	{
 		bool ShouldRun = false;
@@ -612,6 +613,7 @@ void USimpleAttributeModifier::TriggerActions(TArray<UModifierAction*>& Actions)
 
 		const FAttributeModifierActionScratchPad InputScratchpad = GetModifierActionScratchPad();
 		Action->ApplyAction();
+		bAppliedAtLeastOneAction = true;
 		const FAttributeModifierActionScratchPad OutputScratchPad = GetModifierActionScratchPad();
 
 		if (DoesModifierReplicate && bIsPredictable)
@@ -623,6 +625,11 @@ void USimpleAttributeModifier::TriggerActions(TArray<UModifierAction*>& Actions)
 				OutputScratchPad
 			});
 		}
+	}
+
+	if (bAppliedAtLeastOneAction)
+	{
+		OnPostApplyModifierActions();
 	}
 
 	if (DoesModifierReplicate && ActionResults.Num() > 0)
@@ -739,12 +746,12 @@ bool USimpleAttributeModifier::AddStacks(int32 Count)
 	InjectStackCountToScratchpad();
 
 	// Fire global OnStackAdded event
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackAdded() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackAdded() })));
 
 	// Re-run actions if configured
 	if (StackingConfig.bRerunActionsOnStackChange)
 	{
-		TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackChanged() })));
+		TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackChanged() })));
 	}
 
 	// Broadcast stack count changed event
@@ -820,12 +827,12 @@ bool USimpleAttributeModifier::RemoveStacks(int32 Count)
 	InjectStackCountToScratchpad();
 
 	// Fire global OnStackRemoved event
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackRemoved() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackRemoved() })));
 
 	// Re-run actions if configured
 	if (StackingConfig.bRerunActionsOnStackChange)
 	{
-		TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackChanged() })));
+		TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackChanged() })));
 	}
 
 	// Broadcast stack count changed event
@@ -908,7 +915,7 @@ void USimpleAttributeModifier::CheckThresholdCrossings(int32 OldCount, int32 New
 			// Fire threshold reached event
 			if (Threshold.OnThresholdReachedTag.IsValid())
 			{
-				TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ Threshold.OnThresholdReachedTag })));
+				TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ Threshold.OnThresholdReachedTag })));
 			}
 
 			// Add threshold granted tags
@@ -923,7 +930,7 @@ void USimpleAttributeModifier::CheckThresholdCrossings(int32 OldCount, int32 New
 			// Fire threshold lost event
 			if (Threshold.OnThresholdLostTag.IsValid())
 			{
-				TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ Threshold.OnThresholdLostTag })));
+				TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ Threshold.OnThresholdLostTag })));
 			}
 
 			// Remove threshold granted tags
@@ -1009,12 +1016,12 @@ void USimpleAttributeModifier::HandleStackDurationExpired(int32 StackIndex)
 	InjectStackCountToScratchpad();
 
 	// Fire global OnStackRemoved event
-	TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackRemoved() })));
+	TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackRemoved() })));
 
 	// Re-run actions if configured
 	if (StackingConfig.bRerunActionsOnStackChange)
 	{
-		TriggerActionsForEvents(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackChanged() })));
+		TriggerActionsWithEventTriggers(FGameplayTagContainer::CreateFromArray(TArray({ FDefaultTags::AttributeModifierStackChanged() })));
 	}
 
 	// Broadcast stack count changed event

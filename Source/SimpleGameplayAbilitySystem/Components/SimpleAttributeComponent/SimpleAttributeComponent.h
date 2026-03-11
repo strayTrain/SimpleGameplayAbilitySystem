@@ -477,7 +477,7 @@ public:
 	double GetServerTime();
 
 	UFUNCTION(BlueprintCallable, Category = "AttributeComponent|Utility", meta = (DeterminesOutputType = "AttributeHandlerClass", HideSelfPin, ExpandEnumAsExecs="OutResult"))
-	USimpleAttributeHandler* GetAttributeHandler(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass, EGetInstancedStructResult& OutResult);
+	USimpleAttributeHandler* GetStructAttributeHandler(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass, EGetInstancedStructResult& OutResult);
 
 	USimpleAttributeHandler* GetStructAttributeHandlerInstance(FGameplayTag AttributeTag, TSubclassOf<USimpleAttributeHandler> HandlerClass, EGetInstancedStructResult& OutResult);
 

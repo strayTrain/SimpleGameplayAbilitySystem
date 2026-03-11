@@ -362,7 +362,8 @@ public:
 	UFUNCTION()
 	void OnClientReceivedServerActionsResult(FModifierActionStackResults ServerMutation, FModifierActionStackResults ClientMutation);
 
-	void TriggerActionsForEvents(FGameplayTagContainer EventTags);
+	UFUNCTION(BlueprintCallable, Category = "Attribute Modifier")
+	void TriggerActionsWithEventTriggers(FGameplayTagContainer EventTriggers);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FAttributeModifierActionScratchPad& GetModifierActionScratchPad()

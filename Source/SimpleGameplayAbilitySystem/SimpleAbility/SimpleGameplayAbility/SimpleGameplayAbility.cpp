@@ -143,6 +143,11 @@ USimpleSubAbility* USimpleGameplayAbility::GetSubAbilityInstance(const TSubclass
 
 void USimpleGameplayAbility::PreActivateInternal()
 {
+	if (!IsValid(AttributeComponent))
+	{
+		return;
+	}
+
 	for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
 	{
 		AttributeComponent->AddGameplayTag(TempTag);
@@ -156,9 +161,12 @@ void USimpleGameplayAbility::PreActivateInternal()
 
 void USimpleGameplayAbility::AbilityEndedInternal(FInstancedStruct EndingContext, bool WasCancelled)
 {
-	for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
+	if (IsValid(AttributeComponent))
 	{
-		AttributeComponent->RemoveGameplayTag(TempTag);
+		for (const FGameplayTag& TempTag : TemporarilyAppliedTags)
+		{
+			AttributeComponent->RemoveGameplayTag(TempTag);
+		}
 	}
 
 	// Cancel/End sub-abilities based on their cancellation policy

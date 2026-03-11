@@ -53,3 +53,13 @@ bool USimpleAttributeHandler::SetStructValue(const FInstancedStruct& NewValue)
 	
 	return AttributeOwner->SetStructAttributeValue(AttributeTag, NewValue);
 }
+
+UWorld* USimpleAttributeHandler::GetWorld() const
+{
+	if (AttributeOwner.IsValid())
+	{
+		return AttributeOwner->GetWorld();
+	}
+	
+	return nullptr;
+}

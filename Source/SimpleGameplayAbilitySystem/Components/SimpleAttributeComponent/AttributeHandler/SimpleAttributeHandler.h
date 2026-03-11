@@ -46,6 +46,8 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SimpleGAS|AttributeHandler")
 	bool SetStructValue(const FInstancedStruct& NewValue);
+	
+	virtual UWorld* GetWorld() const override;
 
 protected:
 	FGameplayTag AttributeTag;

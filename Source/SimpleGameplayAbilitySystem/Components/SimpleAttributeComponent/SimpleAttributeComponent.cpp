@@ -129,10 +129,18 @@ void USimpleAttributeComponent::BeginPlay()
 
 void USimpleAttributeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// Clear cleanup timer
-	if (GetWorld() && CleanupTimerHandle.IsValid())
+	// Clear cleanup timers
+	if (GetWorld())
 	{
-		GetWorld()->GetTimerManager().ClearTimer(CleanupTimerHandle);
+		if (CleanupTimerHandle.IsValid())
+		{
+			GetWorld()->GetTimerManager().ClearTimer(CleanupTimerHandle);
+		}
+
+		if (EventIDCleanupTimerHandle.IsValid())
+		{
+			GetWorld()->GetTimerManager().ClearTimer(EventIDCleanupTimerHandle);
+		}
 	}
 
 	InstancedAttributeModifiers.Empty();
@@ -1300,7 +1308,7 @@ double USimpleAttributeComponent::GetServerTime()
 	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
 }
 
-USimpleAttributeHandler* USimpleAttributeComponent::GetAttributeHandler(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass, EGetInstancedStructResult& OutResult)
+USimpleAttributeHandler* USimpleAttributeComponent::GetStructAttributeHandler(const FGameplayTag AttributeTag, const TSubclassOf<USimpleAttributeHandler> AttributeHandlerClass, EGetInstancedStructResult& OutResult)
 {
 	return GetStructAttributeHandlerInstance(AttributeTag, AttributeHandlerClass, OutResult);
 }

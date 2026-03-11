@@ -745,9 +745,22 @@ USimpleAttributeComponent* USimpleGameplayAbilityComponent::GetSimpleAttributeCo
 	}
 	
 	// Check if the attribute component is on the player state (assuming the owner is a pawn)
-	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
 	{
-		if (APlayerState* PS = OwnerPawn->GetPlayerState())
+		if (const APlayerState* PS = OwnerPawn->GetPlayerState())
+		{
+			if (USimpleAttributeComponent* AttributeComp = PS->GetComponentByClass<USimpleAttributeComponent>())
+			{
+				CachedAttributeComponent = AttributeComp;
+				return AttributeComp;
+			}
+		}
+	}
+	
+	// Check if the attribute component is on the player state (assuming the owner is a player controller)
+	if (const APlayerController* OwnerPC = Cast<APlayerController>(GetOwner()))
+	{
+		if (const APlayerState* PS = OwnerPC->PlayerState)
 		{
 			if (USimpleAttributeComponent* AttributeComp = PS->GetComponentByClass<USimpleAttributeComponent>())
 			{
