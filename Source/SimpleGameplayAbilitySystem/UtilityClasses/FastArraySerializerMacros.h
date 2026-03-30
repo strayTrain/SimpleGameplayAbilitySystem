@@ -100,6 +100,24 @@ struct TFastArrayOps
         Array->Items.Add(MoveTemp(NewItem));
         Array->MarkArrayDirty();
     }
+    
+    void Add(TArray<TItem>& NewItems)
+    {
+        check(Array);
+        for (TItem& Item : NewItems)
+        {
+            Item.SyncSnapshot();
+            Array->Items.Add(MoveTemp(Item));
+        }
+        Array->MarkArrayDirty();
+    }
+    
+    void Clear()
+    {
+        check(Array);
+        Array->Items.Empty();
+        Array->MarkArrayDirty();
+    }
 
     bool Remove(TFunctionRef<bool(const TItem&)> Predicate)
     {
